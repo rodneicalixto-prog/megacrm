@@ -137,7 +137,8 @@ instalação.
 
 ### 🟠 R4 — Vulnerabilidades de dependência
 
-`npm audit`: **5 vulnerabilidades (3 moderate, 2 high)**.
+`npm audit`: **5 vulnerabilidades (3 moderate, 2 high)** — hoje **3 (2 moderate,
+1 high)** após a Fase 2. Detalhe e plano das restantes em `ISSUES.md`.
 
 | Pacote | Severidade | Fix |
 |---|---|---|
@@ -174,11 +175,16 @@ env vars, que o `README` diz explicitamente que não existem mais.
 > API v2, e o `README` agora documenta as duas rotas. O que sobra do R7 é limpar
 > as referências mortas a `META_*` e `LLM_PROVIDER` no `AGENTS.md`.
 
-### 🟡 R8 — Endpoints públicos sem rate limit
+### 🟡 R8 — Endpoints públicos sem rate limit — ✅ resolvido
 
 `ingest-lead` e `redirect-tracker` rodam com `--no-verify-jwt` e CORS aberto,
-por desenho (são chamados da landing do cliente). Não há throttling nem
-proteção contra flood — um bot pode inundar o CRM de leads falsos.
+por desenho (são chamados da landing do cliente). Não havia throttling nem
+proteção contra flood — um bot podia inundar o CRM de leads falsos.
+
+> **Resolvido para `ingest-lead`**, com janela fixa por IP (20 req/min) via a
+> RPC `bump_rate_limit`. O `redirect-tracker` ficou de fora deliberadamente: ele
+> é fire-and-forget e precisa sempre redirecionar rápido — o risco lá é inflar
+> `tracking_sessions`, não poluir o pipeline.
 
 ---
 
@@ -208,15 +214,21 @@ Sem esta fase, nenhuma outra é executável de forma sustentável.
 4. Proteger a branch `main`: exigir CI verde e review para merge.
 5. Migrar as entradas de `ISSUES.md` para issues reais do GitHub.
 
-### Fase 2 — Segurança e dependências ⏱️ 2–3 dias
+### Fase 2 — Segurança e dependências ⏱️ 2–3 dias — ✅ em grande parte feita
 
-1. `npm audit fix` — resolve `ws` e `react-router-dom`.
-2. Substituir `xlsx@0.18.5`: migrar para o tarball oficial da SheetJS
-   (`https://cdn.sheetjs.com/`) ou trocar por `exceljs`. Decidir com base no
-   uso real em `ImportContactsDialog.tsx`.
-3. Adicionar rate limit em `ingest-lead` e `redirect-tracker` (R8).
-4. Ligar Dependabot ou Renovate para não reacumular dívida.
-5. Rodar `run_secret_scanning` no repositório depois da Fase 0.
+1. ✅ `npm audit fix` — `ws` resolvido. 5 → 3 vulnerabilidades.
+2. ⏳ `xlsx@0.18.5` — **continua aberta**, com o comando de correção e a análise
+   de exposição em `ISSUES.md`. Não aplicada porque o ambiente onde a correção
+   foi tentada bloqueia `cdn.sheetjs.com`, e mexer no `package.json` sem
+   conseguir instalar quebraria o `npm ci`.
+3. ✅ Rate limit em `ingest-lead` (janela fixa por IP, 20 req/min).
+   `redirect-tracker` ficou de fora **por desenho**: ele é fire-and-forget e
+   precisa sempre redirecionar rápido; limitar ali brigaria com o requisito.
+4. ✅ Dependabot ligado, com minor/patch agrupados e major separado.
+5. ⏳ `run_secret_scanning` no repositório — pendente.
+6. ✅ `react-router-dom` avaliado: as 3 advisories **não são alcançáveis** nesta
+   base (nenhuma entrada do usuário vira destino de rota; não há SSR). Registrado
+   em `ISSUES.md` em vez de forçar um major sem cobertura de rota.
 
 ### Fase 3 — Testar onde está o risco ⏱️ 1–2 semanas
 

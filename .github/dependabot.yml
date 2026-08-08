@@ -1,0 +1,18 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # Bumps de patch/minor viram um PR so — o ruido de um PR por pacote e o
+      # que faz Dependabot ser desligado. Major fica separado, um a um, porque
+      # cada um precisa de leitura.
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

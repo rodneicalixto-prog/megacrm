@@ -35,11 +35,41 @@ function normalizePhone(raw: string): string {
   return t.startsWith('+') ? t : `+${t.replace(/[^\d]/g, '')}`;
 }
 
+// Endpoint publico e sem auth: sem limite, um bot inunda o CRM de leads falsos.
+// A janela e por IP; atras de proxy o primeiro item do x-forwarded-for e o
+// cliente. Sem IP resolvivel, todo mundo cai no mesmo balde 'unknown' — o que
+// e o comportamento seguro (limita em vez de liberar).
+const RATE_WINDOW_SECONDS = 60;
+const RATE_LIMIT_PER_WINDOW = 20;
+
+function clientIp(req: Request): string {
+  const fwd = req.headers.get('x-forwarded-for') ?? '';
+  return fwd.split(',')[0].trim() || req.headers.get('cf-connecting-ip') || 'unknown';
+}
+
 Deno.serve(async (req) => {
   const pre = preflight(req);
   if (pre) return pre;
   if (req.method !== 'POST') {
     return jsonResponse({ ok: false, error: 'Method not allowed' }, { status: 405 });
+  }
+
+  {
+    const { data: allowed, error } = await getAdminClient().rpc('bump_rate_limit', {
+      p_bucket: `ingest-lead:${clientIp(req)}`,
+      p_window_seconds: RATE_WINDOW_SECONDS,
+      p_limit: RATE_LIMIT_PER_WINDOW,
+    });
+    // Falha do limitador nao pode derrubar a captacao de lead legitima: loga e
+    // segue. O limite protege contra flood, nao e um gate de seguranca.
+    if (error) {
+      console.log(JSON.stringify({ event: 'rate_limit_check_failed', message: error.message }));
+    } else if (allowed === false) {
+      return jsonResponse(
+        { ok: false, error: 'Muitas requisicoes. Tente novamente em instantes.' },
+        { status: 429 },
+      );
+    }
   }
 
   let body: LeadBody;
