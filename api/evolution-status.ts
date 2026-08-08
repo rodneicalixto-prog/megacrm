@@ -77,31 +77,66 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     if (!hook) {
       return res.status(500).json({ success: false, message: 'SUPABASE_URL ausente no runtime.' });
     }
-    const r = await fetch(`${serverUrl}/webhook/set/${encodeURIComponent(instance)}`, {
-      method: 'POST',
-      headers: { apikey: apiKey, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+
+    // A Evolution v2 mudou o corpo do /webhook/set no meio da serie: da 2.2 em
+    // diante ele vem ANINHADO em `webhook`, com as chaves `byEvents`/`base64`;
+    // antes disso era achatado, com `webhookByEvents`/`webhookBase64`. A doc
+    // publica ainda mostra a forma antiga. Como o servidor e do usuario e a
+    // versao varia, tentamos a forma nova e caimos na antiga se ela for
+    // recusada — mais barato que obrigar o usuario a descobrir a versao.
+    //
+    // byEvents fica FALSE de proposito: ligado, a Evolution anexa o nome do
+    // evento ao path da URL e a rota unica da Edge Function nunca e chamada.
+    // Só MESSAGES_UPSERT interessa; o resto o parser descarta de qualquer jeito.
+    const nested = {
+      webhook: {
         enabled: true,
         url: hook,
-        // webhookByEvents anexaria o nome do evento ao path e quebraria a rota
-        // única da Edge Function — tem que ficar false.
-        webhookByEvents: false,
-        webhookBase64: false,
-        // Só o evento de mensagem recebida interessa; o resto viraria ruído que
-        // o parser descarta de qualquer jeito.
+        byEvents: false,
+        base64: false,
         events: ['MESSAGES_UPSERT'],
-      }),
-      signal: AbortSignal.timeout(10000),
-    });
-    const body = await r.text();
-    if (!r.ok) {
-      return res.status(200).json({
-        success: false,
-        message: `Evolution rejeitou o webhook (${r.status}): ${body.slice(0, 200)}`,
-        webhook_url: hook,
+      },
+    };
+    const flat = {
+      enabled: true,
+      url: hook,
+      webhookByEvents: false,
+      webhookBase64: false,
+      events: ['MESSAGES_UPSERT'],
+    };
+
+    const endpoint = `${serverUrl}/webhook/set/${encodeURIComponent(instance)}`;
+    async function postWebhook(payload: unknown) {
+      const r = await fetch(endpoint, {
+        method: 'POST',
+        headers: { apikey: apiKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(10000),
       });
+      return { ok: r.ok, status: r.status, body: await r.text() };
     }
-    return res.status(200).json({ success: true, webhook_url: hook });
+
+    let attempt = await postWebhook(nested);
+    let shape = 'nested';
+    if (!attempt.ok) {
+      const fallback = await postWebhook(flat);
+      if (fallback.ok) {
+        attempt = fallback;
+        shape = 'flat';
+      } else {
+        return res.status(200).json({
+          success: false,
+          message:
+            `Evolution rejeitou o webhook. ` +
+            `Aninhado (${attempt.status}): ${attempt.body.slice(0, 150)} | ` +
+            `Achatado (${fallback.status}): ${fallback.body.slice(0, 150)}`,
+          webhook_url: hook,
+        });
+      }
+    }
+
+    return res.status(200).json({ success: true, webhook_url: hook, shape, echo: attempt.body.slice(0, 400) });
+
   } catch (err) {
     return res.status(500).json({
       success: false,
