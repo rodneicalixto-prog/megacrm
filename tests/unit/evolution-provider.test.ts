@@ -98,6 +98,19 @@ test('echo da própria conta é marcado isFromMe (o core descarta)', () => {
   assert.equal(got?.isFromMe, true);
 });
 
+test('fromMe como string ou 1 também conta como echo', () => {
+  for (const fromMe of ['true', 1]) {
+    const got = provider.parseInboundWebhook({
+      event: 'messages.upsert',
+      data: {
+        key: { remoteJid: '5511999998888@s.whatsapp.net', fromMe, id: `E-${fromMe}` },
+        message: { conversation: 'resposta do dono pelo celular' },
+      },
+    });
+    assert.equal(got?.isFromMe, true, String(fromMe));
+  }
+});
+
 test('data em array (upsert em lote) processa a primeira mensagem', () => {
   const got = provider.parseInboundWebhook({
     event: 'messages.upsert',

@@ -96,12 +96,58 @@ Deno.serve(async (req) => {
   }
 
   const inbound = provider.parseInboundWebhook(payload);
-  // Não é mensagem inbound processável, ou é echo da própria conta → aceita e ignora.
-  if (!inbound || inbound.isFromMe) {
-    return jsonResponse({ ok: true, skipped: 'não-inbound ou echo' });
+  if (!inbound) {
+    return jsonResponse({ ok: true, skipped: 'não-inbound' });
   }
 
   const admin = getAdminClient();
+
+  // Mensagem enviada pela própria conta. Na rota não-oficial isso quase sempre
+  // significa que o DONO respondeu pelo celular, fora do CRM — e nesse caso a
+  // conversa passou a ser dele. Descartar o evento (o que se fazia antes)
+  // deixava a IA sem saber, e ela seguia respondendo por cima do humano.
+  //
+  // Não cria contato nem conversa: se não existe conversa, não há nada de onde
+  // a IA pudesse se intrometer.
+  if (inbound.isFromMe) {
+    if (provider.name === 'zernio') {
+      return jsonResponse({ ok: true, skipped: 'echo' });
+    }
+    const phone = toE164(inbound.from);
+    const { data: contact } = await admin
+      .from('contacts').select('id').eq('phone', phone).maybeSingle();
+    if (!contact) return jsonResponse({ ok: true, skipped: 'echo sem contato' });
+
+    const { data: conv } = await admin
+      .from('conversations').select('id, ai_paused')
+      .eq('contact_id', (contact as { id: string }).id).maybeSingle();
+    if (!conv) return jsonResponse({ ok: true, skipped: 'echo sem conversa' });
+
+    const conversationId = (conv as { id: string }).id;
+
+    // Registra o que foi dito pelo celular, para a thread do CRM refletir a
+    // conversa real. Dedup pelo id da mensagem (índice em zernio_message_id).
+    await admin.from('messages').insert({
+      conversation_id: conversationId,
+      direction: 'outbound',
+      sender_type: 'operator',
+      content_type: inbound.contentType ?? 'text',
+      content: inbound.text,
+      media_url: inbound.mediaUrl ?? null,
+      zernio_message_id: `${provider.name}:${inbound.messageId}`,
+      meta_status: 'sent',
+      is_private_note: false,
+    });
+
+    if ((conv as { ai_paused: boolean }).ai_paused !== true) {
+      await admin
+        .from('conversations')
+        .update({ ai_paused: true, status: 'human_active', last_message_at: new Date().toISOString() })
+        .eq('id', conversationId);
+      console.log(JSON.stringify({ event: 'ai_paused_by_owner_reply', conversation_id: conversationId }));
+    }
+    return jsonResponse({ ok: true, owner_reply: true, conversation_id: conversationId });
+  }
 
   // Idempotência por messageId (reusa webhook_events; chave prefixada por provider).
   const dedupKey = `${provider.name}:msg:${inbound.messageId}`;

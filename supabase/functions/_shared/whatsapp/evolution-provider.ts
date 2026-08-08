@@ -85,7 +85,9 @@ export class EvolutionProvider implements WhatsAppProvider {
       text: content,
       messageId,
       timestamp: toIso(data.messageTimestamp),
-      isFromMe: key.fromMe === true,
+      // Tolerante de proposito: errar aqui faz o agente responder por cima do
+      // dono. Se `fromMe` vier como string ou 1, ainda conta como echo.
+      isFromMe: key.fromMe === true || key.fromMe === 'true' || key.fromMe === 1,
       raw: rawPayload,
       contentType,
       mediaUrl,
