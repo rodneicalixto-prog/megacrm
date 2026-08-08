@@ -1,63 +1,52 @@
 # MegaCRM — Avaliação do Repositório e Planejamento
 
-> Avaliação feita em 2026-08-08 sobre o estado atual de `rodneicalixto-prog/megacrm`
-> (commit `f01d683`, branch `main`).
+> Avaliação original: 2026-08-08, sobre o commit `f01d683`.
+> Última atualização: 2026-08-08, sobre `52bebdd` (`main`).
 
 ---
 
-## 1. Veredito em uma linha
+## 1. Onde estamos
 
-**O produto é sólido; o repositório não existe.** Há ~35 mil linhas de uma
-aplicação bem construída, com TypeScript strict, build limpo e documentação
-séria — tudo lacrado dentro de um arquivo `.zip` de 1,2 MB. Nada disso está
-versionado. Enquanto o ZIP não for descompactado no Git, o repositório não
-entrega nenhuma das funções pelas quais existe.
-
----
-
-## 2. Estado do Git
-
-| Item | Situação |
+| | |
 |---|---|
-| Commits | 1 — `f01d683 "Add files via upload"` |
-| Arquivos versionados | 1 — `8dbedacd-…-megacrm.zip` |
-| Branches | `main`, `claude/git-evaluation-planning-qaovby` |
-| Histórico útil | Nenhum |
+| **Repositório** | ✅ código versionado, 281 arquivos |
+| **CI** | ✅ lint · typecheck · SQL · build · testes |
+| **Deploy Vercel** | ✅ `megacrm`, produção verde, 7 serverless |
+| **Banco Supabase** | ⏳ wizard `/setup` em andamento |
+| **Rota WhatsApp** | ✅ Zernio (oficial) + Evolution API v2 |
 
-### O que se perde na prática
-
-- **Sem diff e sem blame.** Impossível saber o que mudou, quando, ou por quê.
-- **Sem code review.** Nenhum PR pode ser aberto sobre um binário.
-- **CI decorativa.** Existe um `.github/workflows/ci.yml` — *dentro do ZIP*.
-  O GitHub nunca o enxerga, então nunca roda.
-- **Sem rollback.** Um erro em produção não tem ponto de retorno.
-- **Sem colaboração.** Duas pessoas editando = dois ZIPs incompatíveis.
-- O próprio `ISSUES.md` do projeto admite isso: *"Placeholder de tracking
-  enquanto o repo não está em um remoto GitHub."* Agora está — mas o
-  conteúdo continua fora dele.
-
-### Lixo carregado dentro do ZIP
-
-O ZIP preservou exatamente o que o `.gitignore` do projeto manda excluir:
-
-- `__MACOSX/` — 71 arquivos de metadado do macOS
-- 4 × `.DS_Store`
-- `dist/` — 1,9 MB de build já compilado
-- `tsconfig.app.tsbuildinfo`, `tsconfig.node.tsbuildinfo` — cache de build
-- `supabase/.temp/linked-project.json` — **vaza o project ref
-  (`tlcnlqfcyduxrumrjwma`) e o organization id do Supabase**
-
-Nenhum segredo real (chave de API, token, service role) foi encontrado na
-varredura. O vazamento acima é de identificadores, não de credenciais — baixa
-severidade, mas não deveria estar lá.
+O diagnóstico que abriu este documento — *"o produto é sólido; o repositório
+não existe"* — está resolvido. As Fases 0, 1 e 2 foram executadas. O que falta
+é ligar o banco e cobrir o núcleo com teste.
 
 ---
 
-## 3. Estado do produto
+## 2. Diagnóstico original (histórico)
+
+O repositório tinha **1 commit** e **1 arquivo**: um ZIP de 1,2 MB com a
+aplicação inteira lacrada dentro. Sem diff, sem blame, sem PR, sem rollback.
+O `.github/workflows/ci.yml` existia *dentro do ZIP*, então o GitHub nunca o
+enxergava e a CI nunca rodava.
+
+O ZIP também carregava o que o próprio `.gitignore` do projeto excluía:
+`__MACOSX/` (71 arquivos), 4 × `.DS_Store`, `dist/` compilado, caches
+`.tsbuildinfo` e um `supabase/.temp/linked-project.json` que expunha o project
+ref e o organization id do Supabase.
+
+Nenhuma credencial real foi encontrada na varredura.
+
+> Isso também explica os 3 deploys que falhavam na Vercel: apontavam para o
+> repo `super_calixto_crm`, descompactado pela metade — com `package.json` mas
+> sem `src/` nem `supabase/`. O build morria em
+> `TS18003: No inputs were found... 'include' paths were ["src"]`.
+
+---
+
+## 3. O produto
 
 **MegaCRM / `whatsapp-hub`** — plataforma self-hosted de automação WhatsApp
-para uma organização: templates assistidos por IA, campanhas em massa com
-tier da Meta, inbox em tempo real com handoff IA↔humano, RAG, funil de vendas,
+para uma organização: templates assistidos por IA, campanhas em massa com tier
+da Meta, inbox em tempo real com handoff IA↔humano, RAG, funil de vendas,
 atribuição de UTM e dashboard.
 
 ### Stack
@@ -65,229 +54,203 @@ atribuição de UTM e dashboard.
 - **Front:** React 18 · Vite · TypeScript · Tailwind v4 · shadcn/ui
 - **Back:** Supabase (Postgres, Auth, Realtime, Edge Functions, Storage,
   pgvector, `pg_cron`, `pg_net`)
-- **WhatsApp:** Zernio (relay para Meta Cloud API) + Evolution API v2
+- **WhatsApp:** Zernio (oficial, relay Meta Cloud API) · Evolution API v2
+  (não-oficial, self-hosted)
 - **Deploy:** Vercel (SPA + 7 serverless functions)
 
 ### Dimensão
 
 | Área | Linhas | Arquivos |
 |---|---:|---:|
-| `src/` (frontend) | 21.173 | 120 |
-| `supabase/migrations/` | 6.263 | 67 |
-| `supabase/functions/` | 5.848 | 23 funções |
-| `api/` (serverless Vercel) | 1.215 | 7 |
-| `tests/` | 718 | 9 specs |
+| `src/` (frontend) | 21.186 | 120 |
+| `supabase/migrations/` | 6.342 | 69 |
+| `supabase/functions/` | 5.880 | 22 funções |
+| `api/` (serverless Vercel) | 1.223 | 7 |
+| `tests/` | 849 | 9 specs E2E + 10 unit |
 
 ### O que está genuinamente bom
 
-- ✅ **Build passa limpo** — `npm run build` em 9,4 s, sem erro nem warning.
+- ✅ **Build limpo** — ~9 s, sem erro nem warning.
 - ✅ **Disciplina de tipos** — `strict`, `noUnusedLocals`, `noUnusedParameters`,
-  `noFallthroughCasesInSwitch` ligados. **Apenas 2 `any` em toda a base.** Isso
-  é raro e vale registrar.
-- ✅ **Segurança bem pensada** — webhooks validam HMAC-SHA256 com comparação
-  *timing-safe*; `requireAdmin` / `requireCaller` / `requireServiceRole`
-  padronizados nas Edge Functions; credenciais de aplicação criptografadas em
-  `app_settings` com `CRYPTO_KEY` (não em `.env`); ~130 policies RLS por role.
-- ✅ **Documentação acima da média** — `AGENTS.md` (23 KB), `CLAUDE.md`
-  (26,6 KB), `README`, `INSTALL`, `CHANGELOG` no padrão Keep a Changelog,
-  `CONTRIBUTING`, além de `src/customizations/` como zona segura para forks
-  locais. Alguém pensou em manutenção de longo prazo.
+  `noFallthroughCasesInSwitch`. **Apenas 2 `any` em toda a base.** Isso é raro.
+- ✅ **Segurança bem pensada** — webhooks com HMAC-SHA256 *timing-safe*;
+  `requireAdmin`/`requireCaller`/`requireServiceRole` padronizados; credenciais
+  criptografadas em `app_settings` com `CRYPTO_KEY`; ~130 policies RLS.
+- ✅ **Documentação acima da média** — `AGENTS.md`, `CLAUDE.md`, `README`,
+  `INSTALL`, `CHANGELOG` no padrão Keep a Changelog, e `src/customizations/`
+  como zona segura para forks locais.
 
 ---
 
-## 4. Riscos técnicos identificados
+## 4. Riscos — situação atual
 
-Ordenados por severidade.
+### ✅ R1 — `api/` fora do type-check — resolvido
 
-### 🔴 R1 — `api/` está fora do type-check
-
-`tsconfig.app.json` declara `"include": ["src"]`. Os 7 serverless da Vercel
-**nunca passam pelo compilador**, nem no build nem na CI.
-
-Confirmado na prática:
+`tsconfig.app.json` só incluía `src`, então os 7 serverless nunca eram
+compilados. Escondia um erro real no caminho mais crítico do produto:
 
 ```
 api/bootstrap.ts(536,24): error TS18048: 'body' is possibly 'undefined'.
 ```
 
-É exatamente a issue já documentada em `ISSUES.md` — aberta desde então. O
-arquivo em questão é o que roda migrations e deploya Edge Functions no
-`/setup`: o caminho mais crítico do produto inteiro.
+`tsconfig.api.json` cobre `api/` e `setup.config.ts`; o erro foi corrigido com
+guard explícito. Era o item aberto do `ISSUES.md`.
 
-### 🔴 R2 — CI que não verifica nada
+### ✅ R2 — CI que não verificava nada — resolvido
 
-O workflow atual roda:
+Rodava `npm run lint --if-present` contra um script `lint` inexistente (no-op)
+e depois `npm run build`. Hoje roda **lint → typecheck → validate:sql → build →
+test:unit → test:e2e**, com upload de artefato do Playwright em falha.
 
-```yaml
-- run: npm run lint --if-present   # o script "lint" NÃO EXISTE → no-op
-- run: npm run build
-```
+> O step do Playwright **não pôde ser exercitado localmente** — o ambiente de
+> trabalho tinha Chromium 1194 e o `@playwright/test` pede 1223, com download
+> bloqueado. Ele roda pela primeira vez no GitHub Actions.
 
-Não roda `tsc` sobre `api/`. Não roda os testes Playwright. Não roda
-`npm run validate:sql`, que já existe no `package.json`. Uma CI que só
-compila o frontend dá falsa sensação de proteção.
+### 🟠 R3 — Cobertura de teste no lugar errado — parcialmente aberto
 
-### 🟠 R3 — Cobertura de teste concentrada no lugar errado
+As 9 specs E2E cobrem **só o wizard `/setup`**. Somaram-se 10 checks unitários
+no parser da Evolution (`node:test`, sem runner extra). Continuam descobertos:
+inbox, disparo de campanhas, funil, agente de IA, webhooks de entrada, RAG e
+atribuição de UTM — onde está o risco de negócio. **É a Fase 3.**
 
-As 9 specs cobrem **apenas o wizard `/setup`**, com shim offline. Ficam sem
-nenhum teste: inbox, disparo de campanhas, funil, agente de IA, webhooks de
-entrada, RAG, atribuição de UTM. Ou seja: 100% do risco de negócio está
-descoberto, e 100% do esforço de teste está no caminho que roda uma vez por
-instalação.
+### 🟠 R4 — Vulnerabilidades de dependência — parcialmente aberto
 
-### 🟠 R4 — Vulnerabilidades de dependência
+De **5** para **3**. Detalhe completo, exposição e comando de correção em
+`ISSUES.md`.
 
-`npm audit`: **5 vulnerabilidades (3 moderate, 2 high)** — hoje **3 (2 moderate,
-1 high)** após a Fase 2. Detalhe e plano das restantes em `ISSUES.md`.
-
-| Pacote | Severidade | Fix |
+| Pacote | Severidade | Situação |
 |---|---|---|
-| `ws` | high | `npm audit fix` resolve |
-| `react-router-dom` / `@remix-run/router` | moderate | `npm audit fix` resolve |
-| `xlsx@0.18.5` | **high** (Prototype Pollution + ReDoS) | **sem fix no npm** |
-
-O `xlsx` é o caso sério: a SheetJS abandonou o registry npm, então a versão
-publicada nunca será corrigida. Ele é usado na importação de contatos — que
-recebe arquivo de terceiro. Precisa migrar para o tarball oficial da SheetJS
-ou trocar por `exceljs`.
+| `ws` | high | ✅ resolvido por `npm audit fix` |
+| `xlsx@0.18.5` | high | ⏳ aberto — SheetJS saiu do npm; fix é o tarball do CDN |
+| `react-router-dom` | moderate | ⏳ aberto por decisão — advisories não alcançáveis |
 
 ### 🟡 R5 — Peso do bundle
 
-`index` 449 KB + `PieChart` (recharts) 374 KB + `xlsx` 332 KB. Já há
-code-splitting por rota, mas recharts e xlsx sozinhos passam de 700 KB. Ambos
-são candidatos naturais a import dinâmico sob demanda.
+`index` 449 KB + `PieChart` (recharts) 374 KB + `xlsx` 332 KB. Há
+code-splitting por rota, mas recharts e xlsx passam de 700 KB juntos. Candidatos
+a import dinâmico.
 
-### 🟡 R6 — 67 migrations lineares para chegar ao schema atual
+### 🟡 R6 — 69 migrations lineares
 
 A cadeia inclui `drop_super_admin`, `drop_multitenant`, `drop_onboarding` —
-migrations que desfazem arquitetura antiga. Toda instalação nova hoje aplica
-67 migrations, incluindo criar e depois destruir o modelo multi-tenant. Isso
-alonga o `/setup` e multiplica a superfície de falha em ambiente de cliente.
+migrations que desfazem arquitetura antiga. Toda instalação nova cria e depois
+destrói o modelo multi-tenant. Alonga o `/setup` e amplia a superfície de falha.
 
-### 🟡 R7 — Divergência entre documentação e código
+### 🟡 R7 — Divergência doc/código — quase resolvido
 
-O `README` e o `AGENTS.md` documentam **Zernio** como caminho único. O código
-suportava **dois provedores** com cards próprios no wizard e adapters separados
-em `_shared/whatsapp/`. O `AGENTS.md` ainda cita `META_*` e `LLM_PROVIDER` como
-env vars, que o `README` diz explicitamente que não existem mais.
+A rota não-oficial passou de Uazapi para Evolution API v2 e o `README` agora
+documenta as duas rotas corretamente. **Sobra:** o `AGENTS.md` ainda cita
+`META_*` e `LLM_PROVIDER` como env vars, que o `README` diz não existirem mais.
 
-> **Parcialmente resolvido.** A rota não-oficial passou de Uazapi para Evolution
-> API v2, e o `README` agora documenta as duas rotas. O que sobra do R7 é limpar
-> as referências mortas a `META_*` e `LLM_PROVIDER` no `AGENTS.md`.
+### ✅ R8 — Endpoints públicos sem rate limit — resolvido
 
-### 🟡 R8 — Endpoints públicos sem rate limit — ✅ resolvido
+`ingest-lead` roda com `--no-verify-jwt` e CORS aberto (é chamado do browser da
+landing). Sem limite, um bot inundava o CRM de leads falsos. Hoje: janela fixa
+por IP, 20 req/min, via a RPC `bump_rate_limit`.
 
-`ingest-lead` e `redirect-tracker` rodam com `--no-verify-jwt` e CORS aberto,
-por desenho (são chamados da landing do cliente). Não havia throttling nem
-proteção contra flood — um bot podia inundar o CRM de leads falsos.
+> Falha do limitador **deixa passar**, e isso é deliberado: perder lead real por
+> erro de infra é pior que admitir um lead a mais. É anti-flood, não é gate de
+> segurança.
 
-> **Resolvido para `ingest-lead`**, com janela fixa por IP (20 req/min) via a
-> RPC `bump_rate_limit`. O `redirect-tracker` ficou de fora deliberadamente: ele
-> é fire-and-forget e precisa sempre redirecionar rápido — o risco lá é inflar
-> `tracking_sessions`, não poluir o pipeline.
+> `redirect-tracker` ficou de fora **por desenho** — é fire-and-forget e precisa
+> sempre redirecionar rápido. O risco lá é inflar `tracking_sessions`, não
+> poluir o pipeline.
 
 ---
 
-## 5. Planejamento
+## 5. Execução
 
-### Fase 0 — Destravar o Git ⏱️ ~1 hora · 🔴 bloqueia todo o resto
+### ✅ Fase 0 — Destravar o Git — `27492ba`
 
-1. Descompactar o ZIP na raiz do repositório.
-2. Remover o lixo antes do commit: `__MACOSX/`, `.DS_Store`, `dist/`,
-   `*.tsbuildinfo`, `supabase/.temp/`.
-3. Confirmar que o `.gitignore` do projeto (já correto) passa a valer.
-4. Commit inicial da árvore de código real.
-5. Deletar o `.zip` do versionamento.
-6. Confirmar que `.github/workflows/ci.yml` passa a ser reconhecido pelo GitHub.
+281 arquivos descompactados, ZIP removido do versionamento, lixo fora
+(`__MACOSX/`, `.DS_Store`, `dist/`, `.tsbuildinfo`, `supabase/.temp/`).
+Diff, blame, PR, CI e rollback voltaram a funcionar.
 
-**Resultado:** diff, blame, PR, review, CI e rollback voltam a funcionar.
-Sem esta fase, nenhuma outra é executável de forma sustentável.
+### ✅ Fase 1 — CI que verifica — `0af5b8e`
 
-### Fase 1 — CI que realmente verifica ⏱️ 1–2 dias
+`tsconfig.api.json`, correção do `TS18048`, ESLint com config plana separada
+por runtime, pipeline completa no workflow.
 
-1. Criar `tsconfig.api.json` cobrindo `api/` e corrigir o `TS18048` de
-   `api/bootstrap.ts:536` (guard explícito `if (!body) throw …`). Fecha R1 e a
-   issue aberta do `ISSUES.md`.
-2. Adicionar ESLint + o script `lint` que a CI já tenta chamar.
-3. Reescrever o workflow: `lint` → `tsc` (src **e** api) → `validate:sql` →
-   `build` → `playwright test`.
-4. Proteger a branch `main`: exigir CI verde e review para merge.
-5. Migrar as entradas de `ISSUES.md` para issues reais do GitHub.
+> Regras da era React Compiler (`set-state-in-effect`, `purity`) ficaram como
+> **warning**: sinalizavam 53 ocorrências de padrões idiomáticos desta base.
+> Erro de verdade fica erro — o gate precisa significar algo hoje.
+>
+> Um achado real saiu daí: `FollowUpsPage` usava `useMemo` como efeito, com
+> `setState` dentro. O React pode descartar e reexecutar um memo, então aquilo
+> era sincronização não confiável. Virou `useEffect`.
 
-### Fase 2 — Segurança e dependências ⏱️ 2–3 dias — ✅ em grande parte feita
+### ✅ Fase 2 — Segurança e dependências — `52bebdd`
 
-1. ✅ `npm audit fix` — `ws` resolvido. 5 → 3 vulnerabilidades.
-2. ⏳ `xlsx@0.18.5` — **continua aberta**, com o comando de correção e a análise
-   de exposição em `ISSUES.md`. Não aplicada porque o ambiente onde a correção
-   foi tentada bloqueia `cdn.sheetjs.com`, e mexer no `package.json` sem
-   conseguir instalar quebraria o `npm ci`.
-3. ✅ Rate limit em `ingest-lead` (janela fixa por IP, 20 req/min).
-   `redirect-tracker` ficou de fora **por desenho**: ele é fire-and-forget e
-   precisa sempre redirecionar rápido; limitar ali brigaria com o requisito.
-4. ✅ Dependabot ligado, com minor/patch agrupados e major separado.
-5. ⏳ `run_secret_scanning` no repositório — pendente.
-6. ✅ `react-router-dom` avaliado: as 3 advisories **não são alcançáveis** nesta
-   base (nenhuma entrada do usuário vira destino de rota; não há SSR). Registrado
-   em `ISSUES.md` em vez de forçar um major sem cobertura de rota.
+`npm audit fix`, rate limit no `ingest-lead`, Dependabot (minor/patch agrupados,
+major separado), `ISSUES.md` reescrito.
 
-### Fase 3 — Testar onde está o risco ⏱️ 1–2 semanas
+**Duas decisões de não fazer**, ambas documentadas em `ISSUES.md`:
 
-Ordem por valor decrescente:
+- **`xlsx`** — a SheetJS saiu do registry npm; o fix é o tarball do CDN deles,
+  bloqueado no ambiente de trabalho. Mexer no `package.json` sem conseguir
+  instalar dessincronizaria o lockfile e quebraria o `npm ci` — pior que a issue
+  aberta. O `@e965/xlsx` do npm corrige, mas é republicação de terceiro: para um
+  pacote que faz parse de arquivo do usuário, isso move risco em vez de fixar.
+- **`react-router`** — as 3 advisories foram checadas contra o código e nenhuma
+  é alcançável: todo destino de navegação é path literal com UUID do banco, e a
+  advisory de hidratação SSR precisa de SSR que uma SPA Vite não tem. Subir para
+  7.x sem cobertura de rota trocaria risco teórico por regressão real.
 
-1. **Webhooks de entrada** (`zernio-webhook`, `whatsapp-inbound`) — validação
-   de HMAC, dedup por `wamid`, payloads malformados.
-2. **Dispatcher de campanha** — respeito ao tier da Meta, batching,
-   idempotência, retry.
-3. **Agente de IA** (`process-ai-message`) — handoff IA↔humano, movimentação
-   de estágio, horário comercial.
+### ✅ Fora do plano — rota Evolution API — `3159c39` + `4a3db65`
+
+A rota não-oficial passou de Uazapi para Evolution API v2, seguindo a costura
+que o projeto já tinha (*"adicionar provedor = escrever um adapter novo, sem
+tocar no core"*). Endpoints confirmados na doc oficial, não chutados.
+
+- Evolution e Uazapi falam Baileys: o decoder saiu de dentro do adapter Uazapi
+  para `types.ts`, então não existem duas cópias para divergir.
+- Migration `20260808120000` renomeia `channel = 'uazapi'` → `'evolution'` e
+  reprefixa os ids de mensagem, mantendo o histórico respondível. Idempotente.
+- `webhookByEvents` fica **false** no registro do webhook: ligado, ele anexaria
+  o nome do evento ao path e quebraria a rota única da Edge Function.
+
+### ⏳ Fase 3 — Testar onde está o risco — 1–2 semanas
+
+Por valor decrescente:
+
+1. **Webhooks de entrada** (`zernio-webhook`, `whatsapp-inbound`) — HMAC, dedup
+   por `wamid`, payloads malformados.
+2. **Dispatcher de campanha** — tier da Meta, batching, idempotência, retry.
+3. **Agente de IA** — handoff IA↔humano, movimentação de estágio, horário.
 4. **Funil / CRM** — transições de estágio, ganho/perda, predições.
-5. Introduzir Vitest para teste unitário das funções puras
-   (`lib/phone.ts`, `lib/utm.ts`, `lib/nextAction.ts`, `lib/dealOrigin.ts`) —
-   retorno alto e barato.
+5. Vitest nas funções puras (`phone.ts`, `utm.ts`, `nextAction.ts`,
+   `dealOrigin.ts`) — retorno alto e barato.
 
-### Fase 4 — Consolidação técnica ⏱️ 2–3 semanas
+> **Pré-requisito descoberto na prática:** `supabase/functions/` não passa por
+> `tsc` nem por ESLint hoje. Foi por isso que os checks da Evolution rodam via
+> `node:test` — era a única rede possível. Colocar as Edge Functions sob
+> verificação é item da Fase 3.
 
-1. **Baseline de migrations (R6):** gerar um `_baseline.sql` do schema atual e
-   arquivar as 67 migrations históricas. Instalações novas passam a aplicar 1
-   arquivo; instalações existentes seguem pela cadeia antiga.
-2. **Reconciliar documentação (R7):** remover as referências mortas a `META_*`
-   e `LLM_PROVIDER` no `AGENTS.md`. (A parte dos provedores já foi resolvida:
-   duas rotas, Zernio e Evolution, documentadas no `README`.)
-3. **Bundle (R5):** import dinâmico de `xlsx` (só no fluxo de importação) e de
-   recharts (só nos dashboards).
-4. Quebrar os arquivos maiores: `SetupPage.tsx` (896 linhas),
-   `DealDrawer.tsx` (710), `process-ai-message/index.ts` (709).
+### ⏳ Fase 4 — Consolidação técnica — 2–3 semanas
 
-### Fase 5 — Produto ⏱️ contínuo
+1. **Baseline de migrations (R6)** — `_baseline.sql` do schema atual, arquivando
+   as 69 históricas. Instalação nova passa a aplicar 1 arquivo.
+2. **Documentação (R7)** — remover `META_*` e `LLM_PROVIDER` do `AGENTS.md`.
+3. **Bundle (R5)** — import dinâmico de `xlsx` e recharts.
+4. Quebrar os arquivos maiores: `SetupPage.tsx` (896), `DealDrawer.tsx` (710),
+   `process-ai-message/index.ts` (709).
 
-Só faz sentido depois da Fase 1. Com CI verde e review funcionando, o
-desenvolvimento de features passa a ter rede de proteção. Pauta sugerida para
-priorização: multi-número, relatórios exportáveis, API pública, i18n (o v1 é
-PT-BR fixo por decisão explícita).
+### ⏳ Fase 5 — Produto
+
+Só depois da Fase 3. Pauta sugerida: multi-número, relatórios exportáveis, API
+pública, i18n (o v1 é PT-BR fixo por decisão explícita).
 
 ---
 
-## 6. Sequência recomendada
+## 6. Pendências fora do código
 
-```
-Fase 0  ██                                    ~1h    🔴 bloqueante
-Fase 1  ████████                              1-2d   🔴 alta
-Fase 2  ████████████                          2-3d   🟠 alta
-Fase 3  ████████████████████████████████      1-2sem 🟠 média
-Fase 4  ████████████████████████████████████  2-3sem 🟡 média
-Fase 5  ──────────────────────────────────►   contínuo
-```
-
-Fases 0 → 1 → 2 são sequenciais e não devem ser puladas. Fases 3 e 4 podem
-correr em paralelo com desenvolvimento de produto, desde que a Fase 1 esteja
-concluída.
-
----
-
-## 7. As três coisas que importam agora
-
-1. **Descompactar o ZIP.** Sem isso, o repositório é um arquivo morto.
-2. **Colocar `api/` no type-check.** Há um erro real, conhecido e não
-   corrigido no caminho mais crítico do produto.
-3. **Resolver o `xlsx`.** É uma vulnerabilidade *high* sem patch, num fluxo
-   que consome arquivo enviado por terceiro.
+1. **Rotacionar a chave Zernio** exposta em conversa (`sk_287ef…`).
+2. **Concluir o `/setup`** no projeto Supabase de destino — é o que cria as
+   tabelas.
+3. **Aplicar o fix do `xlsx`** de uma máquina com acesso a `cdn.sheetjs.com`
+   (comando em `ISSUES.md`).
+4. **Atualizar o checklist do Agentise** — o passo 11 ainda aponta para
+   `uazapi.dev`; a rota não-oficial agora é Evolution.
+5. **Limpar `super_calixto_crm`** — repo meio-descompactado com 2 projetos
+   Vercel mortos apontados para ele.
+6. `run_secret_scanning` no repositório.
