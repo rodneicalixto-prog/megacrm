@@ -14,7 +14,7 @@ function normalizeDeal(row: Record<string, unknown>): Deal {
   const cfv = (row.custom_field_values as Array<{ custom_field_id: string; value: string | null }> | undefined) ?? [];
   const field_values: Record<string, string> = {};
   for (const v of cfv) field_values[v.custom_field_id] = v.value ?? '';
-  // Canal de mensageria (WhatsApp/Instagram/Uazapi) vem da conversa do contato.
+  // Canal de mensageria (WhatsApp/Instagram/Evolution) vem da conversa do contato.
   // conversations.contact_id é UNIQUE, então o PostgREST embute o recurso como
   // relação 1-para-1 → devolve um OBJETO (não array). Tratamos os dois casos.
   const contactObj = row.contact as {

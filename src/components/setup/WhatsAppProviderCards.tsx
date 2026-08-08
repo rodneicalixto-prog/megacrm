@@ -3,8 +3,6 @@ import type { CredentialField as CredentialFieldConfig } from '../../../setup.co
 
 type Props = {
   zernioField: CredentialFieldConfig;
-  uazapiUrlField: CredentialFieldConfig;
-  uazapiTokenField: CredentialFieldConfig;
   evolutionUrlField: CredentialFieldConfig;
   evolutionKeyField: CredentialFieldConfig;
   evolutionInstanceField: CredentialFieldConfig;
@@ -12,8 +10,8 @@ type Props = {
   onValidationChange: (key: string, isValid: boolean) => void;
 };
 
-// Todos os provedores são individualmente opcionais (a regra "pelo menos um"
-// fica no SetupPage) — o badge deixa isso explícito em cada card.
+// As duas rotas são individualmente opcionais (a regra "pelo menos uma" fica
+// no SetupPage) — o badge deixa isso explícito nos dois cards.
 function OptionalBadge() {
   return (
     <span className="rounded-full border border-[rgba(59,130,246,0.3)] bg-[rgba(59,130,246,0.1)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#60A5FA]">
@@ -22,12 +20,10 @@ function OptionalBadge() {
   );
 }
 
-// Step 4 do wizard: os provedores de WhatsApp. Todos individualmente
-// opcionais; a regra "pelo menos um" é aplicada por quem renderiza (SetupPage).
+// Step 4 do wizard: as duas rotas de WhatsApp. Ambas individualmente
+// opcionais; a regra "pelo menos uma" é aplicada por quem renderiza (SetupPage).
 export function WhatsAppProviderCards({
   zernioField,
-  uazapiUrlField,
-  uazapiTokenField,
   evolutionUrlField,
   evolutionKeyField,
   evolutionInstanceField,
@@ -54,33 +50,7 @@ export function WhatsAppProviderCards({
         />
       </div>
 
-      {/* Card 2 — API Não Oficial (Uazapi) */}
-      <div className="glass-card p-5">
-        <div className="mb-1 flex items-center gap-2">
-          <span className="text-base font-semibold text-[#F8FAFC]">API Não Oficial do WhatsApp</span>
-          <OptionalBadge />
-        </div>
-        <p className="mb-3 text-[13px] leading-5 text-[#94A3B8]">
-          Insira a URL Server e o Instance Token da Uazapi. Caminho acessível; atribuição via código
-          de rastreio.
-        </p>
-        <div className="space-y-3">
-          <CredentialField
-            field={uazapiUrlField}
-            initialHasValue={false}
-            onChange={onCredentialChange}
-            onValidationChange={onValidationChange}
-          />
-          <CredentialField
-            field={uazapiTokenField}
-            initialHasValue={false}
-            onChange={onCredentialChange}
-            onValidationChange={onValidationChange}
-          />
-        </div>
-      </div>
-
-      {/* Card 3 — API Não Oficial (Evolution API, self-hosted) */}
+      {/* Card 2 — API Não Oficial (Evolution API, self-hosted) */}
       <div className="glass-card p-5">
         <div className="mb-1 flex items-center gap-2">
           <span className="text-base font-semibold text-[#F8FAFC]">Evolution API</span>

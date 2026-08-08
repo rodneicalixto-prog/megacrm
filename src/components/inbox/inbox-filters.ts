@@ -2,7 +2,7 @@ import type { ConversationWithContact } from '@/types/inbox';
 
 // Estado dos filtros do inbox (Módulo 7). O canal fica aqui junto para
 // persistência unificada, mas é renderizado como segmented control à parte.
-export type ChannelFilter = 'all' | 'whatsapp' | 'instagram' | 'uazapi';
+export type ChannelFilter = 'all' | 'whatsapp' | 'instagram' | 'evolution';
 export type Atendente = 'ia' | 'humano';
 export type StatusBucket = 'abertas' | 'fechadas' | 'arquivadas';
 export type JanelaFilter = 'any' | 'dentro' | 'fora';
@@ -94,7 +94,7 @@ export function readFiltersFromParams(sp: URLSearchParams): InboxFilterState {
   const csv = (v: string | null): string[] => (v ? v.split(',').filter(Boolean) : []);
   const ch = sp.get('fch');
   const channel: ChannelFilter =
-    ch === 'whatsapp' || ch === 'instagram' || ch === 'uazapi' ? ch : 'all';
+    ch === 'whatsapp' || ch === 'instagram' || ch === 'evolution' ? ch : 'all';
   const atendente = csv(sp.get('fat')).filter(
     (v): v is Atendente => v === 'ia' || v === 'humano',
   );

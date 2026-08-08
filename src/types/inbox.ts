@@ -1,5 +1,5 @@
 export type ConversationStatus = 'ai_active' | 'human_active' | 'closed';
-export type ConversationChannel = 'whatsapp' | 'instagram' | 'uazapi';
+export type ConversationChannel = 'whatsapp' | 'instagram' | 'evolution';
 export type MessageDirection = 'inbound' | 'outbound';
 export type SenderType = 'contact' | 'ai' | 'operator' | 'system';
 export type ContentType = 'text' | 'image' | 'audio' | 'video' | 'document' | 'template' | 'note';

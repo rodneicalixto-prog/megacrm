@@ -65,7 +65,7 @@ atribuição de UTM e dashboard.
 - **Front:** React 18 · Vite · TypeScript · Tailwind v4 · shadcn/ui
 - **Back:** Supabase (Postgres, Auth, Realtime, Edge Functions, Storage,
   pgvector, `pg_cron`, `pg_net`)
-- **WhatsApp:** Zernio (relay para Meta Cloud API) + Uazapi
+- **WhatsApp:** Zernio (relay para Meta Cloud API) + Evolution API v2
 - **Deploy:** Vercel (SPA + 7 serverless functions)
 
 ### Dimensão
@@ -166,10 +166,13 @@ alonga o `/setup` e multiplica a superfície de falha em ambiente de cliente.
 ### 🟡 R7 — Divergência entre documentação e código
 
 O `README` e o `AGENTS.md` documentam **Zernio** como caminho único. O código
-suporta **dois provedores** (Zernio oficial e Uazapi não-oficial), com cards
-próprios no wizard e providers separados em `_shared/whatsapp/`. O `AGENTS.md`
-ainda cita `META_*` e `LLM_PROVIDER` como env vars, que o `README` diz
-explicitamente que não existem mais.
+suportava **dois provedores** com cards próprios no wizard e adapters separados
+em `_shared/whatsapp/`. O `AGENTS.md` ainda cita `META_*` e `LLM_PROVIDER` como
+env vars, que o `README` diz explicitamente que não existem mais.
+
+> **Parcialmente resolvido.** A rota não-oficial passou de Uazapi para Evolution
+> API v2, e o `README` agora documenta as duas rotas. O que sobra do R7 é limpar
+> as referências mortas a `META_*` e `LLM_PROVIDER` no `AGENTS.md`.
 
 ### 🟡 R8 — Endpoints públicos sem rate limit
 
@@ -235,9 +238,9 @@ Ordem por valor decrescente:
 1. **Baseline de migrations (R6):** gerar um `_baseline.sql` do schema atual e
    arquivar as 67 migrations históricas. Instalações novas passam a aplicar 1
    arquivo; instalações existentes seguem pela cadeia antiga.
-2. **Reconciliar documentação (R7):** decidir se Uazapi é oficialmente
-   suportado ou experimental, e refletir isso no `README` e no `AGENTS.md`.
-   Remover as referências mortas a `META_*` e `LLM_PROVIDER`.
+2. **Reconciliar documentação (R7):** remover as referências mortas a `META_*`
+   e `LLM_PROVIDER` no `AGENTS.md`. (A parte dos provedores já foi resolvida:
+   duas rotas, Zernio e Evolution, documentadas no `README`.)
 3. **Bundle (R5):** import dinâmico de `xlsx` (só no fluxo de importação) e de
    recharts (só nos dashboards).
 4. Quebrar os arquivos maiores: `SetupPage.tsx` (896 linhas),

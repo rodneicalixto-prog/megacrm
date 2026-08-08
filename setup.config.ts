@@ -100,34 +100,6 @@ export const setupConfig: SetupConfig = {
       validate: validateZernio,
     },
     {
-      key: 'uazapi_server_url',
-      label: 'Uazapi Server URL',
-      placeholder: 'https://seu-servidor.uazapi.com',
-      inputType: 'text',
-      helpText:
-        'Opcional. Caminho acessivel (API nao-oficial). URL do seu servidor Uazapi.',
-      validate: async (value) => {
-        const v = value.trim();
-        if (!v) return ok; // opcional
-        return /^https:\/\/[^\s]+$/i.test(v)
-          ? ok
-          : { ok: false, message: 'Informe uma URL HTTPS valida (ex.: https://seu-servidor.uazapi.com).' };
-      },
-    },
-    {
-      key: 'uazapi_instance_token',
-      label: 'Uazapi Instance Token',
-      placeholder: 'token da instancia',
-      inputType: 'password',
-      helpText:
-        'Opcional. Token da instancia Uazapi. Atribuicao via codigo de rastreio (Uazapi nao entrega ctwa_clid).',
-      validate: async (value) => {
-        const v = value.trim();
-        if (!v) return ok; // opcional
-        return v.length >= 8 ? ok : { ok: false, message: 'Token muito curto.' };
-      },
-    },
-    {
       key: 'evolution_server_url',
       label: 'Evolution Server URL',
       placeholder: 'https://sua-evolution.com',

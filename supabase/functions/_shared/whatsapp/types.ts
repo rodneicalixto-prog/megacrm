@@ -9,10 +9,10 @@
 // serem testáveis em Node e reutilizáveis em qualquer runtime.
 // ============================================================================
 
-export type ProviderName = 'zernio' | 'uazapi' | 'evolution';
+export type ProviderName = 'zernio' | 'evolution';
 
 // Contrato único de mensagem inbound, normalizado a partir do payload bruto de
-// cada provedor (Zernio Cloud-API-shape vs Uazapi Baileys-shape).
+// cada provedor (Zernio Cloud-API-shape vs Evolution Baileys-shape).
 export interface NormalizedInbound {
   from: string;          // identidade do remetente (E.164 quando WhatsApp)
   text: string | null;   // corpo textual (null p/ mídia sem legenda)
@@ -38,7 +38,7 @@ export interface Referral {
 export interface SendOptions {
   conversationId?: string;   // Zernio envia 1:1 por conversationId
   mediaUrl?: string | null;
-  mediaType?: string;        // image | video | audio | document (uazapi /send/media)
+  mediaType?: string;        // image | video | audio | document
 }
 
 export interface SendResult {
@@ -90,10 +90,7 @@ export function toIso(value: unknown): string | null {
   return null;
 }
 
-// ---- helpers do shape Baileys (compartilhados por Uazapi e Evolution) -------
-// Os dois provedores não-oficiais falam Baileys, então a decodificação de
-// conteúdo e a conversão de JID são as mesmas. Ficam aqui para não drifitarem
-// em duas cópias.
+// ---- helpers do shape Baileys (rota não-oficial) ---------------------------
 
 // remoteJid: "5511999998888@s.whatsapp.net" (1:1) ou "...@g.us" (grupo).
 export function jidToPhone(jid: string | null): string | null {

@@ -4,7 +4,7 @@ import { ChevronDown, Copy, KeyRound, Loader2, Smartphone } from 'lucide-react';
 import { toast } from 'sonner';
 import { CredentialField } from '@/components/credentials/CredentialField';
 import { InstagramCard } from './sections/InstagramCard';
-import { UazapiCard } from './sections/UazapiCard';
+import { EvolutionCard } from './sections/EvolutionCard';
 import { useAppUser } from '@/app/providers/AppUserProvider';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { setupConfig } from '../../../../setup.config';
@@ -36,7 +36,7 @@ export default function CredentialsPage() {
   const [saving, setSaving] = useState(false);
   const [zernio, setZernio] = useState<ZernioStatus | null>(null);
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [uazapiRefresh, setUazapiRefresh] = useState(0);
+  const [evolutionRefresh, setEvolutionRefresh] = useState(0);
   const [demoMode, setDemoMode] = useState<boolean | null>(null);
 
   // Modo de Demonstração (dados fictícios no dashboard) — flag no singleton
@@ -137,9 +137,9 @@ export default function CredentialsPage() {
 
       // Trocar a Zernio API Key invalida a conta/numero/webhook resolvidos —
       // re-resolve server-side (mesma rota do wizard) e atualiza o status.
-      // Salvar chaves Uazapi atualiza o card de status (webhook URL aparece na hora).
-      if (modifiedKeys.some((k) => k.startsWith('uazapi_'))) {
-        setUazapiRefresh((n) => n + 1);
+      // Salvar chaves Evolution atualiza o card de status (webhook URL na hora).
+      if (modifiedKeys.some((k) => k.startsWith('evolution_'))) {
+        setEvolutionRefresh((n) => n + 1);
       }
 
       if (modifiedKeys.includes('zernio_api_key')) {
@@ -296,7 +296,7 @@ export default function CredentialsPage() {
       ) : null}
 
       {/* Saúde das conexões (movidas da antiga aba Canais) */}
-      <UazapiCard refreshKey={uazapiRefresh} />
+      <EvolutionCard refreshKey={evolutionRefresh} />
       <InstagramCard />
 
       <div className="space-y-4">

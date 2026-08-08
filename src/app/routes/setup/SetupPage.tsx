@@ -8,7 +8,7 @@ import { WhatsAppProviderCards } from '@/components/setup/WhatsAppProviderCards'
 import { setupConfig } from '../../../../setup.config';
 import {
   hasAtLeastOneWhatsAppProvider,
-  hasUazapiProvider,
+  hasEvolutionProvider,
   NO_WHATSAPP_PROVIDER_MESSAGE,
 } from './whatsappProviders';
 import { getSupabaseCredentials } from '@/lib/supabase';
@@ -434,12 +434,12 @@ export default function SetupPage() {
       const saveBody = await saveRes.json();
       if (!saveRes.ok || !saveBody.success) throw new Error(saveBody.message ?? 'Falha ao salvar.');
 
-      // Uazapi-only: sem Zernio não há conta oficial/webhook para resolver.
-      // A conexão do provedor não-oficial é tratada nas fases de inbound.
+      // Evolution-only: sem Zernio não há conta oficial/webhook para resolver.
+      // A conexão da rota não-oficial é tratada nas fases de inbound.
       const hasZernio = !!(creds.zernio_api_key ?? '').trim();
       if (!hasZernio) {
         window.localStorage.removeItem(STORAGE_KEY);
-        toast.success('Credenciais salvas (Uazapi).');
+        toast.success('Credenciais salvas (Evolution).');
         window.location.href = setupConfig.postBootstrapRedirect;
         return;
       }
@@ -481,18 +481,20 @@ export default function SetupPage() {
     }
   };
 
-  // Cadastro automático do webhook na Uazapi, direto do wizard (mesma ação de
-  // Configurações → Credenciais). Como o /api/uazapi-status lê as credenciais
-  // do app_settings via getCredential, primeiro persistimos a URL + token da
-  // instância; só então a Uazapi consegue registrar o webhook.
-  const registerUazapiWebhook = async () => {
+  // Cadastro automático do webhook na Evolution, direto do wizard (mesma ação
+  // de Configurações → Credenciais). Como o /api/evolution-status lê as
+  // credenciais do app_settings via getCredential, primeiro persistimos server
+  // URL + API key + instance; só então a Evolution consegue registrar o webhook.
+  const registerEvolutionWebhook = async () => {
     setRegisteringHook(true);
     try {
-      const uazapiCreds: Record<string, string> = {};
-      const serverUrl = (appCredentials.uazapi_server_url ?? '').trim();
-      const instanceToken = (appCredentials.uazapi_instance_token ?? '').trim();
-      if (serverUrl) uazapiCreds.uazapi_server_url = serverUrl;
-      if (instanceToken) uazapiCreds.uazapi_instance_token = instanceToken;
+      const evolutionCreds: Record<string, string> = {};
+      const serverUrl = (appCredentials.evolution_server_url ?? '').trim();
+      const apiKey = (appCredentials.evolution_api_key ?? '').trim();
+      const instance = (appCredentials.evolution_instance ?? '').trim();
+      if (serverUrl) evolutionCreds.evolution_server_url = serverUrl;
+      if (apiKey) evolutionCreds.evolution_api_key = apiKey;
+      if (instance) evolutionCreds.evolution_instance = instance;
 
       const saveRes = await fetch('/api/credentials', {
         method: 'POST',
@@ -500,22 +502,22 @@ export default function SetupPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${ownerToken ?? ''}`,
         },
-        body: JSON.stringify({ credentials: uazapiCreds }),
+        body: JSON.stringify({ credentials: evolutionCreds }),
       });
       const saveBody = await saveRes.json();
       if (!saveRes.ok || !saveBody.success) {
-        throw new Error(saveBody.message ?? 'Falha ao salvar as credenciais da Uazapi.');
+        throw new Error(saveBody.message ?? 'Falha ao salvar as credenciais da Evolution.');
       }
 
-      const hookRes = await fetch('/api/uazapi-status', {
+      const hookRes = await fetch('/api/evolution-status', {
         method: 'POST',
         headers: { Authorization: `Bearer ${ownerToken ?? ''}` },
       });
       const hookBody = await hookRes.json();
       if (!hookRes.ok || !hookBody.success) {
-        throw new Error(hookBody.message ?? 'A Uazapi recusou o registro do webhook.');
+        throw new Error(hookBody.message ?? 'A Evolution recusou o registro do webhook.');
       }
-      toast.success('Webhook registrado na Uazapi.');
+      toast.success('Webhook registrado na Evolution.');
     } catch (err) {
       toast.error('Não foi possível registrar o webhook automaticamente', {
         description: err instanceof Error ? err.message : 'Erro interno',
@@ -534,30 +536,28 @@ export default function SetupPage() {
     });
   }, []);
 
-  // O step 4 coleta: um provedor de WhatsApp (Zernio OU Uazapi — pelo menos um)
+  // O step 4 coleta: uma rota de WhatsApp (Zernio OU Evolution — pelo menos uma)
   // + OpenAI (embeddings/Whisper). Provider/chave de LLM e App URL ficam em
   // /settings/credentials (o LLM cai no padrão openai usando a OpenAI API Key).
   const fieldByKey = (key: string) =>
     setupConfig.appCredentials.find((f) => f.key === key)!;
   const zernioField = fieldByKey('zernio_api_key');
-  const uazapiUrlField = fieldByKey('uazapi_server_url');
-  const uazapiTokenField = fieldByKey('uazapi_instance_token');
   const evolutionUrlField = fieldByKey('evolution_server_url');
   const evolutionKeyField = fieldByKey('evolution_api_key');
   const evolutionInstanceField = fieldByKey('evolution_instance');
   const openaiField = fieldByKey('openai_api_key');
 
   const whatsappOk = hasAtLeastOneWhatsAppProvider(appCredentials, appValidation);
-  const uazapiOk = hasUazapiProvider(appCredentials, appValidation);
+  const evolutionOk = hasEvolutionProvider(appCredentials, appValidation);
   const openaiOk = appValidation['openai_api_key'] === true;
   const allAppValid = whatsappOk && openaiOk;
 
-  // URL do webhook que o usuário precisa cadastrar na Uazapi (só aparece quando
-  // os campos da Uazapi estão preenchidos e válidos). O Supabase URL vem do
+  // URL do webhook que o usuário precisa cadastrar na Evolution (só aparece
+  // quando os campos da Evolution estão válidos). O Supabase URL vem do
   // step 2 (localStorage) ou das envs do build pós-redeploy.
   const supabaseBase = (core.supabase_url || getSupabaseCredentials()?.url || '').replace(/\/$/, '');
-  const uazapiWebhookUrl = supabaseBase
-    ? `${supabaseBase}/functions/v1/whatsapp-inbound?provider=uazapi`
+  const evolutionWebhookUrl = supabaseBase
+    ? `${supabaseBase}/functions/v1/whatsapp-inbound?provider=evolution`
     : '';
 
   return (
@@ -772,13 +772,11 @@ export default function SetupPage() {
                 <>
                   <p className="mb-4 text-[13px] leading-5 text-[#94A3B8]">
                     Configure <strong className="text-[#F8FAFC]">pelo menos um</strong> provedor de
-                    WhatsApp. Pode preencher os dois — o oficial (Zernio) e o não-oficial (Uazapi)
+                    WhatsApp. Pode preencher as duas — a oficial (Zernio) e a não-oficial (Evolution)
                     coexistem.
                   </p>
                   <WhatsAppProviderCards
                     zernioField={zernioField}
-                    uazapiUrlField={uazapiUrlField}
-                    uazapiTokenField={uazapiTokenField}
                     evolutionUrlField={evolutionUrlField}
                     evolutionKeyField={evolutionKeyField}
                     evolutionInstanceField={evolutionInstanceField}
@@ -800,27 +798,27 @@ export default function SetupPage() {
                       {NO_WHATSAPP_PROVIDER_MESSAGE}
                     </p>
                   ) : null}
-                  {uazapiOk && uazapiWebhookUrl ? (
+                  {evolutionOk && evolutionWebhookUrl ? (
                     <div className="mt-4 rounded-xl border border-[rgba(245,158,11,0.3)] bg-[rgba(245,158,11,0.06)] p-5">
                       <div className="text-sm font-semibold text-[#F8FAFC]">
-                        Cadastre este webhook na Uazapi
+                        Cadastre este webhook na Evolution
                       </div>
                       <p className="mt-1 text-[13px] leading-5 text-[#94A3B8]">
                         Para as mensagens chegarem ao CRM, registre esta URL como webhook da sua
-                        instância Uazapi. Clique em <strong className="text-[#F8FAFC]">Cadastrar
+                        instância Evolution. Clique em <strong className="text-[#F8FAFC]">Cadastrar
                         automaticamente</strong> ou registre manualmente no painel da instância →
                         Webhook, evento “messages”.
                       </p>
                       <div className="mt-3 flex items-start gap-2">
                         <code className="min-w-0 flex-1 break-all rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-xs text-[#F8FAFC]">
-                          {uazapiWebhookUrl}
+                          {evolutionWebhookUrl}
                         </code>
                         <button
                           type="button"
                           aria-label="Copiar URL do webhook"
                           onClick={() => {
                             void navigator.clipboard
-                              .writeText(uazapiWebhookUrl)
+                              .writeText(evolutionWebhookUrl)
                               .then(() => toast.success('URL do webhook copiada.'))
                               .catch(() => toast.error('Não foi possível copiar — copie manualmente.'));
                           }}
@@ -833,7 +831,7 @@ export default function SetupPage() {
                         <button
                           type="button"
                           disabled={!ownerToken || registeringHook}
-                          onClick={() => void registerUazapiWebhook()}
+                          onClick={() => void registerEvolutionWebhook()}
                           className="rounded-lg bg-gradient-to-br from-[#1E3A8A] to-[#3B82F6] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
                         >
                           {registeringHook ? 'Registrando…' : 'Cadastrar automaticamente'}

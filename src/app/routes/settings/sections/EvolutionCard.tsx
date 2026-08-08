@@ -3,31 +3,31 @@ import { Copy, Loader2, Smartphone } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/app/providers/AuthProvider';
 
-type UazapiStatus = {
+type EvolutionStatus = {
   configured: boolean;
   connected?: boolean;
-  logged_in?: boolean;
+  state?: string | null; // open | connecting | close
   instance_name?: string | null;
   webhook_url?: string | null;
   error?: string;
 };
 
-// Card de saúde da conexão Uazapi (API não-oficial). O status vem de
-// GET /instance/status via /api/uazapi-status (token nunca no browser).
-// Inclui a URL do webhook a cadastrar na Uazapi + registro automático.
-// `refreshKey` força re-fetch quando as credenciais Uazapi mudam abaixo.
-export function UazapiCard({ refreshKey = 0 }: { refreshKey?: number }) {
+// Card de saúde da conexão Evolution (API não-oficial). O status vem de
+// GET /instance/connectionState/{instance} via /api/evolution-status (a API key
+// nunca vai ao browser). Inclui a URL do webhook a cadastrar na Evolution +
+// registro automático. `refreshKey` força re-fetch quando as credenciais mudam.
+export function EvolutionCard({ refreshKey = 0 }: { refreshKey?: number }) {
   const { session } = useAuth();
-  const [status, setStatus] = useState<UazapiStatus | null>(null);
+  const [status, setStatus] = useState<EvolutionStatus | null>(null);
   const [registering, setRegistering] = useState(false);
 
   const load = useCallback(async () => {
     if (!session) return;
     try {
-      const res = await fetch('/api/uazapi-status', {
+      const res = await fetch('/api/evolution-status', {
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
-      const body = (await res.json()) as UazapiStatus & { success?: boolean };
+      const body = (await res.json()) as EvolutionStatus & { success?: boolean };
       if (res.ok) setStatus(body);
     } catch {
       // status é informativo
@@ -41,13 +41,13 @@ export function UazapiCard({ refreshKey = 0 }: { refreshKey?: number }) {
   const registerWebhook = async () => {
     setRegistering(true);
     try {
-      const res = await fetch('/api/uazapi-status', {
+      const res = await fetch('/api/evolution-status', {
         method: 'POST',
         headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
       });
       const body = await res.json();
       if (!res.ok || !body.success) throw new Error(body.message ?? 'Falha ao registrar.');
-      toast.success('Webhook registrado na Uazapi.');
+      toast.success('Webhook registrado na Evolution.');
     } catch (err) {
       toast.error('Falha ao registrar o webhook', {
         description: err instanceof Error ? err.message : 'Erro interno',
@@ -76,7 +76,7 @@ export function UazapiCard({ refreshKey = 0 }: { refreshKey?: number }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="text-[11px] font-medium uppercase tracking-[0.1em] text-[#94A3B8]">
-              WhatsApp via Uazapi
+              WhatsApp via Evolution
             </span>
             {status === null ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin text-[var(--color-text-secondary)]" />
@@ -109,7 +109,7 @@ export function UazapiCard({ refreshKey = 0 }: { refreshKey?: number }) {
               {status.webhook_url ? (
                 <div className="mt-3 space-y-2">
                   <div className="text-[11px] uppercase tracking-wide text-[var(--color-text-secondary)]">
-                    Webhook para receber mensagens (cadastre na Uazapi)
+                    Webhook para receber mensagens (cadastre na Evolution)
                   </div>
                   <div className="flex items-start gap-2">
                     <code className="min-w-0 flex-1 break-all rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-xs text-[var(--color-text-primary)]">
@@ -135,7 +135,7 @@ export function UazapiCard({ refreshKey = 0 }: { refreshKey?: number }) {
             </>
           ) : status !== null ? (
             <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-              Preencha a Uazapi Server URL e o Instance Token nos campos abaixo para ativar.
+              Preencha a Evolution Server URL e o Instance Token nos campos abaixo para ativar.
             </p>
           ) : null}
         </div>

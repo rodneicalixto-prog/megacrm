@@ -11,7 +11,7 @@
 //      hierarquia CTWA > código de rastreio > whatsapp_direto.
 //
 // Deploy com --no-verify-jwt: provedores chamam anonimamente; o HMAC (Zernio) e
-// a resolução de credenciais são os gates. Uazapi/Baileys não assinam (ASSUMIDO).
+// a resolução de credenciais são os gates. A Evolution (Baileys) não assina.
 // ============================================================================
 
 import { getAdminClient } from '../_shared/supabase-admin.ts';
@@ -86,8 +86,6 @@ Deno.serve(async (req) => {
 
   const creds = {
     zernio_api_key: await getCredential('zernio_api_key'),
-    uazapi_server_url: await getCredential('uazapi_server_url'),
-    uazapi_instance_token: await getCredential('uazapi_instance_token'),
     evolution_server_url: await getCredential('evolution_server_url'),
     evolution_api_key: await getCredential('evolution_api_key'),
     evolution_instance: await getCredential('evolution_instance'),
@@ -136,10 +134,10 @@ Deno.serve(async (req) => {
     }
   }
 
-  // Inbox: mensagens dos provedores diretos (Uazapi, Evolution) viram conversa
-  // — o channel guarda o nome do provider, para que a resposta saia pelo mesmo
-  // caminho. O Zernio NÃO passa por aqui: o zernio-webhook já cuida do inbox
-  // dele; duplicar criaria mensagens em dobro.
+  // Inbox: mensagens da Evolution viram conversa — o channel guarda o nome do
+  // provider, para que a resposta saia pelo mesmo caminho. O Zernio NÃO passa
+  // por aqui: o zernio-webhook já cuida do inbox dele; duplicar criaria
+  // mensagens em dobro.
   if (provider.name !== 'zernio') {
     let conversationId: string | null = null;
     const { data: existingConv } = await admin

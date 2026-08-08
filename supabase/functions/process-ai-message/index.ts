@@ -24,7 +24,7 @@ import { callLLM, type LLMProvider } from '../_shared/llm.ts';
 import { jsonResponse, preflight } from '../_shared/cors.ts';
 import { requireServiceRole } from '../_shared/auth.ts';
 import { createInboxConversation, loadZernioContext, sendInboxMessage } from '../_shared/zernio.ts';
-import { isDirectProviderChannel, sendViaProvider } from '../_shared/whatsapp/outbound.ts';
+import { isEvolutionChannel, sendEvolutionMessage } from '../_shared/whatsapp/outbound.ts';
 
 const EMBED_MODEL = 'text-embedding-3-small';
 const TOP_K = 5;
@@ -555,9 +555,9 @@ Deno.serve(async (req) => {
     )
     .eq('id', conversation.id);
 
-  // 9a. Conversas do canal 'uazapi' respondem pelo provedor Uazapi (coexiste
+  // 9a. Conversas do canal 'evolution' respondem pela Evolution API (coexiste
   // com o WABA/Zernio — cada conversa sai por onde a mensagem chegou).
-  if (isDirectProviderChannel(conversation.channel)) {
+  if (isEvolutionChannel(conversation.channel)) {
     const { data: contactRow } = await admin
       .from('contacts').select('phone').eq('id', conversation.contact_id).maybeSingle();
     const phone = (contactRow as { phone?: string } | null)?.phone ?? null;
@@ -565,7 +565,7 @@ Deno.serve(async (req) => {
       return jsonResponse({ ok: true, sent: false, error: 'Contato sem telefone.' });
     }
     let uazTextId: string | null = null;
-    let uazError: string | null = null;
+    let evoError: string | null = null;
     if (textBody) {
       const { data: ins } = await admin
         .from('messages')
@@ -573,11 +573,11 @@ Deno.serve(async (req) => {
         .select('id').single();
       const outboundId = (ins as { id: string } | null)?.id ?? null;
       try {
-        const sent = await sendViaProvider(conversation.channel, phone, textBody);
+        const sent = await sendEvolutionMessage(phone, textBody);
         uazTextId = sent.messageId;
-        if (outboundId) await admin.from('messages').update({ meta_status: 'sent', zernio_message_id: sent.messageId ? `uazapi:${sent.messageId}` : null }).eq('id', outboundId);
+        if (outboundId) await admin.from('messages').update({ meta_status: 'sent', zernio_message_id: sent.messageId ? `evolution:${sent.messageId}` : null }).eq('id', outboundId);
       } catch (err) {
-        uazError = err instanceof Error ? err.message : 'Erro ao enviar via Uazapi.';
+        evoError = err instanceof Error ? err.message : 'Erro ao enviar via Evolution.';
         if (outboundId) await admin.from('messages').update({ meta_status: 'failed' }).eq('id', outboundId);
       }
     }
@@ -589,8 +589,8 @@ Deno.serve(async (req) => {
         .select('id').single();
       const mId = (mIns as { id: string } | null)?.id ?? null;
       try {
-        const sent = await sendViaProvider(conversation.channel, phone, '', m.media_url, m.content_type);
-        if (mId) await admin.from('messages').update({ meta_status: 'sent', zernio_message_id: sent.messageId ? `uazapi:${sent.messageId}` : null }).eq('id', mId);
+        const sent = await sendEvolutionMessage(phone, '', m.media_url, m.content_type);
+        if (mId) await admin.from('messages').update({ meta_status: 'sent', zernio_message_id: sent.messageId ? `evolution:${sent.messageId}` : null }).eq('id', mId);
         uazMediaSent++;
       } catch (_err) {
         if (mId) await admin.from('messages').update({ meta_status: 'failed' }).eq('id', mId);
@@ -602,7 +602,7 @@ Deno.serve(async (req) => {
       sent_via: conversation.channel,
       text_message_id: uazTextId,
       media_sent: uazMediaSent,
-      ...(uazError ? { uazapi_error: uazError } : {}),
+      ...(evoError ? { evolution_error: evoError } : {}),
     });
   }
 

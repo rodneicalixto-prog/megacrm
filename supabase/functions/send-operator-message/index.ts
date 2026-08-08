@@ -16,7 +16,7 @@ import { requireCaller, AuthError } from '../_shared/auth.ts';
 import { getAdminClient } from '../_shared/supabase-admin.ts';
 import { jsonResponse, preflight } from '../_shared/cors.ts';
 import { createInboxConversation, loadZernioContext, sendInboxMessage } from '../_shared/zernio.ts';
-import { isDirectProviderChannel, sendViaProvider } from '../_shared/whatsapp/outbound.ts';
+import { isEvolutionChannel, sendEvolutionMessage } from '../_shared/whatsapp/outbound.ts';
 
 interface Payload {
   conversation_id?: string;
@@ -106,18 +106,18 @@ Deno.serve(async (req) => {
 
     const convRow = conv as { contact_id: string; channel: string | null; zernio_conversation_id: string | null };
 
-    // Conversas do canal 'uazapi' respondem pelo provedor Uazapi (coexiste com
+    // Conversas do canal 'evolution' respondem pela Evolution API (coexiste com
     // o WABA/Zernio — cada conversa sai por onde a mensagem chegou).
-    if (isDirectProviderChannel(convRow.channel)) {
+    if (isEvolutionChannel(convRow.channel)) {
       try {
         const { data: contactRow } = await admin
           .from('contacts').select('phone').eq('id', convRow.contact_id).maybeSingle();
         const phone = (contactRow as { phone?: string } | null)?.phone ?? null;
         if (!phone) throw new Error('Contato sem telefone.');
-        const sent = await sendViaProvider(convRow.channel, phone, content);
+        const sent = await sendEvolutionMessage(phone, content);
         await admin
           .from('messages')
-          .update({ meta_status: 'sent', zernio_message_id: sent.messageId ? `uazapi:${sent.messageId}` : null })
+          .update({ meta_status: 'sent', zernio_message_id: sent.messageId ? `evolution:${sent.messageId}` : null })
           .eq('id', message.id);
         return jsonResponse({ ok: true, message_id: message.id, sent_via: convRow.channel });
       } catch (err) {
@@ -126,7 +126,7 @@ Deno.serve(async (req) => {
           ok: true,
           message_id: message.id,
           sent_via: convRow.channel,
-          uazapi_error: err instanceof Error ? err.message : 'Erro ao enviar via Uazapi.',
+          evolution_error: err instanceof Error ? err.message : 'Erro ao enviar via Evolution.',
         });
       }
     }

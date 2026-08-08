@@ -1,6 +1,6 @@
-// Check do parser inbound da Evolution API. parseInboundWebhook é puro (sem
-// I/O, sem API do Deno) por contrato do types.ts, então roda no node:test da
-// stdlib — sem runner extra.
+// Check do parser inbound da Evolution API — a rota não-oficial do projeto.
+// parseInboundWebhook é puro (sem I/O, sem API do Deno) por contrato do
+// types.ts, então roda no node:test da stdlib, sem runner extra.
 //
 //   npm run test:unit
 

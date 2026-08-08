@@ -179,7 +179,7 @@ export interface Deal {
   // Valores dos campos personalizados por deal (custom_field_id → valor), usados
   // pelo filtro do funil. PostgREST: custom_field_values(custom_field_id, value).
   field_values?: Record<string, string>;
-  // Canal de mensageria do contato (whatsapp/instagram/uazapi), derivado da
+  // Canal de mensageria do contato (whatsapp/instagram/evolution), derivado da
   // conversa. Usado pelo filtro de Canal do funil.
   channel?: string | null;
 }
