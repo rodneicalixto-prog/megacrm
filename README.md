@@ -13,8 +13,35 @@ WABA ID, tokens ou App Secret da Meta.
 
 - Frontend: React 18, Vite, TypeScript, Tailwind, shadcn/ui.
 - Backend: Supabase Postgres, Auth, Realtime, Edge Functions, Storage, pgvector, pg_cron e pg_net.
-- WhatsApp: Zernio API (`https://zernio.com/api/v1`).
+- WhatsApp: Zernio (API oficial), Uazapi e Evolution API v2 (nao-oficiais).
 - Deploy: Vercel.
+
+## Provedores de WhatsApp
+
+Tres provedores coexistem e sao individualmente opcionais — o wizard so exige
+que **pelo menos um** esteja configurado.
+
+| Provedor | Credenciais | Atribuicao CTWA |
+|---|---|---|
+| Zernio (oficial, via Meta Cloud API) | `zernio_api_key` | sim (`ctwa_clid`) |
+| Uazapi (nao-oficial) | `uazapi_server_url`, `uazapi_instance_token` | codigo de rastreio |
+| Evolution API v2 (nao-oficial, self-hosted) | `evolution_server_url`, `evolution_api_key`, `evolution_instance` | codigo de rastreio |
+
+Cada conversa responde pelo provedor por onde a mensagem chegou: o `channel` da
+conversa guarda o nome do provider.
+
+### Webhook da Evolution API
+
+Aponte o webhook da sua instancia para a Edge Function `whatsapp-inbound`,
+marcando o provedor na query string:
+
+```
+https://<PROJECT_REF>.supabase.co/functions/v1/whatsapp-inbound?provider=evolution
+```
+
+Evento necessario: `MESSAGES_UPSERT`. O `?provider=` importa quando Uazapi e
+Evolution estao configurados juntos — os dois falam Baileys e um payload parseia
+no outro, entao sem o hint a deteccao fica ambigua.
 
 ## Setup Para Alunos
 

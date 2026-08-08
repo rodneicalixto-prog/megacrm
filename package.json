@@ -12,6 +12,7 @@
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.api.json",
     "test:e2e": "playwright test",
+    "test:unit": "node --test \"tests/unit/*.test.ts\"",
     "validate:sql": "node validate-sql.mjs",
     "db:push": "node scripts/push-migrations.mjs",
     "functions:deploy": "node scripts/deploy-functions.mjs"

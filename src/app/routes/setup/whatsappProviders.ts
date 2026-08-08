@@ -1,12 +1,14 @@
-// Regras de validação dos provedores de WhatsApp no Step 4 do wizard (Fase 2).
-// Os dois provedores coexistem e são individualmente OPCIONAIS, mas o step só
+// Regras de validação dos provedores de WhatsApp no Step 4 do wizard.
+// Os provedores coexistem e são individualmente OPCIONAIS, mas o step só
 // avança se PELO MENOS UM estiver completo.
 //   - Zernio (API Oficial): basta a zernio_api_key.
 //   - Uazapi (API Não Oficial): exige server URL + instance token (o par).
+//   - Evolution (API Não Oficial): exige server URL + api key + instance.
 
 export const WHATSAPP_PROVIDER_KEYS = {
   zernio: ['zernio_api_key'] as const,
   uazapi: ['uazapi_server_url', 'uazapi_instance_token'] as const,
+  evolution: ['evolution_server_url', 'evolution_api_key', 'evolution_instance'] as const,
 };
 
 export const NO_WHATSAPP_PROVIDER_MESSAGE =
@@ -38,11 +40,20 @@ export function hasUazapiProvider(
   return providerComplete(WHATSAPP_PROVIDER_KEYS.uazapi, values, validation);
 }
 
+export function hasEvolutionProvider(
+  values: Record<string, string | undefined>,
+  validation: Record<string, boolean | undefined>,
+): boolean {
+  return providerComplete(WHATSAPP_PROVIDER_KEYS.evolution, values, validation);
+}
+
 export function hasAtLeastOneWhatsAppProvider(
   values: Record<string, string | undefined>,
   validation: Record<string, boolean | undefined>,
 ): boolean {
   return (
-    hasZernioProvider(values, validation) || hasUazapiProvider(values, validation)
+    hasZernioProvider(values, validation) ||
+    hasUazapiProvider(values, validation) ||
+    hasEvolutionProvider(values, validation)
   );
 }

@@ -9,7 +9,7 @@
 // serem testáveis em Node e reutilizáveis em qualquer runtime.
 // ============================================================================
 
-export type ProviderName = 'zernio' | 'uazapi';
+export type ProviderName = 'zernio' | 'uazapi' | 'evolution';
 
 // Contrato único de mensagem inbound, normalizado a partir do payload bruto de
 // cada provedor (Zernio Cloud-API-shape vs Uazapi Baileys-shape).
@@ -88,4 +88,50 @@ export function toIso(value: unknown): string | null {
     return isNaN(d.getTime()) ? null : d.toISOString();
   }
   return null;
+}
+
+// ---- helpers do shape Baileys (compartilhados por Uazapi e Evolution) -------
+// Os dois provedores não-oficiais falam Baileys, então a decodificação de
+// conteúdo e a conversão de JID são as mesmas. Ficam aqui para não drifitarem
+// em duas cópias.
+
+// remoteJid: "5511999998888@s.whatsapp.net" (1:1) ou "...@g.us" (grupo).
+export function jidToPhone(jid: string | null): string | null {
+  if (!jid) return null;
+  const bare = jid.split(/[:@]/)[0];
+  if (!/^\d{6,}$/.test(bare)) return null;
+  return normalizePhone(bare);
+}
+
+export function decodeBaileysContent(msg: Record<string, unknown>): {
+  contentType: NormalizedInbound['contentType'];
+  content: string | null;
+  mediaUrl: string | null;
+} {
+  if (typeof msg.conversation === 'string') {
+    return { contentType: 'text', content: msg.conversation, mediaUrl: null };
+  }
+  const ext = asObject(msg.extendedTextMessage);
+  if (typeof ext.text === 'string') {
+    return { contentType: 'text', content: ext.text, mediaUrl: null };
+  }
+  // Evolution com S3/MinIO anexa mediaUrl irmão dos *Message; preferimos ele.
+  const stored = str(msg, ['mediaUrl']);
+  const image = asObject(msg.imageMessage);
+  if (Object.keys(image).length) {
+    return { contentType: 'image', content: str(image, ['caption']), mediaUrl: stored ?? str(image, ['url', 'directPath']) };
+  }
+  const video = asObject(msg.videoMessage);
+  if (Object.keys(video).length) {
+    return { contentType: 'video', content: str(video, ['caption']), mediaUrl: stored ?? str(video, ['url', 'directPath']) };
+  }
+  const audio = asObject(msg.audioMessage);
+  if (Object.keys(audio).length) {
+    return { contentType: 'audio', content: null, mediaUrl: stored ?? str(audio, ['url', 'directPath']) };
+  }
+  const doc = asObject(msg.documentMessage);
+  if (Object.keys(doc).length) {
+    return { contentType: 'document', content: str(doc, ['caption', 'fileName']), mediaUrl: stored ?? str(doc, ['url', 'directPath']) };
+  }
+  return { contentType: 'text', content: null, mediaUrl: null };
 }

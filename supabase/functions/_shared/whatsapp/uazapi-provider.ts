@@ -12,7 +12,8 @@
 
 import {
   asObject,
-  normalizePhone,
+  decodeBaileysContent,
+  jidToPhone,
   str,
   toIso,
   type NormalizedInbound,
@@ -21,45 +22,6 @@ import {
   type SendResult,
   type WhatsAppProvider,
 } from './types.ts';
-
-// remoteJid: "5511999998888@s.whatsapp.net" (1:1) ou "...@g.us" (grupo).
-function jidToPhone(jid: string | null): string | null {
-  if (!jid) return null;
-  const bare = jid.split(/[:@]/)[0];
-  if (!/^\d{6,}$/.test(bare)) return null;
-  return normalizePhone(bare);
-}
-
-function decodeUazapiContent(msg: Record<string, unknown>): {
-  contentType: NormalizedInbound['contentType'];
-  content: string | null;
-  mediaUrl: string | null;
-} {
-  if (typeof msg.conversation === 'string') {
-    return { contentType: 'text', content: msg.conversation, mediaUrl: null };
-  }
-  const ext = asObject(msg.extendedTextMessage);
-  if (typeof ext.text === 'string') {
-    return { contentType: 'text', content: ext.text, mediaUrl: null };
-  }
-  const image = asObject(msg.imageMessage);
-  if (Object.keys(image).length) {
-    return { contentType: 'image', content: str(image, ['caption']), mediaUrl: str(image, ['url', 'directPath']) };
-  }
-  const video = asObject(msg.videoMessage);
-  if (Object.keys(video).length) {
-    return { contentType: 'video', content: str(video, ['caption']), mediaUrl: str(video, ['url', 'directPath']) };
-  }
-  const audio = asObject(msg.audioMessage);
-  if (Object.keys(audio).length) {
-    return { contentType: 'audio', content: null, mediaUrl: str(audio, ['url', 'directPath']) };
-  }
-  const doc = asObject(msg.documentMessage);
-  if (Object.keys(doc).length) {
-    return { contentType: 'document', content: str(doc, ['caption', 'fileName']), mediaUrl: str(doc, ['url', 'directPath']) };
-  }
-  return { contentType: 'text', content: null, mediaUrl: null };
-}
 
 export class UazapiProvider implements WhatsAppProvider {
   readonly name = 'uazapi' as const;
@@ -143,7 +105,7 @@ export class UazapiProvider implements WhatsAppProvider {
     const from = jidToPhone(isGroup ? participant : remoteJid) ?? jidToPhone(participant);
     if (!from) return null;
 
-    const { contentType, content, mediaUrl } = decodeUazapiContent(asObject(container.message));
+    const { contentType, content, mediaUrl } = decodeBaileysContent(asObject(container.message));
 
     return {
       from,

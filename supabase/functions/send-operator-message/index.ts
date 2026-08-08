@@ -16,7 +16,7 @@ import { requireCaller, AuthError } from '../_shared/auth.ts';
 import { getAdminClient } from '../_shared/supabase-admin.ts';
 import { jsonResponse, preflight } from '../_shared/cors.ts';
 import { createInboxConversation, loadZernioContext, sendInboxMessage } from '../_shared/zernio.ts';
-import { sendUazapiMessage } from '../_shared/whatsapp/outbound.ts';
+import { isDirectProviderChannel, sendViaProvider } from '../_shared/whatsapp/outbound.ts';
 
 interface Payload {
   conversation_id?: string;
@@ -108,24 +108,24 @@ Deno.serve(async (req) => {
 
     // Conversas do canal 'uazapi' respondem pelo provedor Uazapi (coexiste com
     // o WABA/Zernio — cada conversa sai por onde a mensagem chegou).
-    if (convRow.channel === 'uazapi') {
+    if (isDirectProviderChannel(convRow.channel)) {
       try {
         const { data: contactRow } = await admin
           .from('contacts').select('phone').eq('id', convRow.contact_id).maybeSingle();
         const phone = (contactRow as { phone?: string } | null)?.phone ?? null;
         if (!phone) throw new Error('Contato sem telefone.');
-        const sent = await sendUazapiMessage(phone, content);
+        const sent = await sendViaProvider(convRow.channel, phone, content);
         await admin
           .from('messages')
           .update({ meta_status: 'sent', zernio_message_id: sent.messageId ? `uazapi:${sent.messageId}` : null })
           .eq('id', message.id);
-        return jsonResponse({ ok: true, message_id: message.id, sent_via: 'uazapi' });
+        return jsonResponse({ ok: true, message_id: message.id, sent_via: convRow.channel });
       } catch (err) {
         await admin.from('messages').update({ meta_status: 'failed' }).eq('id', message.id);
         return jsonResponse({
           ok: true,
           message_id: message.id,
-          sent_via: 'uazapi',
+          sent_via: convRow.channel,
           uazapi_error: err instanceof Error ? err.message : 'Erro ao enviar via Uazapi.',
         });
       }

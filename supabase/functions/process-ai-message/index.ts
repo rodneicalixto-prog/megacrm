@@ -24,7 +24,7 @@ import { callLLM, type LLMProvider } from '../_shared/llm.ts';
 import { jsonResponse, preflight } from '../_shared/cors.ts';
 import { requireServiceRole } from '../_shared/auth.ts';
 import { createInboxConversation, loadZernioContext, sendInboxMessage } from '../_shared/zernio.ts';
-import { sendUazapiMessage } from '../_shared/whatsapp/outbound.ts';
+import { isDirectProviderChannel, sendViaProvider } from '../_shared/whatsapp/outbound.ts';
 
 const EMBED_MODEL = 'text-embedding-3-small';
 const TOP_K = 5;
@@ -557,7 +557,7 @@ Deno.serve(async (req) => {
 
   // 9a. Conversas do canal 'uazapi' respondem pelo provedor Uazapi (coexiste
   // com o WABA/Zernio — cada conversa sai por onde a mensagem chegou).
-  if (conversation.channel === 'uazapi') {
+  if (isDirectProviderChannel(conversation.channel)) {
     const { data: contactRow } = await admin
       .from('contacts').select('phone').eq('id', conversation.contact_id).maybeSingle();
     const phone = (contactRow as { phone?: string } | null)?.phone ?? null;
@@ -573,7 +573,7 @@ Deno.serve(async (req) => {
         .select('id').single();
       const outboundId = (ins as { id: string } | null)?.id ?? null;
       try {
-        const sent = await sendUazapiMessage(phone, textBody);
+        const sent = await sendViaProvider(conversation.channel, phone, textBody);
         uazTextId = sent.messageId;
         if (outboundId) await admin.from('messages').update({ meta_status: 'sent', zernio_message_id: sent.messageId ? `uazapi:${sent.messageId}` : null }).eq('id', outboundId);
       } catch (err) {
@@ -589,7 +589,7 @@ Deno.serve(async (req) => {
         .select('id').single();
       const mId = (mIns as { id: string } | null)?.id ?? null;
       try {
-        const sent = await sendUazapiMessage(phone, '', m.media_url, m.content_type);
+        const sent = await sendViaProvider(conversation.channel, phone, '', m.media_url, m.content_type);
         if (mId) await admin.from('messages').update({ meta_status: 'sent', zernio_message_id: sent.messageId ? `uazapi:${sent.messageId}` : null }).eq('id', mId);
         uazMediaSent++;
       } catch (_err) {
@@ -599,7 +599,7 @@ Deno.serve(async (req) => {
     await admin.from('conversations').update({ last_message_at: new Date().toISOString() }).eq('id', conversation.id);
     return jsonResponse({
       ok: true,
-      sent_via: 'uazapi',
+      sent_via: conversation.channel,
       text_message_id: uazTextId,
       media_sent: uazMediaSent,
       ...(uazError ? { uazapi_error: uazError } : {}),

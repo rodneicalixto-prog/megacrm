@@ -88,6 +88,9 @@ Deno.serve(async (req) => {
     zernio_api_key: await getCredential('zernio_api_key'),
     uazapi_server_url: await getCredential('uazapi_server_url'),
     uazapi_instance_token: await getCredential('uazapi_instance_token'),
+    evolution_server_url: await getCredential('evolution_server_url'),
+    evolution_api_key: await getCredential('evolution_api_key'),
+    evolution_instance: await getCredential('evolution_instance'),
   };
   const provider = resolveInboundProvider(hint, creds);
   if (!provider) {
@@ -133,10 +136,11 @@ Deno.serve(async (req) => {
     }
   }
 
-  // Inbox: mensagens Uazapi viram conversa (channel 'uazapi') + mensagem, para
-  // aparecerem no inbox unificado. O caminho Zernio NÃO passa por aqui — o
-  // zernio-webhook já cuida do inbox dele; duplicar criaria mensagens em dobro.
-  if (provider.name === 'uazapi') {
+  // Inbox: mensagens dos provedores diretos (Uazapi, Evolution) viram conversa
+  // — o channel guarda o nome do provider, para que a resposta saia pelo mesmo
+  // caminho. O Zernio NÃO passa por aqui: o zernio-webhook já cuida do inbox
+  // dele; duplicar criaria mensagens em dobro.
+  if (provider.name !== 'zernio') {
     let conversationId: string | null = null;
     const { data: existingConv } = await admin
       .from('conversations').select('id').eq('contact_id', contactId).maybeSingle();
@@ -147,7 +151,7 @@ Deno.serve(async (req) => {
         .insert({
           contact_id: contactId,
           status: 'ai_active',
-          channel: 'uazapi',
+          channel: provider.name,
           last_message_at: new Date().toISOString(),
         })
         .select('id').single();
@@ -161,7 +165,7 @@ Deno.serve(async (req) => {
         content_type: inbound.contentType ?? 'text',
         content: inbound.text,
         media_url: inbound.mediaUrl ?? null,
-        zernio_message_id: `uazapi:${inbound.messageId}`,
+        zernio_message_id: `${provider.name}:${inbound.messageId}`,
         is_private_note: false,
       });
       if (!msgErr) {
@@ -171,7 +175,7 @@ Deno.serve(async (req) => {
           .eq('id', conversationId);
         await admin.rpc('increment_unread_count', { p_conversation_id: conversationId });
       } else if ((msgErr as { code?: string }).code !== '23505') {
-        console.log(JSON.stringify({ event: 'uazapi_message_insert_failed', message: msgErr.message }));
+        console.log(JSON.stringify({ event: 'inbound_message_insert_failed', provider: provider.name, message: msgErr.message }));
       }
     }
   }

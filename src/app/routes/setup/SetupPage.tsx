@@ -542,6 +542,9 @@ export default function SetupPage() {
   const zernioField = fieldByKey('zernio_api_key');
   const uazapiUrlField = fieldByKey('uazapi_server_url');
   const uazapiTokenField = fieldByKey('uazapi_instance_token');
+  const evolutionUrlField = fieldByKey('evolution_server_url');
+  const evolutionKeyField = fieldByKey('evolution_api_key');
+  const evolutionInstanceField = fieldByKey('evolution_instance');
   const openaiField = fieldByKey('openai_api_key');
 
   const whatsappOk = hasAtLeastOneWhatsAppProvider(appCredentials, appValidation);
@@ -776,6 +779,9 @@ export default function SetupPage() {
                     zernioField={zernioField}
                     uazapiUrlField={uazapiUrlField}
                     uazapiTokenField={uazapiTokenField}
+                    evolutionUrlField={evolutionUrlField}
+                    evolutionKeyField={evolutionKeyField}
+                    evolutionInstanceField={evolutionInstanceField}
                     onCredentialChange={onCredentialChange}
                     onValidationChange={(key, ok) => setAppValidation((prev) => ({ ...prev, [key]: ok }))}
                   />

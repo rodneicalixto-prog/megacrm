@@ -128,6 +128,50 @@ export const setupConfig: SetupConfig = {
       },
     },
     {
+      key: 'evolution_server_url',
+      label: 'Evolution Server URL',
+      placeholder: 'https://sua-evolution.com',
+      inputType: 'text',
+      docsUrl: 'https://doc.evolution-api.com',
+      helpText:
+        'Opcional. URL do seu servidor Evolution API v2 (API nao-oficial, self-hosted).',
+      validate: async (value) => {
+        const v = value.trim();
+        if (!v) return ok; // opcional
+        return /^https:\/\/[^\s]+$/i.test(v)
+          ? ok
+          : { ok: false, message: 'Informe uma URL HTTPS valida (ex.: https://sua-evolution.com).' };
+      },
+    },
+    {
+      key: 'evolution_api_key',
+      label: 'Evolution API Key',
+      placeholder: 'sua apikey global ou da instancia',
+      inputType: 'password',
+      helpText:
+        'Opcional. Valor enviado no header apikey. Atribuicao via codigo de rastreio (Evolution nao entrega ctwa_clid).',
+      validate: async (value) => {
+        const v = value.trim();
+        if (!v) return ok; // opcional
+        return v.length >= 8 ? ok : { ok: false, message: 'API key muito curta.' };
+      },
+    },
+    {
+      key: 'evolution_instance',
+      label: 'Evolution Instance',
+      placeholder: 'nome-da-instancia',
+      inputType: 'text',
+      helpText:
+        'Opcional. Nome da instancia criada na Evolution (entra na URL dos endpoints de envio).',
+      validate: async (value) => {
+        const v = value.trim();
+        if (!v) return ok; // opcional
+        return /^[\w.-]{1,64}$/.test(v)
+          ? ok
+          : { ok: false, message: 'Use apenas letras, numeros, ponto, hifen ou underline.' };
+      },
+    },
+    {
       key: 'openai_api_key',
       label: 'OpenAI API Key',
       placeholder: 'sk-...',
