@@ -189,17 +189,30 @@ async function validateCoreField(
   }
 }
 
-export default function SetupPage() {
-  const [step, setStep] = useState<Step>(() => {
-    const value = new URLSearchParams(window.location.search).get('step');
-    if (value === '4') return 4;
-    if (value === '3') return 3;
-    return 1;
-  });
-  const [core, setCore] = useState<CoreValues>(() => {
+// O estado core vive em localStorage, que e por ORIGEM. Abrir o wizard na URL
+// de outro deploy (ou em aba anonima) chega sem nada salvo — e ai um ?step=3/4
+// levaria a uma tela que nao tem como funcionar: o passo 4 monta um client
+// Supabase com core.supabase_url e falharia com "supabaseUrl is required".
+// Por isso o deep link so vale quando o estado que ele pressupoe existe.
+function readSavedCore(): CoreValues {
+  try {
     const saved = window.localStorage.getItem(STORAGE_KEY);
     if (!saved) return emptyCore;
     return { ...emptyCore, ...JSON.parse(saved), owner_password: '' };
+  } catch {
+    return emptyCore;
+  }
+}
+
+export default function SetupPage() {
+  const [core, setCore] = useState<CoreValues>(readSavedCore);
+  const [step, setStep] = useState<Step>(() => {
+    const value = new URLSearchParams(window.location.search).get('step');
+    if (value !== '3' && value !== '4') return 1;
+    // Sem as credenciais core nao da para retomar: volta ao inicio.
+    const saved = readSavedCore();
+    if (!saved.supabase_url || !saved.supabase_pat) return 1;
+    return value === '4' ? 4 : 3;
   });
   const [validation, setValidation] = useState<ValidationMap>({});
   // A core field is validated only after the user interacts with it, so a
