@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import { Archive, ArchiveRestore, Bot, CircleX, Clock, Pause, Pin, Play, Mail, Phone, RotateCcw, SquareKanban } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AddToPipelineDialog } from '@/components/crm/AddToPipelineDialog';
-import type { ConversationWithContact } from '@/types/inbox';
+import { hasSessionWindow, type ConversationWithContact } from '@/types/inbox';
 import type { Operator } from '@/hooks/useOperators';
 import { useContactDeals } from '@/hooks/useContactDeals';
 import { useNextActions } from '@/hooks/useNextActions';
@@ -140,10 +140,12 @@ export function ContactPanel({
             {isClosed ? <CircleX className="h-3 w-3" /> : <Bot className="h-3 w-3" />}
             {isClosed ? 'Fechada' : conversation.ai_paused ? 'IA pausada' : 'IA ativa'}
           </Badge>
-          <Badge tone={withinWindow ? 'green' : 'amber'}>
-            <Clock className="h-3 w-3" />
-            {withinWindow ? 'Janela 24h aberta' : 'Janela 24h fechada'}
-          </Badge>
+          {hasSessionWindow(conversation.channel) ? (
+            <Badge tone={withinWindow ? 'green' : 'amber'}>
+              <Clock className="h-3 w-3" />
+              {withinWindow ? 'Janela 24h aberta' : 'Janela 24h fechada'}
+            </Badge>
+          ) : null}
         </div>
       </div>
 

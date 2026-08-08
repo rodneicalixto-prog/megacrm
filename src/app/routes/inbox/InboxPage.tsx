@@ -10,6 +10,7 @@ import { MessageThread } from '@/components/inbox/MessageThread';
 import { MessageInput } from '@/components/inbox/MessageInput';
 import { ContactPanel } from '@/components/inbox/ContactPanel';
 import { InboxFilters } from '@/components/inbox/InboxFilters';
+import { hasSessionWindow } from '@/types/inbox';
 import {
   DEFAULT_FILTERS,
   matchesFilters,
@@ -149,15 +150,17 @@ export default function InboxPage() {
   }, [filters, operators, tags]);
 
   // Janela de 24h: aberta se a última mensagem do CONTATO foi há menos de 24h.
-  // Fora dela, a Meta só permite reiniciar com template.
+  // Fora dela, a Meta só permite reiniciar com template. Só vale na rota
+  // oficial — ver hasSessionWindow.
   const withinWindow = useMemo(() => {
+    if (!hasSessionWindow(selected?.channel)) return true;
     for (let i = messages.length - 1; i >= 0; i--) {
       if (messages[i].direction === 'inbound') {
         return Date.now() - new Date(messages[i].created_at).getTime() < 24 * 60 * 60 * 1000;
       }
     }
     return false;
-  }, [messages]);
+  }, [messages, selected?.channel]);
 
   // Deep-link vindo do drawer do card do funil: ?contact=<uuid> seleciona a
   // conversa daquele contato assim que a lista carrega.
