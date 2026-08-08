@@ -528,8 +528,11 @@ function requireBody(body: BootstrapBody | undefined): Required<BootstrapBody> {
     'owner_email',
     'owner_password',
   ] as const;
+  // O optional-chaining do loop abaixo não estreita `body` para não-undefined,
+  // então o guard explícito precisa vir antes.
+  if (!body) throw new Error('Body ausente.');
   for (const key of required) {
-    if (!body?.[key]) throw new Error(`Campo ${key} ausente.`);
+    if (!body[key]) throw new Error(`Campo ${key} ausente.`);
   }
   return {
     ...body,

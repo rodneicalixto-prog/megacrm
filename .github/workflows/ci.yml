@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  build:
+  verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,5 +16,20 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - run: npm ci
-      - run: npm run lint --if-present
+
+      - run: npm run lint
+      # Cobre api/ — os serverless da Vercel ficavam fora do type-check porque
+      # tsconfig.app.json só inclui src. O tsc de src/ vem junto no build.
+      - run: npm run typecheck
+      # Sintaxe das migrations, antes que cheguem no Postgres de algum cliente.
+      - run: npm run validate:sql
       - run: npm run build
+
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-artifacts
+          path: tests/.artifacts/
+          retention-days: 7

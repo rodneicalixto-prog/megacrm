@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
 import { Plus, Timer, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -183,15 +183,16 @@ function FollowUpForm({
   const [isActive, setIsActive] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // Reset form fields on open / on edit target change.
-  useMemo(() => {
+  // Reset form fields on open / on edit target change. Precisa ser useEffect:
+  // o React pode descartar e reexecutar um useMemo a qualquer momento, então
+  // setState dentro dele é sincronização não confiável (e pode reentrar).
+  useEffect(() => {
     if (!open) return;
     setCampaignId(rule?.campaign_id ?? '');
     setTemplateId(rule?.template_id ?? '');
     setDelayHours(rule?.delay_hours ?? 24);
     setSequence(rule?.sequence_order ?? 1);
     setIsActive(rule?.is_active ?? true);
-    return null;
   }, [open, rule]);
 
   const handle = async (e: FormEvent) => {

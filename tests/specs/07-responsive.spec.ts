@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { fillCoreStep2, reachStep4LoggedIn, setScenario, SHOTS } from '../helpers';
+import { reachStep4LoggedIn, setScenario, SHOTS } from '../helpers';
 import path from 'node:path';
 
 const VIEWPORTS = [
