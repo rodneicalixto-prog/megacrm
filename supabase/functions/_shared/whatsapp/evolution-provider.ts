@@ -66,10 +66,16 @@ export class EvolutionProvider implements WhatsAppProvider {
     if (!messageId) return null;
 
     const remoteJid = str(key, ['remoteJid']);
-    const participant = str(key, ['participant']);
-    const isGroup = (remoteJid ?? '').endsWith('@g.us');
-    // Em grupo o remetente real é o participant; em 1:1 é o remoteJid.
-    const from = jidToPhone(isGroup ? participant : remoteJid) ?? jidToPhone(participant);
+
+    // Grupos e status/broadcast NAO entram. Numa conversa de grupo o remetente
+    // e o `participant`, entao tratar isso como inbound faria o CRM abrir uma
+    // conversa 1:1 com quem falou no grupo — e o agente responderia no PRIVADO
+    // de alguem que nunca chamou a empresa. O numero conectado costuma ser um
+    // WhatsApp real, com grupos; isso vaza atendimento automatico para eles.
+    if ((remoteJid ?? '').endsWith('@g.us')) return null;
+    if ((remoteJid ?? '').endsWith('@broadcast')) return null;
+
+    const from = jidToPhone(remoteJid);
     if (!from) return null;
 
     const { contentType, content, mediaUrl } = decodeBaileysContent(asObject(data.message));

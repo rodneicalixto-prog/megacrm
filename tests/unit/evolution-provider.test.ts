@@ -44,7 +44,7 @@ test('extendedTextMessage também é texto', () => {
   assert.equal(got?.contentType, 'text');
 });
 
-test('em grupo o remetente é o participant, não o JID do grupo', () => {
+test('mensagem de grupo é ignorada (senão a IA responderia no privado de quem falou)', () => {
   const got = provider.parseInboundWebhook({
     event: 'messages.upsert',
     data: {
@@ -57,7 +57,18 @@ test('em grupo o remetente é o participant, não o JID do grupo', () => {
       message: { conversation: 'oi grupo' },
     },
   });
-  assert.equal(got?.from, '+5511977776666');
+  assert.equal(got, null);
+});
+
+test('status/broadcast é ignorado', () => {
+  const got = provider.parseInboundWebhook({
+    event: 'messages.upsert',
+    data: {
+      key: { remoteJid: 'status@broadcast', fromMe: false, id: 'B9' },
+      message: { conversation: 'status' },
+    },
+  });
+  assert.equal(got, null);
 });
 
 test('imagem com S3 configurado prefere mediaUrl armazenada', () => {
