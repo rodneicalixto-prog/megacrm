@@ -2,8 +2,10 @@ import { NavLink } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { NAV_ITEMS } from './nav-config';
 import { useAppUser } from '@/app/providers/AppUserProvider';
+import { useBranding } from '@/hooks/useBranding';
 
 export function Sidebar() {
+  const { branding } = useBranding();
   const { role } = useAppUser();
   const items = NAV_ITEMS.filter((item) => !item.adminOnly || role === 'admin');
   return (
@@ -13,13 +15,13 @@ export function Sidebar() {
     >
       <div className="h-16 flex items-center gap-3 px-5 border-b border-[rgba(59,130,246,0.08)]">
         <img
-          src="/agentise-mark.png"
-          alt="Agentise"
-          className="h-9 w-9 rounded-lg shadow-[0_0_20px_rgba(59,130,246,0.35)]"
+          src={branding.logoUrl ?? '/agentise-mark.png'}
+          alt={branding.companyName ?? 'Agentise'}
+          className="h-9 w-9 rounded-lg object-contain shadow-[0_0_20px_rgba(59,130,246,0.35)]"
         />
-        <div className="leading-tight">
-          <div className="text-[0.65rem] uppercase tracking-[0.12em] text-[var(--color-text-secondary)]">
-            Agentise
+        <div className="leading-tight min-w-0">
+          <div className="text-[0.65rem] uppercase tracking-[0.12em] text-[var(--color-text-secondary)] truncate">
+            {branding.companyName ?? 'Agentise'}
           </div>
           <div className="text-sm font-bold text-[var(--color-text-primary)]">
             MEGACRM

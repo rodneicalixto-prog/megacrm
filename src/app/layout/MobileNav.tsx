@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { NAV_ITEMS } from './nav-config';
 import { useAppUser } from '@/app/providers/AppUserProvider';
+import { useBranding } from '@/hooks/useBranding';
 
 interface MobileNavProps {
   open: boolean;
@@ -12,6 +13,7 @@ interface MobileNavProps {
 // Drawer de navegação para telas < md (768px). Sem ele, a Sidebar
 // (`hidden md:flex`) deixava o app sem NENHUMA navegação no mobile.
 export function MobileNav({ open, onClose }: MobileNavProps) {
+  const { branding } = useBranding();
   const { role } = useAppUser();
   const items = NAV_ITEMS.filter((item) => !item.adminOnly || role === 'admin');
 
@@ -38,11 +40,11 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
         <div className="h-16 shrink-0 flex items-center justify-between px-4 border-b border-[rgba(59,130,246,0.1)]">
           <div className="flex items-center gap-2">
             <img
-              src="/agentise-mark.png"
-              alt="Agentise"
+              src={branding.logoUrl ?? '/agentise-mark.png'}
+              alt={branding.companyName ?? 'Agentise'}
               className="h-9 w-9 rounded-xl"
             />
-            <span className="font-semibold text-[var(--color-text-primary)]">Agentise</span>
+            <span className="font-semibold text-[var(--color-text-primary)]">{branding.companyName ?? 'Agentise'}</span>
           </div>
           <button
             onClick={onClose}

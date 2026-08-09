@@ -1,6 +1,7 @@
 import type React from 'react';
 import { useMemo, useState } from 'react';
 import {
+  Image as ImageIcon,
   KeyRound,
   Package,
   Settings as SettingsIcon,
@@ -11,6 +12,7 @@ import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppUser } from '@/app/providers/AppUserProvider';
 import { AccountSettings } from './sections/AccountSettings';
+import { BrandingSettings } from './sections/BrandingSettings';
 import { TeamSettings } from './sections/TeamSettings';
 import { LeadAssignmentSettings } from './sections/LeadAssignmentSettings';
 import { ProductsSettings } from './sections/ProductsSettings';
@@ -18,6 +20,7 @@ import CredentialsPage from './CredentialsPage';
 
 type TabId =
   | 'account'
+  | 'branding'
   | 'team'
   | 'products'
   | 'credentials';
@@ -45,6 +48,14 @@ export default function SettingsPage() {
             hint: 'E-mail e senha',
             icon: UserCircle2,
             render: () => <AccountSettings />,
+          },
+          {
+            id: 'branding',
+            label: 'Identidade',
+            hint: 'Nome e logo da empresa',
+            icon: ImageIcon,
+            adminOnly: true,
+            render: () => <BrandingSettings />,
           },
           {
             id: 'team',
