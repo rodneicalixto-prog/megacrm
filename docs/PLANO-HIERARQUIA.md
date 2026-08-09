@@ -265,12 +265,22 @@ USING (whatsapp_hub.current_user_role() = 'super_admin' OR role <> 'super_admin'
 
 ## 6. Fases
 
-### Fase 0 — Consertar o envio de mídia · ~meio dia
+### ✅ Fase 0 — Envio de mídia na Evolution — feita
 
-**Antes de tudo.** `send-operator-media` só fala Zernio; na Evolution, anexar
-imagem ou arquivo falha. O adapter já sabe enviar mídia — falta o desvio, igual
-ao que o `send-operator-message` já tem. É defeito ativo hoje, não trabalho
-futuro.
+`send-operator-media` só falava Zernio; anexar imagem ou arquivo falhava. O
+texto tinha ganhado o desvio para a Evolution na troca de provedor, a mídia não.
+
+A Evolution não tem endpoint de upload — o `/message/sendMedia` recebe uma URL.
+Base64 obrigaria trafegar ~33 MB num corpo JSON e ainda deixaria a thread sem
+imagem para exibir. Então o arquivo passa a viver no bucket
+`whatsapp-hub-outbound-media` (público, 25 MB), e a mesma URL serve à Evolution
+e ao CRM.
+
+Falha no envio depois do upload remove o arquivo — senão ele ficaria no bucket
+para sempre, sem mensagem que o referenciasse.
+
+10 checks, incluindo a rota de voz (`sendWhatsAppAudio`) e os dois caminhos de
+falha.
 
 ### Fase A — Departamentos e conexões · ~4–5 dias
 

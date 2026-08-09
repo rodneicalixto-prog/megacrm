@@ -12,7 +12,7 @@
 | **Repositório** | ✅ código versionado, 281 arquivos |
 | **CI** | ✅ lint · typecheck · SQL · build · testes |
 | **Deploy Vercel** | ✅ `megacrm`, produção verde, 7 serverless |
-| **Testes** | ✅ 123 unitários (Vitest) + 9 E2E · lint e tipos em toda a base |
+| **Testes** | ✅ 133 unitários (Vitest) + 9 E2E · lint e tipos em toda a base |
 | **Banco Supabase** | ⏳ wizard `/setup` em andamento |
 | **Rota WhatsApp** | ✅ Zernio (oficial) + Evolution API v2 |
 

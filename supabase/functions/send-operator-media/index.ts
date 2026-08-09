@@ -2,12 +2,18 @@
 // send-operator-media
 // ----------------------------------------------------------------------------
 // Operador anexa uma mídia (imagem/áudio/vídeo/documento) numa conversa. O
-// arquivo chega como multipart/form-data; subimos ao Zernio via
-// /media/upload-direct (máx 25MB), enviamos a mensagem com attachmentUrl pela
-// inbox 1:1 e persistimos a linha (content_type + media_url = url do Zernio)
-// para o thread renderizar. A ZERNIO_API_KEY nunca toca o browser.
+// arquivo chega como multipart/form-data; persistimos a linha (content_type +
+// media_url) para o thread renderizar. Nenhuma credencial toca o browser.
 //
-// Notas privadas NÃO passam por aqui — são texto e nunca vão ao Zernio.
+// Dois caminhos, escolhidos pelo `channel` da conversa — o mesmo desvio que o
+// send-operator-message já faz para texto:
+//
+//   · Zernio    → /media/upload-direct devolve a URL; envia com attachmentUrl.
+//   · Evolution → não existe upload no provedor. O arquivo vai para o bucket
+//                 whatsapp-hub-outbound-media (público) e a URL serve tanto ao
+//                 /message/sendMedia quanto à thread do CRM.
+//
+// Notas privadas NÃO passam por aqui — são texto e nunca saem do CRM.
 // ============================================================================
 
 import { requireCaller, AuthError } from '../_shared/auth.ts';
@@ -20,6 +26,9 @@ import {
   sendInboxMessage,
   uploadMediaDirect,
 } from '../_shared/zernio.ts';
+import { isEvolutionChannel, sendEvolutionMessage } from '../_shared/whatsapp/outbound.ts';
+
+const OUTBOUND_BUCKET = 'whatsapp-hub-outbound-media';
 
 const MAX_BYTES = 25 * 1024 * 1024;
 
@@ -30,7 +39,9 @@ function classify(mime: string): 'image' | 'audio' | 'video' | 'document' {
   return 'document';
 }
 
-Deno.serve(async (req) => {
+// Handler exportado para poder ser exercitado fora do runtime — ver
+// whatsapp-inbound, mesmo motivo.
+export async function handleOperatorMedia(req: Request): Promise<Response> {
   const pre = preflight(req);
   if (pre) return pre;
 
@@ -66,18 +77,90 @@ Deno.serve(async (req) => {
 
     const { data: conv, error: convErr } = await admin
       .from('conversations')
-      .select('id, contact_id, zernio_conversation_id')
+      .select('id, contact_id, zernio_conversation_id, channel')
       .eq('id', conversationId)
       .maybeSingle();
     if (convErr) return jsonResponse({ ok: false, error: convErr.message }, { status: 500 });
     if (!conv) return jsonResponse({ ok: false, error: 'Conversa não encontrada.' }, { status: 404 });
-    const convRow = conv as { id: string; contact_id: string; zernio_conversation_id: string | null };
+    const convRow = conv as {
+      id: string;
+      contact_id: string;
+      zernio_conversation_id: string | null;
+      channel: string | null;
+    };
 
     const contentType = classify(file.type || '');
     const mime = file.type || 'application/octet-stream';
     const filename = voiceNote ? 'voice-note.ogg' : (file.name || `arquivo-${contentType}`);
     const bytes = new Uint8Array(await file.arrayBuffer());
 
+    // ---- Rota não-oficial (Evolution) ------------------------------------
+    if (isEvolutionChannel(convRow.channel)) {
+      const { data: contactRow } = await admin
+        .from('contacts').select('phone').eq('id', convRow.contact_id).maybeSingle();
+      const phone = (contactRow as { phone?: string } | null)?.phone ?? null;
+      if (!phone) return jsonResponse({ ok: false, error: 'Contato sem telefone.' }, { status: 400 });
+
+      // Nome único: o mesmo arquivo enviado duas vezes não pode se sobrescrever.
+      const path = `${conversationId}/${crypto.randomUUID()}-${filename}`;
+      const { error: upErr } = await admin.storage
+        .from(OUTBOUND_BUCKET)
+        .upload(path, bytes, { contentType: mime, upsert: false });
+      if (upErr) {
+        return jsonResponse({ ok: false, error: `upload: ${upErr.message}` }, { status: 502 });
+      }
+      const { data: pub } = admin.storage.from(OUTBOUND_BUCKET).getPublicUrl(path);
+      const publicUrl = pub.publicUrl;
+
+      let evolutionMessageId: string | null = null;
+      try {
+        const sent = await sendEvolutionMessage(phone, caption, publicUrl, contentType);
+        evolutionMessageId = sent.messageId;
+      } catch (err) {
+        // O arquivo já está no bucket; sem o envio ele viraria lixo silencioso.
+        await admin.storage.from(OUTBOUND_BUCKET).remove([path]);
+        return jsonResponse(
+          { ok: false, error: err instanceof Error ? err.message : 'Falha ao enviar mídia.' },
+          { status: 502 },
+        );
+      }
+
+      const { data: row, error: insErr } = await admin
+        .from('messages')
+        .insert({
+          conversation_id: conversationId,
+          direction: 'outbound',
+          sender_type: 'operator',
+          sender_id: caller.userId,
+          content_type: contentType,
+          content: caption || null,
+          media_url: publicUrl,
+          zernio_message_id: evolutionMessageId ? `evolution:${evolutionMessageId}` : null,
+          meta_status: 'sent',
+          is_private_note: false,
+        })
+        .select('id').single();
+      if (insErr) return jsonResponse({ ok: false, error: insErr.message }, { status: 500 });
+
+      await admin
+        .from('conversations')
+        .update({
+          last_message_at: new Date().toISOString(),
+          status: 'human_active',
+          ai_paused: true,
+          assigned_to: caller.userId,
+        })
+        .eq('id', conversationId);
+
+      return jsonResponse({
+        ok: true,
+        message_id: (row as { id: string }).id,
+        media_url: publicUrl,
+        sent_via: 'evolution',
+      });
+    }
+
+    // ---- Rota oficial (Zernio) -------------------------------------------
     const ctx = await loadZernioContext();
 
     // 1. Sobe a mídia ao Zernio.
@@ -158,4 +241,6 @@ Deno.serve(async (req) => {
     console.error('send-operator-media error', err);
     return jsonResponse({ ok: false, error: err instanceof Error ? err.message : 'Erro interno' }, { status: 500 });
   }
-});
+}
+
+Deno.serve(handleOperatorMedia);

@@ -100,6 +100,29 @@ export class FakeSupabase {
     };
   };
 
+  // Storage: so upload / getPublicUrl / remove, que e o que as functions usam.
+  storageFiles: string[] = [];
+  storageShouldFail = false;
+  storage = {
+    from: (bucket: string) => ({
+      upload: async (path: string, _bytes: unknown, _opts?: unknown) => {
+        if (this.storageShouldFail) return { data: null, error: { message: 'upload falhou' } };
+        this.storageFiles.push(`${bucket}/${path}`);
+        return { data: { path }, error: null };
+      },
+      getPublicUrl: (path: string) => ({
+        data: { publicUrl: `https://fake.supabase.co/storage/v1/object/public/${bucket}/${path}` },
+      }),
+      remove: async (paths: string[]) => {
+        for (const p of paths) {
+          const i = this.storageFiles.indexOf(`${bucket}/${p}`);
+          if (i >= 0) this.storageFiles.splice(i, 1);
+        }
+        return { data: null, error: null };
+      },
+    }),
+  };
+
   rpc = async (name: string, args: Row): Promise<Result> => {
     this.rpcCalls.push({ name, args });
     return this.rpcResults[name] ?? { data: null, error: null };
