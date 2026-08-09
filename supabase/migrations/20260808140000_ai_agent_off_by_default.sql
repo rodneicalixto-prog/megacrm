@@ -17,9 +17,10 @@ SET search_path TO whatsapp_hub, public;
 ALTER TABLE whatsapp_hub.ai_agent_config
   ALTER COLUMN active_whatsapp SET DEFAULT false;
 
--- Desliga UMA VEZ nas instalacoes que ja existem. As migrations reexecutam a
--- cada bootstrap, entao sem a marca em _bootstrap_state isto reverteria a
--- escolha do usuario toda vez que ele rodasse o wizard de novo.
+-- Desliga UMA VEZ nas instalacoes que ja existem. O bootstrap pula migration
+-- ja marcada, entao em regime normal isto roda uma vez so; a marca em
+-- _bootstrap_state e a garantia extra para o caso de a marca da migration ser
+-- perdida (restore, replay manual) e o UPDATE reverter a escolha do usuario.
 DO $$
 BEGIN
   IF NOT EXISTS (

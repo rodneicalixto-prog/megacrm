@@ -62,8 +62,9 @@ $$;
 -- ----------------------------------------------------------------------------
 -- 2. Promove o dono atual a super_admin — UMA VEZ
 -- ----------------------------------------------------------------------------
--- As migrations reexecutam a cada bootstrap. Sem a marca, isto reverteria uma
--- eventual mudanca de papel feita depois, toda vez que o wizard rodasse.
+-- O bootstrap pula migration ja marcada, entao isto roda uma vez so. A marca
+-- em _bootstrap_state protege o caso de replay (restore, execucao manual):
+-- sem ela, uma mudanca de papel feita depois seria revertida.
 DO $$
 DECLARE
   v_owner UUID;
