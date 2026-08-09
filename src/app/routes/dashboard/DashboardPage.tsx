@@ -6,6 +6,8 @@ import { useSalesDashboard } from '@/hooks/useSalesDashboard';
 import { useForecast } from '@/hooks/useForecast';
 import { useDashboardPrefs } from '@/hooks/useDashboardPrefs';
 import { useOperators } from '@/hooks/useOperators';
+import { useAttendanceMetrics } from '@/hooks/useAttendanceMetrics';
+import { AttendancePanel } from '@/components/dashboard/AttendancePanel';
 import {
   ORIGIN_CHANNEL_LABEL,
   PERIOD_PRESETS,
@@ -48,6 +50,9 @@ export default function DashboardPage() {
   const forecast = useForecast();
   const { visibleMap, toggle } = useDashboardPrefs();
   const { operators } = useOperators();
+  // Painel de atendimento: independente do período do painel de vendas — fila e
+  // tempos são "agora", não recorte histórico.
+  const attendance = useAttendanceMetrics();
 
   const ownerName = (id: string | null) => {
     if (!id) return 'Não atribuído';
@@ -88,7 +93,7 @@ export default function DashboardPage() {
           <div>
             <div className="text-label">Seção</div>
             <h1 className="text-2xl font-bold text-display">Dashboard</h1>
-            <p className="text-sm text-[var(--color-text-secondary)]">Vendas e atendimento</p>
+            <p className="text-sm text-[var(--color-text-secondary)]">Atendimento e vendas</p>
           </div>
         </div>
 
@@ -177,6 +182,21 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+
+      {/* ATENDIMENTO — fila, tempos, carga. Vem primeiro porque é o que se olha
+          para agir agora; o painel de vendas abaixo é leitura de período. */}
+      {attendance.error ? (
+        <LoadErrorBanner message={attendance.error} onRetry={() => void attendance.reload()} />
+      ) : attendance.loading ? (
+        <div className="glass-card p-10 text-center text-label opacity-60">Carregando atendimento...</div>
+      ) : (
+        <AttendancePanel metrics={attendance.metrics} operators={operators} />
+      )}
+
+      <div className="flex items-center gap-3 pt-2">
+        <span className="text-label">Vendas</span>
+        <div className="h-px flex-1 bg-[rgba(59,130,246,0.08)]" />
+      </div>
 
       {loading ? (
         <div className="glass-card p-10 text-center text-label opacity-60">Carregando métricas...</div>
