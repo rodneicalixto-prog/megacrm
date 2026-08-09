@@ -295,6 +295,16 @@ pública, i18n (o v1 é PT-BR fixo por decisão explícita).
 
 ---
 
+## 6. Decisões de produto tomadas no caminho
+
+- **Agente de IA é opt-in.** O default era ligado, herdado de quando se assumia
+  número comercial novo. Na rota não-oficial o número conectado costuma estar em
+  uso — o agente respondia cliente antigo, fornecedor e conversa pessoal no
+  primeiro minuto depois do setup. Ligar é um clique; desfazer um agente que já
+  falou com 174 contatos, não. Migration `20260808140000`.
+
+---
+
 ## 6. Pendências fora do código
 
 1. **Rotacionar a chave Zernio** exposta em conversa (`sk_287ef…`).
