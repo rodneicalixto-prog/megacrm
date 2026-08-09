@@ -206,6 +206,10 @@ function readSavedCore(): CoreValues {
 
 export default function SetupPage() {
   const [core, setCore] = useState<CoreValues>(readSavedCore);
+  // Reexecução: o wizard foi aberto de propósito numa instalação já
+  // configurada, para reaplicar migrations e redeployar as Edge Functions.
+  const isRerun = new URLSearchParams(window.location.search).get('rerun') === '1';
+
   const [step, setStep] = useState<Step>(() => {
     const value = new URLSearchParams(window.location.search).get('step');
     if (value !== '3' && value !== '4') return 1;
@@ -580,10 +584,26 @@ export default function SetupPage() {
         <SetupCard>
           {step === 1 ? (
             <>
-              <h1 className="mb-2 text-[28px] font-semibold text-[#F8FAFC]">{setupConfig.toolName}</h1>
-              <p className="mb-8 text-base leading-[1.6] text-[#94A3B8]">
-                Antes de iniciar, deixe abertas as contas onde voce vai copiar os tokens de bootstrap.
-              </p>
+              <h1 className="mb-2 text-[28px] font-semibold text-[#F8FAFC]">
+                {isRerun ? 'Aplicar atualizacoes' : setupConfig.toolName}
+              </h1>
+              {isRerun ? (
+                <div className="mb-8 rounded-lg border border-[rgba(59,130,246,0.25)] bg-[rgba(59,130,246,0.06)] p-4">
+                  <p className="text-sm leading-[1.6] text-[#CBD5E1]">
+                    Esta instalacao ja esta configurada. Rodar de novo aplica as{' '}
+                    <strong className="text-[#F8FAFC]">migrations novas</strong> e redeploya as{' '}
+                    <strong className="text-[#F8FAFC]">Edge Functions</strong> — nada e apagado, e o
+                    que ja foi aplicado e pulado.
+                  </p>
+                  <p className="mt-2 text-sm leading-[1.6] text-[#94A3B8]">
+                    Informe os mesmos tokens de antes. Eles nao ficam salvos no navegador.
+                  </p>
+                </div>
+              ) : (
+                <p className="mb-8 text-base leading-[1.6] text-[#94A3B8]">
+                  Antes de iniciar, deixe abertas as contas onde voce vai copiar os tokens de bootstrap.
+                </p>
+              )}
               <div className="space-y-4">
                 <PrepItem n={1} title="Criar projeto Supabase" text="Crie um projeto vazio e copie URL, anon key e service role key." href="https://supabase.com/dashboard/new" pills={['SUPABASE_URL', 'ANON_KEY', 'SERVICE_ROLE']} />
                 <PrepItem n={2} title="Gerar PAT Supabase" text="Crie um Personal Access Token para rodar migrations e deployar Edge Functions." href="https://supabase.com/dashboard/account/tokens" pills={['SUPABASE_PAT']} />

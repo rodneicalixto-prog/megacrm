@@ -72,6 +72,31 @@ export function AccountSettings() {
 
   return (
     <div className="space-y-5">
+      {/* Migrations e Edge Functions vivem no Supabase e NAO sobem com o deploy
+          do site. Sem este caminho, uma instalacao ja configurada nao tem como
+          receber atualizacao de banco: o wizard se recusa a abrir. */}
+      <Card>
+        <div className="space-y-3">
+          <header>
+            <h2 className="text-lg font-bold">Atualizações do sistema</h2>
+            <p className="text-sm text-[var(--color-text-secondary)]">
+              Migrations e Edge Functions não sobem junto com o site — elas vivem no
+              Supabase. Depois de uma atualização do CRM, aplique-as aqui.
+            </p>
+          </header>
+          <a
+            href="/setup?rerun=1"
+            className="inline-flex items-center gap-2 rounded-lg border border-[rgba(59,130,246,0.25)] px-4 py-2.5 text-sm font-medium text-[var(--color-text-primary)] transition hover:border-[var(--accent-primary)]"
+          >
+            Aplicar atualizações
+          </a>
+          <p className="text-xs text-[var(--color-text-secondary)]">
+            Pede os mesmos tokens da instalação. Nada é apagado — o que já foi
+            aplicado é pulado.
+          </p>
+        </div>
+      </Card>
+
       <Card>
         <div className="space-y-4">
           <header>

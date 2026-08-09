@@ -52,9 +52,14 @@ function RedirectIfConfigured({ children }: { children: ReactElement }) {
   const { configured } = useSupabaseConfig();
   const { session } = useAuth();
   const location = useLocation();
-  const setupStep = new URLSearchParams(location.search).get('step');
+  const params = new URLSearchParams(location.search);
+  const setupStep = params.get('step');
+  // Reexecução explícita: sem isto não há como reaplicar migrations nem
+  // redeployar as Edge Functions depois da primeira instalação — o wizard é a
+  // única via, e ele se recusa a abrir numa instalação já configurada.
+  const rerun = params.get('rerun') === '1';
   if (configured) {
-    if (location.pathname === '/setup' && setupStep === '4') {
+    if (location.pathname === '/setup' && (setupStep === '4' || rerun)) {
       return children;
     }
     // Already configured → move the user forward. If they also have a
