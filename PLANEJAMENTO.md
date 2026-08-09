@@ -12,7 +12,7 @@
 | **Repositório** | ✅ código versionado, 281 arquivos |
 | **CI** | ✅ lint · typecheck · SQL · build · testes |
 | **Deploy Vercel** | ✅ `megacrm`, produção verde, 7 serverless |
-| **Testes** | ✅ 107 unitários (Vitest) + 9 E2E · lint e tipos em toda a base |
+| **Testes** | ✅ 123 unitários (Vitest) + 9 E2E · lint e tipos em toda a base |
 | **Banco Supabase** | ⏳ wizard `/setup` em andamento |
 | **Rota WhatsApp** | ✅ Zernio (oficial) + Evolution API v2 |
 
@@ -67,7 +67,7 @@ atribuição de UTM e dashboard.
 | `supabase/migrations/` | 6.342 | 69 |
 | `supabase/functions/` | 5.880 | 22 funções |
 | `api/` (serverless Vercel) | 1.223 | 7 |
-| `tests/` | ~1.700 | 9 specs E2E + 107 unit |
+| `tests/` | ~2.100 | 9 specs E2E + 123 unit |
 
 ### O que está genuinamente bom
 
@@ -107,7 +107,7 @@ test:unit → test:e2e**, com upload de artefato do Playwright em falha.
 > trabalho tinha Chromium 1194 e o `@playwright/test` pede 1223, com download
 > bloqueado. Ele roda pela primeira vez no GitHub Actions.
 
-### 🟢 R3 — Cobertura de teste no lugar errado — em grande parte resolvido
+### ✅ R3 — Cobertura de teste no lugar errado — resolvido
 
 As 9 specs E2E cobriam **só o wizard `/setup`**. A Fase 3 somou **107 checks
 unitários** (Vitest) sobre o que carrega risco: gate HMAC dos webhooks, os dois
@@ -115,10 +115,19 @@ adapters de WhatsApp, pós-processamento da resposta do LLM, montagem do templat
 de broadcast, horário comercial, normalização de telefone, montagem de UTM,
 filtros do inbox e leitura de origem do lead.
 
-O que sobra é o que **de fato** depende de banco: as queries em si e o
-encadeamento entre elas. A decisão dentro de cada função já está coberta — foi
-separada do I/O em módulos `_shared`, o mesmo movimento que tornou o gate HMAC
-testável.
+O `whatsapp-inbound` — único ponto por onde mensagem de fora entra no CRM — é
+exercitado **inteiro**, do POST até o estado no banco, contra um dublê em
+memória do client Supabase (`tests/unit/helpers/fake-supabase.ts`, 110 linhas,
+só as cadeias que as functions usam).
+
+**A cobertura foi verificada por mutação**, não pelo número de testes passando:
+
+| Mutação introduzida | Testes que quebraram |
+|---|---|
+| gate de assinatura sempre aprova | 8 |
+| `fromMe` nunca detectado | 5 |
+| variável faltante não reportada no template | 5 |
+| filtro de grupo removido | 2 |
 
 ### 🟠 R4 — Vulnerabilidades de dependência — parcialmente aberto
 
@@ -244,8 +253,14 @@ Feito:
    relógio injetável para o teste fixar o instante. Não há gate no código: o
    prompt decide. Um `dentro_do_horario` errado faz o agente atender de
    madrugada.
-7. ⏳ **Queries e encadeamento** do dispatcher, do agente e do funil — o que
-   realmente toca o banco. Precisa de mock; é a continuação.
+7. ✅ **`whatsapp-inbound` de ponta a ponta** (16 checks) — método, JSON
+   inválido, credencial ausente, caminho feliz, reuso de contato, idempotência,
+   grupo, broadcast, evento não-mensagem, resposta do dono pelo celular, e as
+   três formas de burlar a assinatura na rota Zernio.
+
+   Destravado exportando o handler: `Deno.serve(handleInbound)` no fim do
+   módulo em vez do handler inline, senão importar o arquivo num teste sobe um
+   servidor.
 
 **Runner:** Vitest, um só para os dois lados. O `node:test` da stdlib cobria os
 adapters (TypeScript puro), mas não resolve o alias `@/` nem imports sem

@@ -11,5 +11,8 @@ export default defineConfig({
   test: {
     include: ['tests/unit/**/*.test.ts'],
     environment: 'node',
+    // Os globais do runtime Deno precisam existir antes de qualquer import de
+    // Edge Function — ver tests/unit/setup-deno.ts.
+    setupFiles: ['tests/unit/setup-deno.ts'],
   },
 });

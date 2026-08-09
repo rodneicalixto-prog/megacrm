@@ -1,0 +1,240 @@
+// Checks do whatsapp-inbound com o handler inteiro, do POST ate o estado no
+// banco. E o unico ponto por onde mensagem de fora entra no CRM, e sobe com
+// verify_jwt desligado: o que separa um payload legitimo de qualquer POST
+// anonimo e a assinatura (rota Zernio) ou a resolucao de credencial.
+
+import { beforeEach, expect, test, vi } from 'vitest';
+import { FakeSupabase } from './helpers/fake-supabase.ts';
+import { hmacSha256, macToHex } from '../../supabase/functions/_shared/signature.ts';
+
+const db = new FakeSupabase();
+const credentials: Record<string, string | null> = {};
+
+vi.mock('../../supabase/functions/_shared/supabase-admin.ts', () => ({
+  getAdminClient: () => db,
+  getAuthAdminClient: () => db,
+}));
+vi.mock('../../supabase/functions/_shared/credentials.ts', () => ({
+  getCredential: async (key: string) => credentials[key] ?? null,
+  setCredential: async () => {},
+}));
+
+const { handleInbound } = await import('../../supabase/functions/whatsapp-inbound/index.ts');
+
+const EVOLUTION_URL = 'https://fake.supabase.co/functions/v1/whatsapp-inbound?provider=evolution';
+
+function upsert(body: Record<string, unknown>) {
+  return { event: 'messages.upsert', instance: 'pricall', data: body };
+}
+
+function post(url: string, payload: unknown, headers: Record<string, string> = {}) {
+  return new Request(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...headers },
+    body: JSON.stringify(payload),
+  });
+}
+
+function msg(over: Record<string, unknown> = {}) {
+  return upsert({
+    key: { remoteJid: '5511999998888@s.whatsapp.net', fromMe: false, id: 'MSG1', ...(over.key ?? {}) },
+    pushName: 'Cliente',
+    message: { conversation: 'Olá, quero saber o preço' },
+    messageTimestamp: 1786200000,
+    ...over,
+  });
+}
+
+beforeEach(() => {
+  db.tables = {};
+  db.rpcCalls = [];
+  db.rpcResults = { attribute_inbound_lead: { data: { method: 'whatsapp_direto' }, error: null } };
+  for (const k of Object.keys(credentials)) delete credentials[k];
+  credentials.evolution_server_url = 'https://evo.example.com';
+  credentials.evolution_api_key = 'apikey';
+  credentials.evolution_instance = 'pricall';
+});
+
+// ------------------------------------------------------------- método
+
+test('GET é recusado', async () => {
+  const res = await handleInbound(new Request(EVOLUTION_URL, { method: 'GET' }));
+  expect(res.status).toBe(405);
+});
+
+test('JSON inválido é recusado sem tocar no banco', async () => {
+  const res = await handleInbound(
+    new Request(EVOLUTION_URL, { method: 'POST', body: 'não é json' }),
+  );
+  expect(res.status).toBe(400);
+  expect(db.rows('contacts')).toHaveLength(0);
+});
+
+// --------------------------------------------------- credencial ausente
+
+test('sem provedor configurado não engole a mensagem em silêncio', async () => {
+  delete credentials.evolution_api_key;
+  const res = await handleInbound(post(EVOLUTION_URL, msg()));
+  expect(res.status).toBe(500);
+  expect(await res.json()).toMatchObject({ error: 'nenhum provedor configurado' });
+});
+
+// ------------------------------------------------------ caminho feliz
+
+test('mensagem nova cria contato, conversa e mensagem no inbox', async () => {
+  const res = await handleInbound(post(EVOLUTION_URL, msg()));
+  expect(res.status).toBe(200);
+
+  const contato = db.rows('contacts')[0];
+  expect(contato).toMatchObject({ phone: '+5511999998888', name: 'Cliente', source: 'whatsapp' });
+
+  const conversa = db.rows('conversations')[0];
+  expect(conversa).toMatchObject({ channel: 'evolution', status: 'ai_active' });
+
+  const mensagem = db.rows('messages')[0];
+  expect(mensagem).toMatchObject({
+    direction: 'inbound',
+    sender_type: 'contact',
+    content: 'Olá, quero saber o preço',
+    zernio_message_id: 'evolution:MSG1',
+  });
+});
+
+test('contato já existente é reaproveitado em vez de duplicado', async () => {
+  db.seed('contacts', [{ id: 'c-existente', phone: '+5511999998888' }]);
+  await handleInbound(post(EVOLUTION_URL, msg()));
+  expect(db.rows('contacts')).toHaveLength(1);
+  expect(db.rows('conversations')[0]).toMatchObject({ contact_id: 'c-existente' });
+});
+
+test('a atribuição é chamada com o telefone resolvido', async () => {
+  await handleInbound(post(EVOLUTION_URL, msg()));
+  const chamada = db.rpcCalls.find((c) => c.name === 'attribute_inbound_lead');
+  expect(chamada?.args).toMatchObject({ p_text: 'Olá, quero saber o preço', p_provider: 'evolution' });
+});
+
+// ------------------------------------------------------- idempotência
+
+test('a mesma mensagem entregue duas vezes só entra uma', async () => {
+  await handleInbound(post(EVOLUTION_URL, msg()));
+  const res = await handleInbound(post(EVOLUTION_URL, msg()));
+
+  expect(await res.json()).toMatchObject({ deduped: true });
+  expect(db.rows('messages')).toHaveLength(1);
+  expect(db.rows('contacts')).toHaveLength(1);
+});
+
+// ------------------------------------------------------------- grupos
+
+test('mensagem de grupo é descartada — a IA não pode responder no privado', async () => {
+  const res = await handleInbound(
+    post(EVOLUTION_URL, msg({
+      key: {
+        remoteJid: '120363000000000000@g.us',
+        participant: '5511977776666@s.whatsapp.net',
+        fromMe: false,
+        id: 'G1',
+      },
+    })),
+  );
+  expect(res.status).toBe(200);
+  expect(db.rows('contacts')).toHaveLength(0);
+  expect(db.rows('conversations')).toHaveLength(0);
+});
+
+test('status/broadcast é descartado', async () => {
+  await handleInbound(
+    post(EVOLUTION_URL, msg({ key: { remoteJid: 'status@broadcast', fromMe: false, id: 'S1' } })),
+  );
+  expect(db.rows('contacts')).toHaveLength(0);
+});
+
+test('evento que não é mensagem é aceito e ignorado', async () => {
+  const res = await handleInbound(
+    post(EVOLUTION_URL, { event: 'connection.update', data: { state: 'open' } }),
+  );
+  expect(res.status).toBe(200);
+  expect(db.rows('contacts')).toHaveLength(0);
+});
+
+// ------------------------------ resposta do dono pelo próprio celular
+
+test('dono respondendo pelo celular pausa a IA daquela conversa', async () => {
+  db.seed('contacts', [{ id: 'c1', phone: '+5511999998888' }]);
+  db.seed('conversations', [{ id: 'conv1', contact_id: 'c1', ai_paused: false, status: 'ai_active' }]);
+
+  const res = await handleInbound(
+    post(EVOLUTION_URL, msg({
+      key: { remoteJid: '5511999998888@s.whatsapp.net', fromMe: true, id: 'OWN1' },
+      message: { conversation: 'Pode deixar que eu respondo' },
+    })),
+  );
+
+  expect(await res.json()).toMatchObject({ owner_reply: true });
+  expect(db.rows('conversations')[0]).toMatchObject({ ai_paused: true, status: 'human_active' });
+});
+
+test('a fala do dono é registrada na thread como do operador', async () => {
+  db.seed('contacts', [{ id: 'c1', phone: '+5511999998888' }]);
+  db.seed('conversations', [{ id: 'conv1', contact_id: 'c1', ai_paused: false }]);
+
+  await handleInbound(
+    post(EVOLUTION_URL, msg({
+      key: { remoteJid: '5511999998888@s.whatsapp.net', fromMe: true, id: 'OWN2' },
+      message: { conversation: 'já te retorno' },
+    })),
+  );
+
+  expect(db.rows('messages')[0]).toMatchObject({
+    direction: 'outbound',
+    sender_type: 'operator',
+    content: 'já te retorno',
+    meta_status: 'sent',
+  });
+});
+
+test('echo sem conversa não cria nada — não há o que pausar', async () => {
+  const res = await handleInbound(
+    post(EVOLUTION_URL, msg({
+      key: { remoteJid: '5511900000000@s.whatsapp.net', fromMe: true, id: 'OWN3' },
+    })),
+  );
+  expect(await res.json()).toMatchObject({ skipped: 'echo sem contato' });
+  expect(db.rows('contacts')).toHaveLength(0);
+  expect(db.rows('conversations')).toHaveLength(0);
+});
+
+// ------------------------------------------------- assinatura (Zernio)
+
+const ZERNIO_URL = 'https://fake.supabase.co/functions/v1/whatsapp-inbound?provider=zernio';
+
+test('rota Zernio recusa payload sem assinatura', async () => {
+  credentials.zernio_webhook_secret = 'segredo';
+  credentials.zernio_api_key = 'sk_zernio';
+  const res = await handleInbound(post(ZERNIO_URL, msg()));
+  expect(res.status).toBe(401);
+});
+
+test('rota Zernio recusa assinatura de outro segredo', async () => {
+  credentials.zernio_webhook_secret = 'segredo';
+  credentials.zernio_api_key = 'sk_zernio';
+  const body = JSON.stringify(msg());
+  const mac = await hmacSha256('segredo-errado', body);
+  const res = await handleInbound(
+    new Request(ZERNIO_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Zernio-Signature': macToHex(mac) },
+      body,
+    }),
+  );
+  expect(res.status).toBe(401);
+});
+
+// O header X-Zernio-Signature sozinho ja roteia para a rota oficial, mesmo sem
+// ?provider= — entao ele nao pode virar um jeito de pular a verificacao.
+test('header de assinatura presente força a verificação mesmo sem ?provider=', async () => {
+  credentials.zernio_webhook_secret = 'segredo';
+  const semProvider = 'https://fake.supabase.co/functions/v1/whatsapp-inbound';
+  const res = await handleInbound(post(semProvider, msg(), { 'X-Zernio-Signature': 'lixo' }));
+  expect(res.status).toBe(401);
+});

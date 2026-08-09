@@ -30,7 +30,10 @@ function toE164(raw: string): string {
   return t.startsWith('+') ? t : `+${t}`;
 }
 
-Deno.serve(async (req) => {
+// Handler exportado para poder ser exercitado fora do runtime: o `Deno.serve`
+// abaixo e so o registro. Sem essa separacao, importar o modulo num teste
+// levantaria um servidor.
+export async function handleInbound(req: Request): Promise<Response> {
   const pre = preflight(req);
   if (pre) return pre;
   if (req.method !== 'POST') {
@@ -212,4 +215,6 @@ Deno.serve(async (req) => {
 
   console.log(JSON.stringify({ event: 'lead_attributed', provider: provider.name, result }));
   return jsonResponse({ ok: true, provider: provider.name, attribution: result });
-});
+}
+
+Deno.serve(handleInbound);
