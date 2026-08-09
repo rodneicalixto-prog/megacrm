@@ -48,8 +48,8 @@ inteira aqui. Esse é o coração do trabalho; os papéis novos são a parte fá
 
 | Papel | Escopo |
 |---|---|
-| **super_admin** | tudo, inclusive enxergar e gerenciar admins |
-| **admin** | tudo, **exceto** enxergar super_admins |
+| **super_admin** | tudo, inclusive enxergar e gerenciar admins. **Tem caixa própria, sigilosa** |
+| **admin** | tudo, **exceto** o super_admin: nem a pessoa, nem as conversas dele |
 | **supervisor** | apenas o próprio departamento |
 | **user** (atendente) | apenas o que está atribuído a ele + a fila do seu departamento |
 
@@ -73,8 +73,96 @@ Legenda: ✅ pode · ⬜ não pode · 🔶 restrito ao próprio departamento
 | Ver a fila | ✅ | ✅ | 🔶 | 🔶 |
 | Transferir atendimento | ✅ | ✅ | ✅ | ✅ |
 | Ver métricas | ✅ | ✅ | 🔶 | ⬜ |
-| **Enxergar super_admin** | ✅ | **⬜** | ⬜ | ⬜ |
+| **Enxergar o usuário super_admin** | ✅ | **⬜** | ⬜ | ⬜ |
+| **Ler conversas da Administração Geral** | ✅ | **⬜** | ⬜ | ⬜ |
 | Responder / status / observação / finalizar | ✅ | ✅ | ✅ | ✅ |
+
+---
+
+## 3.2. Administração Geral — o departamento sigiloso
+
+**Definido:** o super_admin é o dono da empresa e tem **caixa própria**. As
+conversas dele ficam no departamento **Administração Geral**, e **nem o admin
+enxerga** — não é só a pessoa que some da lista, é o conteúdo.
+
+Isso inverte uma premissa da seção 5: `admin` **deixa de ver tudo**.
+
+```sql
+-- Departamento com leitura restrita aos proprios membros. Admin nao entra.
+ALTER TABLE whatsapp_hub.departments
+  ADD COLUMN is_restricted BOOLEAN NOT NULL DEFAULT false;
+```
+
+```sql
+CREATE POLICY conversations_select ON whatsapp_hub.conversations
+  FOR SELECT TO authenticated USING (
+    -- super_admin: sem recorte.
+    whatsapp_hub.current_user_role() = 'super_admin'
+    -- admin: tudo, MENOS departamento restrito.
+    OR (whatsapp_hub.current_user_role() = 'admin'
+        AND NOT whatsapp_hub.department_is_restricted(department_id))
+    -- supervisor e atendente: o proprio departamento.
+    OR department_id = whatsapp_hub.current_user_department()
+  );
+```
+
+> `is_restricted` como flag, e não `name = 'Administração Geral'` fixo no
+> código: o dia em que existir um segundo setor sigiloso — jurídico, RH — a
+> regra já vale, sem migration nova.
+
+### 🔴 O furo que isso abre
+
+Com **um número só**, a conversa chega **sem departamento** e cai na fila de
+triagem — que é justamente onde o admin está olhando.
+
+```
+cliente/contato pessoal manda mensagem
+        ↓
+conversa criada, department_id = NULL
+        ↓
+FILA GERAL  ← o admin lê aqui
+        ↓
+alguém tria para Administração Geral
+        ↓
+agora está sigilosa — tarde demais
+```
+
+**O sigilo chega depois da exposição.** Sem tratar isso, a promessa não se
+cumpre: toda conversa do dono passa pelos olhos do admin antes de virar
+sigilosa.
+
+### Como fechar
+
+O roteamento tem que acontecer **na entrada**, antes de qualquer fila:
+
+```sql
+contact_routing_rules
+├── id
+├── phone            TEXT      -- E.164 do contato
+├── department_id    UUID      -- destino
+└── created_by       UUID
+```
+
+No `whatsapp-inbound`, ao criar/resolver o contato: **se o telefone estiver na
+lista, a conversa já nasce com `department_id` preenchido** e nunca aparece na
+fila geral.
+
+Quem administra essa lista: **só o super_admin**, e ela é invisível para o
+admin — senão ele descobre pela lista quem são os contatos sigilosos, mesmo sem
+ler as conversas.
+
+### Alternativas, se a lista não servir
+
+| Opção | Como | Custo do sigilo |
+|---|---|---|
+| **Lista de contatos** (recomendado) | telefone conhecido → nasce sigiloso | precisa cadastrar antes; contato novo vaza uma vez |
+| **Palavra-chave** | contato manda um código, ex. `#adm` | vaza a primeira mensagem |
+| **Triagem só pelo super_admin** | ninguém mais vê a fila geral | trava o atendimento normal — inviável |
+| **Número separado** | o dono usa outra linha | resolve por completo, mas contraria "todos no mesmo número" |
+
+**Nenhuma cobre o primeiro contato desconhecido.** Sigilo total com número
+compartilhado é impossível — é uma propriedade do canal, não do software. Vale
+decidir com isso claro.
 
 ---
 
@@ -138,11 +226,18 @@ que já funciona.
 
 ```sql
 departments
-├── id           UUID PK
-├── name         TEXT UNIQUE
-├── description  TEXT
-├── is_active    BOOLEAN DEFAULT true
+├── id             UUID PK
+├── name           TEXT UNIQUE
+├── description    TEXT
+├── is_active      BOOLEAN DEFAULT true
+├── is_default     BOOLEAN DEFAULT false  -- destino de quem nao for triado
+├── is_restricted  BOOLEAN DEFAULT false  -- admin NAO le (ver 3.2)
 └── created_at
+
+contact_routing_rules      -- roteia na ENTRADA, antes da fila (ver 3.2)
+├── phone          TEXT UNIQUE
+├── department_id  UUID
+└── created_by     UUID
 
 conversation_transfers          -- histórico; hoje não existe registro nenhum
 ├── id                UUID PK
@@ -252,7 +347,10 @@ responsável e o destino de transferência.
 ### Fase A — Fundação · ~2 dias
 
 1. Enum em migration própria (`super_admin`, `supervisor`).
-2. `departments`, `app_users.department_id`, `conversations.department_id`.
+2. `departments` (com `is_default` e `is_restricted`),
+   `app_users.department_id`, `conversations.department_id`.
+   Semear **Administração Geral** com `is_restricted = true`, e promover o
+   usuário owner atual a `super_admin` nele.
 3. `current_user_department()` e `sees_all_departments()`.
 4. `handle_new_user` aceitando `invited_department` junto de `invited_role`.
 5. Backfill: todo mundo hoje é `admin` ou `operator`; criar um departamento
@@ -266,6 +364,9 @@ responsável e o destino de transferência.
 6. Reescrever as policies de `SELECT` de `conversations`, `messages`,
    `contacts`, e das tabelas do funil.
 7. Policy de `app_users` escondendo `super_admin` de `admin`.
+7b. **Departamento restrito fora do alcance do admin** — em `conversations`,
+    `messages`, `contacts` e no funil. É a regra mais fácil de esquecer numa
+    tabela, e a que tem a pior consequência.
 8. Índices de departamento.
 9. **Testes de policy com usuário de cada papel.** Segurança que não é testada
    é segurança que não existe — e aqui o modo de falha é vazar conversa de um
@@ -281,6 +382,8 @@ responsável e o destino de transferência.
 13. Fila do departamento = sem `assigned_to`, naquele departamento.
     Fila geral = `department_id IS NULL`.
 14. `departments.is_default` para quem preferir pular a triagem.
+15. `contact_routing_rules` + roteamento no `whatsapp-inbound`, para a conversa
+    sigilosa **nascer** no departamento certo em vez de passar pela fila geral.
 
 ### Fase D — Interface · ~3–4 dias
 
@@ -311,12 +414,15 @@ Nenhuma bloqueia começar a Fase A, mas todas mudam a Fase C ou D.
    O texto diz "seu departamento", no singular — assumi **um**. Vários viraria
    tabela N:N e complica a fila.
 
-2. **"Admin não visualiza superadmin" — a pessoa ou também as conversas dele?**
-   Assumi **a pessoa** (não aparece na equipe, nem como destino de transferência).
-   Se for também as conversas, super_admin precisa de departamento próprio.
+2. ~~Admin não visualiza superadmin: a pessoa ou as conversas?~~
+   **Respondido:** as duas. Departamento **Administração Geral**, com
+   `is_restricted`. Ver seção 3.2.
 
-3. **"Transfere para todos os setores exceto superadmin"** — isso sugere que
-   super_admin tem uma caixa própria, e não só um papel. É isso?
+3. ~~Super_admin tem caixa própria?~~ **Respondido:** sim.
+
+3b. **Aberto, e é o que importa agora:** como o contato sigiloso chega sem
+    passar pela fila geral? A lista de telefones (`contact_routing_rules`) é a
+    recomendação, mas ela não cobre o primeiro contato desconhecido. Ver 3.2.
 
 4. **Quem cria super_admin?** Só outro super_admin? E se o único sair da
    empresa? (Recomendo: o primeiro usuário da instância vira `super_admin` em
