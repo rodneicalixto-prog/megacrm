@@ -32,10 +32,9 @@ export class FakeSupabase {
     return this.tables[table] ?? [];
   }
 
-  from(table: string) {
+  from = (table: string) => {
     this.tables[table] ??= [];
     const rows = this.tables[table];
-    const self = this;
 
     return {
       select(_cols?: string) {
@@ -64,11 +63,11 @@ export class FakeSupabase {
         return q;
       },
 
-      insert(row: Row) {
-        const uniqueCol = self.unique[table];
+      insert: (row: Row) => {
+        const uniqueCol = this.unique[table];
         const duplicated =
           uniqueCol !== undefined && rows.some((r) => r[uniqueCol] === row[uniqueCol]);
-        const inserted: Row = { id: `${table}-${++self.seq}`, ...row };
+        const inserted: Row = { id: `${table}-${++this.seq}`, ...row };
         if (!duplicated) rows.push(inserted);
 
         const err = duplicated
@@ -99,10 +98,10 @@ export class FakeSupabase {
         };
       },
     };
-  }
+  };
 
-  async rpc(name: string, args: Row): Promise<Result> {
+  rpc = async (name: string, args: Row): Promise<Result> => {
     this.rpcCalls.push({ name, args });
     return this.rpcResults[name] ?? { data: null, error: null };
-  }
+  };
 }
