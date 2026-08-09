@@ -282,19 +282,28 @@ para sempre, sem mensagem que o referenciasse.
 10 checks, incluindo a rota de voz (`sendWhatsAppAudio`) e os dois caminhos de
 falha.
 
-### Fase A — Departamentos e conexões · ~4–5 dias
+### ✅ Fase A — Departamentos e conexões — feita (backend)
 
-1. Enum (`super_admin`, `supervisor`) em migration **própria** —
-   `ALTER TYPE … ADD VALUE` não roda em transação e o valor não pode ser usado
-   na mesma migration que o criou.
-2. `departments`, `department_connections`, `app_users.department_id`,
-   `conversations.department_id`.
-3. `UNIQUE (contact_id, department_id)` em `conversations`.
-4. **Backfill:** departamento "Geral" com a conexão de hoje, todos os usuários e
-   conversas existentes apontados para ele. Sem isso o inbox fica vazio no dia
-   do deploy.
-5. Seed de **Administração Geral** com `is_restricted`; owner atual vira
-   `super_admin`.
+1. ✅ Enum em migration própria (`20260808160000`).
+2. ✅ `departments`, `department_connections`, `app_users.department_id`,
+   `conversations.department_id` (`20260808170000`).
+3. ✅ `UNIQUE (contact_id, department_id)` — a constraint antiga era por
+   contato na instalação inteira.
+4. ✅ Backfill de "Geral" em conversas e usuários, e só então `SET NOT NULL`.
+5. ✅ **Administração Geral** com `is_restricted`; o dono vira `super_admin`,
+   uma vez só, com marca em `_bootstrap_state` (`20260808180000`).
+6. ✅ `current_user_department()`, `department_is_restricted()`,
+   `sees_all_departments()` — `STABLE`, uma avaliação por query.
+7. ✅ Tipos de papel alargados no front e nas functions; `requireAdmin` aceita
+   `super_admin`; novo `requireSupervisor`.
+8. ✅ Convite carrega departamento, e **só super_admin convida super_admin** —
+   sem isso um admin escalaria o próprio nível convidando um e entrando com ele.
+
+> `department_connections` fica **vazia** nesta fase, e `server_url` /
+> `api_key_encrypted` nulos significam "usar a credencial global". É o que
+> mantém a instalação atual funcionando enquanto o roteamento por número não
+> existe. SQL não consegue semear esses valores: estão cifrados e a `CRYPTO_KEY`
+> vive na aplicação.
 
 ### Fase B — Roteamento por número · ~3–4 dias
 

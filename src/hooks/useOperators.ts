@@ -4,7 +4,7 @@ import { getSupabase } from '@/lib/supabase';
 export interface Operator {
   user_id: string;
   email: string;
-  role: 'admin' | 'operator';
+  role: 'super_admin' | 'admin' | 'supervisor' | 'operator';
 }
 
 // Lista os membros da instância (via RPC list_operators) para o seletor de

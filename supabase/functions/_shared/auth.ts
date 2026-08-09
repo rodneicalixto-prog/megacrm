@@ -8,11 +8,17 @@
 
 import { getAdminClient, getAuthAdminClient } from './supabase-admin.ts';
 
+export type CallerRole = 'super_admin' | 'admin' | 'supervisor' | 'operator';
+
 export interface Caller {
   userId: string;
   email: string | null;
-  role: 'admin' | 'operator' | null;
+  role: CallerRole | null;
 }
+
+// Papeis que administram a instalacao. super_admin e o topo; admin tem o mesmo
+// alcance operacional, menos o que for do departamento restrito.
+export const ADMIN_ROLES: CallerRole[] = ['super_admin', 'admin'];
 
 export class AuthError extends Error {
   status: number;
@@ -47,8 +53,18 @@ export async function requireCaller(req: Request): Promise<Caller> {
 
 export async function requireAdmin(req: Request): Promise<Caller> {
   const caller = await requireCaller(req);
-  if (caller.role !== 'admin') {
+  if (!caller.role || !ADMIN_ROLES.includes(caller.role)) {
     throw new AuthError('Admin role required', 403);
+  }
+  return caller;
+}
+
+// Gate do supervisor: administra o proprio departamento. Admin e super_admin
+// passam por cima, como em qualquer nivel abaixo deles.
+export async function requireSupervisor(req: Request): Promise<Caller> {
+  const caller = await requireCaller(req);
+  if (!caller.role || ![...ADMIN_ROLES, 'supervisor'].includes(caller.role)) {
+    throw new AuthError('Supervisor role required', 403);
   }
   return caller;
 }

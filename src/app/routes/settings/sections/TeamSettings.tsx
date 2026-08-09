@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/card';
 import { getSupabase } from '@/lib/supabase';
 import { useAppUser } from '@/app/providers/AppUserProvider';
 
-type Role = 'admin' | 'operator';
+type Role = 'super_admin' | 'admin' | 'supervisor' | 'operator';
 
 // supabase.functions.invoke zera `data` em respostas não-2xx (o erro vira
 // FunctionsHttpError com o Response em `.context`). Lê o corpo pra mostrar a

@@ -17,7 +17,11 @@ import { useAuth } from './AuthProvider';
 // of querying the DB; the JWT is the source of truth for access control.
 // ----------------------------------------------------------------------------
 
-export type AppRole = 'admin' | 'operator';
+export type AppRole = 'super_admin' | 'admin' | 'supervisor' | 'operator';
+
+// Papeis com alcance administrativo. Usado pelos gates da UI — lembrando que
+// esconder no menu nao e permissao: quem barra e a RLS.
+export const ADMIN_ROLES: AppRole[] = ['super_admin', 'admin'];
 
 interface AppUserContextValue {
   userId: string | null;
@@ -30,7 +34,7 @@ const AppUserContext = createContext<AppUserContextValue | null>(null);
 function readRoleFromUser(appMetadata: Record<string, unknown> | undefined): AppRole | null {
   if (!appMetadata) return null;
   const role = appMetadata['role'];
-  if (role === 'admin' || role === 'operator') {
+  if (role === 'super_admin' || role === 'admin' || role === 'supervisor' || role === 'operator') {
     return role;
   }
   return null;

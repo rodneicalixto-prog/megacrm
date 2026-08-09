@@ -16,9 +16,9 @@ import { getAuthAdminClient } from '../_shared/supabase-admin.ts';
 import { getCredential } from '../_shared/credentials.ts';
 import { jsonResponse, preflight } from '../_shared/cors.ts';
 
-type Role = 'admin' | 'operator';
+type Role = 'super_admin' | 'admin' | 'supervisor' | 'operator';
 
-const ROLES = new Set<Role>(['admin', 'operator']);
+const ROLES = new Set<Role>(['super_admin', 'admin', 'supervisor', 'operator']);
 
 Deno.serve(async (req) => {
   const pre = preflight(req);
@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
   try {
     const caller = await requireAdmin(req);
 
-    let body: { email?: string; role?: Role; app_url?: string };
+    let body: { email?: string; role?: Role; app_url?: string; department_id?: string };
     try {
       body = await req.json();
     } catch {
@@ -36,6 +36,7 @@ Deno.serve(async (req) => {
 
     const email = (body.email ?? '').trim().toLowerCase();
     const role = body.role as Role | undefined;
+    const department_id = (body.department_id ?? '').trim() || null;
 
     // Regex mais estrita: bloqueia HTML/JS na parte local e exige TLD com 2+ chars.
     if (!email || email.length > 254 || !/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(email)) {
@@ -43,6 +44,14 @@ Deno.serve(async (req) => {
     }
     if (!role || !ROLES.has(role)) {
       return jsonResponse({ ok: false, error: 'role inválido.' }, { status: 400 });
+    }
+    // Só o topo cria outro topo. Sem isto um admin escalaria o próprio nível
+    // convidando um super_admin e entrando com ele.
+    if (role === 'super_admin' && caller.role !== 'super_admin') {
+      return jsonResponse(
+        { ok: false, error: 'Apenas o super admin pode convidar outro super admin.' },
+        { status: 403 },
+      );
     }
 
     const admin = getAuthAdminClient();
@@ -63,6 +72,8 @@ Deno.serve(async (req) => {
     const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
       data: {
         invited_role: role,
+        // Departamento do convidado; o trigger cai no padrao se vier vazio.
+        ...(department_id ? { invited_department: department_id } : {}),
         invited_by: caller.email,
       },
       ...(redirectTo ? { redirectTo } : {}),

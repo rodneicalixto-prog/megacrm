@@ -28,7 +28,7 @@ export async function requireAdmin(
     return { ok: false, status: 401, message: 'Sessao invalida ou expirada.' };
   }
   const role = (data.user.app_metadata as { role?: string } | null)?.role;
-  if (role !== 'admin') {
+  if (role !== 'admin' && role !== 'super_admin') {
     return { ok: false, status: 403, message: 'Acesso restrito a administradores.' };
   }
   return { ok: true, userId: data.user.id };
