@@ -12,7 +12,7 @@
 | **Repositório** | ✅ código versionado, 281 arquivos |
 | **CI** | ✅ lint · typecheck · SQL · build · testes |
 | **Deploy Vercel** | ✅ `megacrm`, produção verde, 7 serverless |
-| **Testes** | ✅ 51 unitários (Vitest) + 9 E2E · lint e tipos em toda a base |
+| **Testes** | ✅ 107 unitários (Vitest) + 9 E2E · lint e tipos em toda a base |
 | **Banco Supabase** | ⏳ wizard `/setup` em andamento |
 | **Rota WhatsApp** | ✅ Zernio (oficial) + Evolution API v2 |
 
@@ -67,7 +67,7 @@ atribuição de UTM e dashboard.
 | `supabase/migrations/` | 6.342 | 69 |
 | `supabase/functions/` | 5.880 | 22 funções |
 | `api/` (serverless Vercel) | 1.223 | 7 |
-| `tests/` | ~1.200 | 9 specs E2E + 51 unit |
+| `tests/` | ~1.700 | 9 specs E2E + 107 unit |
 
 ### O que está genuinamente bom
 
@@ -107,16 +107,18 @@ test:unit → test:e2e**, com upload de artefato do Playwright em falha.
 > trabalho tinha Chromium 1194 e o `@playwright/test` pede 1223, com download
 > bloqueado. Ele roda pela primeira vez no GitHub Actions.
 
-### 🟠 R3 — Cobertura de teste no lugar errado — em andamento
+### 🟢 R3 — Cobertura de teste no lugar errado — em grande parte resolvido
 
-As 9 specs E2E cobriam **só o wizard `/setup`**. A Fase 3 somou **51 checks
+As 9 specs E2E cobriam **só o wizard `/setup`**. A Fase 3 somou **107 checks
 unitários** (Vitest) sobre o que carrega risco: gate HMAC dos webhooks, os dois
-adapters de WhatsApp, normalização de telefone, montagem de UTM, filtros do
-inbox e leitura de origem do lead.
+adapters de WhatsApp, pós-processamento da resposta do LLM, montagem do template
+de broadcast, horário comercial, normalização de telefone, montagem de UTM,
+filtros do inbox e leitura de origem do lead.
 
-Continuam descobertos: disparo de campanhas, funil e o agente de IA — os três
-dependem de I/O com o banco e precisam de mock, ao contrário do que já foi
-coberto. Ficam para a continuação da Fase 3.
+O que sobra é o que **de fato** depende de banco: as queries em si e o
+encadeamento entre elas. A decisão dentro de cada função já está coberta — foi
+separada do I/O em módulos `_shared`, o mesmo movimento que tornou o gate HMAC
+testável.
 
 ### 🟠 R4 — Vulnerabilidades de dependência — parcialmente aberto
 
@@ -231,13 +233,30 @@ Feito:
 2. ✅ **Adapters de WhatsApp** — Evolution (12) e Zernio (5).
 3. ✅ **Funções puras** — `phone.ts`, `utm.ts`, `nextAction.ts`, `dealOrigin.ts`
    e os filtros do inbox (23).
-4. ⏳ **Dispatcher de campanha**, **agente de IA** e **funil** — dependem de I/O
-   com o banco; precisam de mock antes.
+4. ✅ **Pós-processamento da resposta do LLM** — `_shared/ai-reply.ts` (24
+   checks). É a fronteira onde texto não confiável vira ação: vazar `[HANDOFF]`
+   para o cliente ou perder um handoff são os dois modos de falha que importam.
+5. ✅ **Montagem do template de broadcast** — `_shared/campaign-template.ts`
+   (19 checks). Variável sem literal tem que virar `missing`, senão a Meta
+   recusa com *"Required template parameter is missing"* e o disparo some sem
+   ninguém notar.
+6. ✅ **Horário comercial** — `_shared/business-hours.ts` (15 checks), com o
+   relógio injetável para o teste fixar o instante. Não há gate no código: o
+   prompt decide. Um `dentro_do_horario` errado faz o agente atender de
+   madrugada.
+7. ⏳ **Queries e encadeamento** do dispatcher, do agente e do funil — o que
+   realmente toca o banco. Precisa de mock; é a continuação.
 
 **Runner:** Vitest, um só para os dois lados. O `node:test` da stdlib cobria os
 adapters (TypeScript puro), mas não resolve o alias `@/` nem imports sem
 extensão do lado do frontend — e contorcer o código-fonte para agradar o runner
 sairia mais caro que a dependência.
+
+**Padrão adotado:** separar a decisão do I/O. Quatro módulos `_shared` novos
+(`signature`, `ai-reply`, `campaign-template`, `business-hours`, 261 linhas no
+total) tiraram lógica pura de dentro dos `index.ts`, que misturavam as duas
+coisas e por isso não tinham como ser testados. O bundler já inlina `_shared`
+uma vez só, então não há custo em runtime.
 
 **Bug encontrado pelo type-check:** `zernio-provider.extractReferral` encadeava
 `x && asObject(x)` para achar o `ctwa_clid` em três lugares possíveis. Objeto

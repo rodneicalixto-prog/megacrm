@@ -24,6 +24,8 @@ import { callLLM, type LLMProvider } from '../_shared/llm.ts';
 import { jsonResponse, preflight } from '../_shared/cors.ts';
 import { requireServiceRole } from '../_shared/auth.ts';
 import { createInboxConversation, loadZernioContext, sendInboxMessage } from '../_shared/zernio.ts';
+import { applyVariables, extractHandoff, extractMedia, parseJsonLoose } from '../_shared/ai-reply.ts';
+import { buildScheduleVars } from '../_shared/business-hours.ts';
 import { isEvolutionChannel, sendEvolutionMessage } from '../_shared/whatsapp/outbound.ts';
 
 const EMBED_MODEL = 'text-embedding-3-small';
@@ -66,18 +68,6 @@ interface AgentConfig {
 // Módulo 8 — parâmetros do movimento automático de estágio pela IA.
 const AUTO_MOVE_COOLDOWN_MS = 15 * 60 * 1000; // evita mover várias vezes em sequência
 const AUTO_MOVE_MIN_CONFIDENCE = 0.7;         // só move com sinal claro
-
-function parseJsonLoose(raw: string): Record<string, unknown> | null {
-  const cleaned = raw.replace(/```json/gi, '').replace(/```/g, '').trim();
-  const start = cleaned.indexOf('{');
-  const end = cleaned.lastIndexOf('}');
-  if (start === -1 || end === -1 || end < start) return null;
-  try {
-    return JSON.parse(cleaned.slice(start, end + 1)) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-}
 
 interface AutoMoveDeps {
   provider: LLMProvider;
@@ -185,109 +175,8 @@ async function maybeAutoMoveLead(
 // fora-do-horário (já preenchida) como variáveis. O prompt decide usá-las
 // (tipicamente só no handoff fora do horário). Não há gate no código.
 
-type DaySlot = { enabled?: boolean; start?: string; end?: string };
-const DAY_LABELS: Record<string, string> = {
-  mon: 'segunda', tue: 'terça', wed: 'quarta', thu: 'quinta',
-  fri: 'sexta', sat: 'sábado', sun: 'domingo',
-};
-const WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri'];
-const WEEKEND = ['sat', 'sun'];
-const SHORT_TO_KEY: Record<string, string> = {
-  Mon: 'mon', Tue: 'tue', Wed: 'wed', Thu: 'thu', Fri: 'fri', Sat: 'sat', Sun: 'sun',
-};
-
-function nowInTz(tz: string): { key: string; hhmm: string; label: string } {
-  let parts: Intl.DateTimeFormatPart[];
-  try {
-    parts = new Intl.DateTimeFormat('en-US', {
-      timeZone: tz, weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false,
-    }).formatToParts(new Date());
-  } catch {
-    parts = new Intl.DateTimeFormat('en-US', {
-      weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false,
-    }).formatToParts(new Date());
-  }
-  const wd = parts.find((p) => p.type === 'weekday')?.value ?? 'Mon';
-  const hh = parts.find((p) => p.type === 'hour')?.value ?? '00';
-  const mm = parts.find((p) => p.type === 'minute')?.value ?? '00';
-  const key = SHORT_TO_KEY[wd] ?? 'mon';
-  return { key, hhmm: `${hh}:${mm}`, label: DAY_LABELS[key] };
-}
-
-function slotOf(bh: unknown, key: string): DaySlot {
-  return (bh && typeof bh === 'object' ? (bh as Record<string, DaySlot>)[key] : null) ?? {};
-}
-
-function buildScheduleVars(
-  tz: string,
-  businessHours: unknown,
-  outMsg: string | null,
-): Record<string, string> {
-  const { key, hhmm, label } = nowInTz(tz);
-  const today = slotOf(businessHours, key);
-  const within =
-    Boolean(today.enabled) &&
-    typeof today.start === 'string' && typeof today.end === 'string' &&
-    today.start <= hhmm && hhmm <= today.end;
-
-  const wdOn = WEEKDAYS.filter((k) => slotOf(businessHours, k).enabled);
-  const weOn = WEEKEND.filter((k) => slotOf(businessHours, k).enabled);
-  const wkFirst = wdOn.length ? slotOf(businessHours, wdOn[0]) : {};
-  const weFirst = weOn.length ? slotOf(businessHours, weOn[0]) : {};
-
-  const filled = (outMsg ?? '')
-    .replace(/\{dia_inicial\}/g, wdOn.length ? DAY_LABELS[wdOn[0]] : '')
-    .replace(/\{dia_final\}/g, wdOn.length ? DAY_LABELS[wdOn[wdOn.length - 1]] : '')
-    .replace(/\{horario_inicial_week\}/g, wkFirst.start ?? '')
-    .replace(/\{horario_final_week\}/g, wkFirst.end ?? '')
-    .replace(/\{final_de_semana\}/g, weOn.map((k) => DAY_LABELS[k]).join(' e '))
-    .replace(/\{horario_inicial_weekend\}/g, weFirst.start ?? '')
-    .replace(/\{horario_final_weekend\}/g, weFirst.end ?? '');
-
-  const readable = [
-    wdOn.length ? `${DAY_LABELS[wdOn[0]]} a ${DAY_LABELS[wdOn[wdOn.length - 1]]} ${wkFirst.start}–${wkFirst.end}` : '',
-    weOn.length ? `${weOn.map((k) => DAY_LABELS[k]).join(' e ')} ${weFirst.start}–${weFirst.end}` : '',
-  ].filter(Boolean).join('; ');
-
-  return {
-    agora: `${label}, ${hhmm}`,
-    dentro_do_horario: within ? 'sim' : 'não',
-    horario_atendimento: readable,
-    mensagem_fora_horario: filled.trim(),
-  };
-}
-
 // Substitui {chave} pelos valores das variáveis do agente. Chaves desconhecidas
 // ficam intactas (para não quebrar texto que use {} por outros motivos).
-function applyVariables(prompt: string, vars: Record<string, string> | null): string {
-  if (!vars) return prompt;
-  return prompt.replace(/\{([a-z0-9_]+)\}/gi, (whole, key: string) =>
-    Object.prototype.hasOwnProperty.call(vars, key) ? String(vars[key] ?? '') : whole,
-  );
-}
-
-// Detecta o marcador [HANDOFF] (linha própria, case-insensitive) e devolve o
-// texto sem ele. A ferramenta nunca envia "[HANDOFF]" ao contato.
-function extractHandoff(reply: string): { text: string; handoff: boolean } {
-  const handoff = /(^|\n)\s*\[handoff\]\s*(\n|$)/i.test(reply);
-  const text = reply.replace(/(^|\n)\s*\[handoff\]\s*(?=\n|$)/gi, '').trim();
-  return { text, handoff };
-}
-
-// Detecta marcadores [MEDIA:rotulo] (case-insensitive) e devolve o texto sem
-// eles + a lista de rótulos. A ferramenta envia as mídias correspondentes.
-function extractMedia(reply: string): { text: string; labels: string[] } {
-  const labels: string[] = [];
-  const text = reply
-    .replace(/\[media:\s*([a-z0-9_-]+)\s*\]/gi, (_w, label: string) => {
-      labels.push(String(label).toLowerCase());
-      return '';
-    })
-    .replace(/[ \t]+\n/g, '\n')
-    .trim();
-  return { text, labels };
-}
-
 async function embed(openaiKey: string, text: string): Promise<number[]> {
   const res = await fetch('https://api.openai.com/v1/embeddings', {
     method: 'POST',

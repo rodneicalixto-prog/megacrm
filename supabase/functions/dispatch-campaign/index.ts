@@ -24,6 +24,12 @@
 
 import { getAdminClient } from '../_shared/supabase-admin.ts';
 import { jsonResponse, preflight } from '../_shared/cors.ts';
+import {
+  buildBroadcastComponents,
+  chunk,
+  renderTemplatePreview,
+  type VariableSource,
+} from '../_shared/campaign-template.ts';
 import { requireServiceRole } from '../_shared/auth.ts';
 import {
   ZernioError,
@@ -58,57 +64,6 @@ interface CampaignContactRow {
   campaign_id: string;
   contact_id: string;
   template_id_override: string | null;
-}
-
-type VariableSource =
-  | { source: 'literal'; value: string }
-  | { source: 'contact_field'; field: 'name' | 'email' | 'phone' }
-  | { source: 'custom_field'; field: string };
-
-function countVariables(body: string): number {
-  const matches = body.match(/\{\{\s*\d+\s*\}\}/g) ?? [];
-  return new Set(matches).size;
-}
-
-// Componentes do broadcast a partir do template + mapeamento de variaveis.
-// Broadcast NAO personaliza por destinatario: so variaveis 'literal' com valor
-// nao-vazio podem ser preenchidas. Qualquer outra (campo do contato/custom, ou
-// literal vazio) eh reportada em `missing` — o chamador FALHA a linha em vez de
-// enviar parametro vazio, que a Meta rejeitaria com "Required template parameter
-// is missing" (a mensagem nunca chegaria, sem aviso).
-function buildBroadcastComponents(
-  template: TemplateRow,
-  mapping: Record<string, VariableSource> | null,
-): { components: unknown[]; missing: number[] } {
-  const varCount = countVariables(template.body);
-  if (varCount === 0) return { components: [], missing: [] };
-  const parameters: Array<{ type: 'text'; text: string }> = [];
-  const missing: number[] = [];
-  for (let i = 1; i <= varCount; i++) {
-    const src = mapping?.[String(i)];
-    if (src?.source === 'literal' && src.value.trim() !== '') {
-      parameters.push({ type: 'text', text: src.value });
-    } else {
-      missing.push(i);
-      parameters.push({ type: 'text', text: '' });
-    }
-  }
-  return { components: [{ type: 'body', parameters }], missing };
-}
-
-function chunk<T>(arr: T[], size: number): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-  return out;
-}
-
-// Renderiza o corpo do template substituindo as variaveis pelos valores literais
-// do mapeamento da campanha (broadcast so usa literais — mesmo texto p/ todos).
-function renderTemplatePreview(body: string, mapping: Record<string, VariableSource> | null): string {
-  return body.replace(/\{\{\s*(\d+)\s*\}\}/g, (_w, n: string) => {
-    const src = mapping?.[n];
-    return src?.source === 'literal' ? src.value : `{{${n}}}`;
-  });
 }
 
 // Espelha cada destinatario do broadcast na inbox: garante uma conversa por
