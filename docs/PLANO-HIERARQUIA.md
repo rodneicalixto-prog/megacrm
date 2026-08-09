@@ -48,6 +48,51 @@ ao alcance. Sigilo por arquitetura, não por permissão.
 
 ---
 
+## 1.1. Escopo desta fase
+
+**Fora, por decisão:**
+
+- **Agente de IA.** Já desligado (`20260808140000`). O atendimento é 100% humano.
+- **API oficial (Zernio).** Só a rota Evolution. Fase futura, a repensar.
+
+Isso simplifica o plano — mas tem duas consequências que não são óbvias.
+
+### Consequência 1 — Campanhas e Templates ficam inertes
+
+**12 das 22 Edge Functions dependem do Zernio.** Sem a rota oficial, estas não
+têm o que fazer:
+
+| Função | O que deixa de existir |
+|---|---|
+| `dispatch-campaign` | disparo em massa (usa Broadcasts do Zernio) |
+| `submit-template` · `sync-template-status` | aprovação de template na Meta |
+| `sync-broadcast-status` | status dos disparos |
+| `repurchase-dispatch` | recompra (depende de broadcast) |
+| `zernio-number-status` · `test-zernio-connection` | saúde do número oficial |
+
+Ou seja: **Campanhas, Templates e Recompra saem do produto** enquanto for só
+Evolution. Não é bug — disparo em massa é feito de template aprovado pela Meta,
+que só existe na API oficial. Vale saber que o menu vai mostrar funcionalidade
+que não opera.
+
+> Baileys também não entrega `ctwa_clid`, então a atribuição de anúncio
+> Click-to-WhatsApp fica só com o código de rastreio.
+
+### Consequência 2 — 🔴 Enviar mídia pela inbox está quebrado hoje
+
+`send-operator-media` **não tem caminho para a Evolution**. Ele importa só o
+client do Zernio; nenhuma linha olha `conversation.channel`.
+
+O `send-operator-message` (texto) ganhou o desvio para a Evolution; o de **mídia
+não**. Na prática: o operador manda texto, mas **anexar imagem ou arquivo falha**.
+
+Isso não é do plano de departamentos — **é um defeito ativo na configuração que
+vocês já estão usando**. O adapter da Evolution já sabe enviar mídia
+(`sendMedia` / `sendWhatsAppAudio`); falta ligar os dois. Trabalho pequeno, e
+deveria vir antes de qualquer fase deste documento.
+
+---
+
 ## 2. Onde o trabalho realmente está
 
 Duas frentes, e a segunda é a que ninguém espera.
@@ -133,7 +178,6 @@ departments
 
 department_connections        -- o número de cada departamento
 ├── department_id   UUID PK REFERENCES departments
-├── provider        TEXT     -- 'evolution' | 'zernio'
 ├── instance        TEXT UNIQUE  -- nome da instância = chave de roteamento
 ├── server_url      TEXT
 ├── api_key_encrypted TEXT   -- mesmo AES-256-GCM do app_settings
@@ -177,6 +221,10 @@ Reusar o `encrypt`/`decrypt` de `src/lib/credentials.ts` (AES-256-GCM com a
 mesmo esquema, em outra tabela, porque agora a credencial pertence a uma
 **linha** e não à instalação.
 
+Sem coluna `provider`: **só Evolution nesta fase**. Se a rota oficial voltar, é
+um `ALTER TABLE ADD COLUMN` — barato depois, e carregar agora faria todo caminho
+ramificar sobre um valor que nunca muda.
+
 ---
 
 ## 5. Recorte de leitura
@@ -216,6 +264,13 @@ USING (whatsapp_hub.current_user_role() = 'super_admin' OR role <> 'super_admin'
 ---
 
 ## 6. Fases
+
+### Fase 0 — Consertar o envio de mídia · ~meio dia
+
+**Antes de tudo.** `send-operator-media` só fala Zernio; na Evolution, anexar
+imagem ou arquivo falha. O adapter já sabe enviar mídia — falta o desvio, igual
+ao que o `send-operator-message` já tem. É defeito ativo hoje, não trabalho
+futuro.
 
 ### Fase A — Departamentos e conexões · ~4–5 dias
 
@@ -274,8 +329,9 @@ USING (whatsapp_hub.current_user_role() = 'super_admin' OR role <> 'super_admin'
 
 22. `useDashboardMetrics` e `useSalesDashboard` filtrados. Supervisor vê o seu.
 
-**Total: 19–24 dias.** Fases A, B e C saem juntas — meio caminho deixa o sistema
-pior que hoje.
+**Total: 17–21 dias** (menor que a estimativa anterior: sem IA e sem rota
+oficial, a Fase B lida com um provedor só). Fases A, B e C saem juntas — meio
+caminho deixa o sistema pior que hoje.
 
 ---
 
@@ -301,11 +357,13 @@ pior que hoje.
 2. **Atendente transfere entre departamentos**, ou só devolve para o supervisor?
 3. **Quem cria super_admin?** Recomendo: o primeiro usuário da instalação vira
    `super_admin` (hoje vira `admin`), e só super_admin cria outro.
-4. **Agente de IA por departamento?** Hoje `ai_agent_config` é singleton — um
-   prompt para a instalação toda. Vendas e Suporte provavelmente querem prompts
-   diferentes. Não é urgente (o agente está desligado), mas o modelo de dados
-   fica mais barato de mudar agora do que depois.
-5. **Campanhas por departamento?** Mesma pergunta para `campaigns` e `templates`.
+4. ~~Agente de IA por departamento?~~ **Fora de escopo** — sem agente nesta
+   fase. Quando voltar, `ai_agent_config` é singleton e vai precisar de uma
+   linha por departamento.
+5. ~~Campanhas por departamento?~~ **Fora de escopo** — campanhas dependem da
+   API oficial, que também saiu.
+6. **Esconder no menu o que não opera?** Campanhas, Templates e Recompra ficam
+   inertes sem a rota oficial. Ocultar por enquanto, ou deixar visível com aviso?
 
 ---
 
