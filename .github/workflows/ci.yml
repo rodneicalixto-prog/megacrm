@@ -18,8 +18,8 @@ jobs:
       - run: npm ci
 
       - run: npm run lint
-      # Cobre api/ — os serverless da Vercel ficavam fora do type-check porque
-      # tsconfig.app.json só inclui src. O tsc de src/ vem junto no build.
+      # Cobre api/ e supabase/functions/ — ambos ficavam fora do type-check
+      # porque tsconfig.app.json só inclui src. O tsc de src/ vem no build.
       - run: npm run typecheck
       # Sintaxe das migrations, antes que cheguem no Postgres de algum cliente.
       - run: npm run validate:sql

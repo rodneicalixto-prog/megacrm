@@ -1,9 +1,9 @@
 // Service-role Supabase client for Edge Functions. Bypasses RLS — use ONLY
 // inside Edge Functions after validating the caller via requireAdmin().
 
-import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
-export function getAdminClient(): SupabaseClient {
+export function getAdminClient() {
   const url = Deno.env.get('SUPABASE_URL');
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   if (!url || !serviceRoleKey) {
@@ -16,7 +16,7 @@ export function getAdminClient(): SupabaseClient {
 }
 
 // Separate admin client that talks to the auth schema (e.g. for admin.* APIs).
-export function getAuthAdminClient(): SupabaseClient {
+export function getAuthAdminClient() {
   const url = Deno.env.get('SUPABASE_URL');
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   if (!url || !serviceRoleKey) {

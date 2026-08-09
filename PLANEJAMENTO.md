@@ -12,6 +12,7 @@
 | **Repositório** | ✅ código versionado, 281 arquivos |
 | **CI** | ✅ lint · typecheck · SQL · build · testes |
 | **Deploy Vercel** | ✅ `megacrm`, produção verde, 7 serverless |
+| **Testes** | ✅ 51 unitários (Vitest) + 9 E2E · lint e tipos em toda a base |
 | **Banco Supabase** | ⏳ wizard `/setup` em andamento |
 | **Rota WhatsApp** | ✅ Zernio (oficial) + Evolution API v2 |
 
@@ -66,7 +67,7 @@ atribuição de UTM e dashboard.
 | `supabase/migrations/` | 6.342 | 69 |
 | `supabase/functions/` | 5.880 | 22 funções |
 | `api/` (serverless Vercel) | 1.223 | 7 |
-| `tests/` | 849 | 9 specs E2E + 10 unit |
+| `tests/` | ~1.200 | 9 specs E2E + 51 unit |
 
 ### O que está genuinamente bom
 
@@ -106,12 +107,16 @@ test:unit → test:e2e**, com upload de artefato do Playwright em falha.
 > trabalho tinha Chromium 1194 e o `@playwright/test` pede 1223, com download
 > bloqueado. Ele roda pela primeira vez no GitHub Actions.
 
-### 🟠 R3 — Cobertura de teste no lugar errado — parcialmente aberto
+### 🟠 R3 — Cobertura de teste no lugar errado — em andamento
 
-As 9 specs E2E cobrem **só o wizard `/setup`**. Somaram-se 10 checks unitários
-no parser da Evolution (`node:test`, sem runner extra). Continuam descobertos:
-inbox, disparo de campanhas, funil, agente de IA, webhooks de entrada, RAG e
-atribuição de UTM — onde está o risco de negócio. **É a Fase 3.**
+As 9 specs E2E cobriam **só o wizard `/setup`**. A Fase 3 somou **51 checks
+unitários** (Vitest) sobre o que carrega risco: gate HMAC dos webhooks, os dois
+adapters de WhatsApp, normalização de telefone, montagem de UTM, filtros do
+inbox e leitura de origem do lead.
+
+Continuam descobertos: disparo de campanhas, funil e o agente de IA — os três
+dependem de I/O com o banco e precisam de mock, ao contrário do que já foi
+coberto. Ficam para a continuação da Fase 3.
 
 ### 🟠 R4 — Vulnerabilidades de dependência — parcialmente aberto
 
@@ -209,22 +214,36 @@ tocar no core"*). Endpoints confirmados na doc oficial, não chutados.
 - `webhookByEvents` fica **false** no registro do webhook: ligado, ele anexaria
   o nome do evento ao path e quebraria a rota única da Edge Function.
 
-### ⏳ Fase 3 — Testar onde está o risco — 1–2 semanas
+### 🟩 Fase 3 — Testar onde está o risco — primeira rodada feita
 
-Por valor decrescente:
+**Pré-requisito, resolvido primeiro:** `supabase/functions/` não passava por
+`tsc` nem por ESLint. `tsconfig.functions.json` mais um `_deno.d.ts` com as 3
+APIs do runtime (`Deno.serve`, `Deno.env`, `EdgeRuntime.waitUntil`) puseram as
+5.880 linhas sob compilador. **Achou 3 erros reais na primeira execução**, um
+deles bug de comportamento (ver abaixo).
 
-1. **Webhooks de entrada** (`zernio-webhook`, `whatsapp-inbound`) — HMAC, dedup
-   por `wamid`, payloads malformados.
-2. **Dispatcher de campanha** — tier da Meta, batching, idempotência, retry.
-3. **Agente de IA** — handoff IA↔humano, movimentação de estágio, horário.
-4. **Funil / CRM** — transições de estágio, ganho/perda, predições.
-5. Vitest nas funções puras (`phone.ts`, `utm.ts`, `nextAction.ts`,
-   `dealOrigin.ts`) — retorno alto e barato.
+Feito:
 
-> **Pré-requisito descoberto na prática:** `supabase/functions/` não passa por
-> `tsc` nem por ESLint hoje. Foi por isso que os checks da Evolution rodam via
-> `node:test` — era a única rede possível. Colocar as Edge Functions sob
-> verificação é item da Fase 3.
+1. ✅ **Gate HMAC dos webhooks** — estava duplicado entre `zernio-webhook` e
+   `whatsapp-inbound`. Extraído para `_shared/signature.ts` e coberto por 11
+   checks: hex e base64, prefixo `sha256=`, corpo adulterado, segredo errado,
+   header ausente, comparação sem match parcial.
+2. ✅ **Adapters de WhatsApp** — Evolution (12) e Zernio (5).
+3. ✅ **Funções puras** — `phone.ts`, `utm.ts`, `nextAction.ts`, `dealOrigin.ts`
+   e os filtros do inbox (23).
+4. ⏳ **Dispatcher de campanha**, **agente de IA** e **funil** — dependem de I/O
+   com o banco; precisam de mock antes.
+
+**Runner:** Vitest, um só para os dois lados. O `node:test` da stdlib cobria os
+adapters (TypeScript puro), mas não resolve o alias `@/` nem imports sem
+extensão do lado do frontend — e contorcer o código-fonte para agradar o runner
+sairia mais caro que a dependência.
+
+**Bug encontrado pelo type-check:** `zernio-provider.extractReferral` encadeava
+`x && asObject(x)` para achar o `ctwa_clid` em três lugares possíveis. Objeto
+vazio é *truthy*, então um `referral: {}` no primeiro candidato interrompia a
+busca e os outros dois nunca eram olhados — atribuição de anúncio perdida em
+silêncio. Corrigido e travado por teste de regressão.
 
 ### ⏳ Fase 4 — Consolidação técnica — 2–3 semanas
 

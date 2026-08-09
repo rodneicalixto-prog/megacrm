@@ -21,31 +21,7 @@ import {
   resolveInboundProvider,
   type ProviderName,
 } from '../_shared/whatsapp/index.ts';
-
-// --- HMAC (mesmo esquema do zernio-webhook) --------------------------------
-function timingSafeEqualStr(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
-}
-async function hmacSha256(secret: string, payload: string): Promise<Uint8Array> {
-  const key = await crypto.subtle.importKey(
-    'raw', new TextEncoder().encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
-  );
-  return new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(payload)));
-}
-function toHex(b: Uint8Array): string {
-  return Array.from(b).map((x) => x.toString(16).padStart(2, '0')).join('');
-}
-function toB64(b: Uint8Array): string {
-  let s = ''; for (const x of b) s += String.fromCharCode(x); return btoa(s);
-}
-function signatureMatches(header: string, mac: Uint8Array): boolean {
-  const got = (header.startsWith('sha256=') ? header.slice(7) : header).trim();
-  return timingSafeEqualStr(got, toHex(mac)) || timingSafeEqualStr(got, toB64(mac));
-}
+import { verifyWebhookSignature } from '../_shared/signature.ts';
 
 // Nome distinto do normalizePhone de _shared/whatsapp/types.ts — o bundler do
 // bootstrap inlina os _shared no mesmo escopo do módulo.
@@ -73,9 +49,7 @@ Deno.serve(async (req) => {
     const secret = await getCredential('zernio_webhook_secret');
     const sig = req.headers.get('X-Zernio-Signature') ?? '';
     if (!secret) return jsonResponse({ ok: false, error: 'webhook secret ausente' }, { status: 500 });
-    if (!sig) return jsonResponse({ ok: false, error: 'assinatura ausente' }, { status: 401 });
-    const mac = await hmacSha256(secret, rawBody);
-    if (!signatureMatches(sig, mac)) {
+    if (!(await verifyWebhookSignature(secret, rawBody, sig))) {
       return jsonResponse({ ok: false, error: 'assinatura inválida' }, { status: 401 });
     }
   }

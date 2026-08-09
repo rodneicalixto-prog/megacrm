@@ -99,11 +99,15 @@ export class ZernioProvider implements WhatsAppProvider {
     const root = asObject(rawPayload);
     const data = root.data ? asObject(root.data) : root;
     const message = asObject(data.message ?? data);
-    const referral =
-      (message.referral && asObject(message.referral)) ||
-      (asObject(message.context).referral && asObject(asObject(message.context).referral)) ||
-      (data.referral && asObject(data.referral)) ||
-      null;
+    // Pega o primeiro candidato COM conteudo. A versao anterior encadeava
+    // `x && asObject(x)`, e um objeto vazio e truthy: um `referral: {}` no
+    // primeiro candidato interrompia a busca e os outros dois nunca eram
+    // olhados.
+    const referral = [
+      asObject(message.referral),
+      asObject(asObject(message.context).referral),
+      asObject(data.referral),
+    ].find((candidate) => Object.keys(candidate).length > 0);
     if (!referral) return null;
     const ctwa = str(referral, ['ctwa_clid', 'ctwaClid', 'click_id']);
     if (!ctwa) return null;

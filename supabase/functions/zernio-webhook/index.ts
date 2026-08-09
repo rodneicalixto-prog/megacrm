@@ -25,47 +25,12 @@
 import { getAdminClient } from '../_shared/supabase-admin.ts';
 import { getCredential, setCredential } from '../_shared/credentials.ts';
 import { jsonResponse, preflight } from '../_shared/cors.ts';
+import { verifyWebhookSignature } from '../_shared/signature.ts';
 import { getNumberInfo, loadZernioContext } from '../_shared/zernio.ts';
 
 type DeliveryStatus = 'sent' | 'delivered' | 'read' | 'failed';
 
 // --- HMAC ------------------------------------------------------------------
-
-function timingSafeEqualStr(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
-}
-
-async function hmacSha256Raw(secret: string, payload: string): Promise<Uint8Array> {
-  const key = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign'],
-  );
-  const mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(payload));
-  return new Uint8Array(mac);
-}
-
-function hmacToHex(bytes: Uint8Array): string {
-  return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
-}
-
-function bytesToBase64(bytes: Uint8Array): string {
-  let bin = '';
-  for (const b of bytes) bin += String.fromCharCode(b);
-  return btoa(bin);
-}
-
-// O formato do X-Zernio-Signature (hex vs base64) não está explícito na doc;
-// aceitamos ambos, com prefixo opcional "sha256=", comparação constant-time.
-function signatureMatches(header: string, mac: Uint8Array): boolean {
-  const got = (header.startsWith('sha256=') ? header.slice(7) : header).trim();
-  return timingSafeEqualStr(got, hmacToHex(mac)) || timingSafeEqualStr(got, bytesToBase64(mac));
-}
 
 // --- normalizacao do payload (conforme OpenAPI do Zernio) ------------------
 
@@ -442,11 +407,7 @@ Deno.serve(async (req) => {
   }
 
   const signatureHeader = req.headers.get('X-Zernio-Signature') ?? '';
-  if (!signatureHeader) {
-    return jsonResponse({ ok: false, error: 'Missing signature' }, { status: 401 });
-  }
-  const mac = await hmacSha256Raw(secret, rawBody);
-  if (!signatureMatches(signatureHeader, mac)) {
+  if (!(await verifyWebhookSignature(secret, rawBody, signatureHeader))) {
     return jsonResponse({ ok: false, error: 'Invalid signature' }, { status: 401 });
   }
 

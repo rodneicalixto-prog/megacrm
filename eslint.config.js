@@ -5,7 +5,7 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['dist', 'node_modules', 'supabase/functions'] },
+  { ignores: ['dist', 'node_modules'] },
 
   // Frontend: React + browser.
   {
@@ -27,12 +27,6 @@ export default tseslint.config(
       // como warning em vez de travar o gate — ver Fase 4 do PLANEJAMENTO.md.
       'react-hooks/set-state-in-effect': 'warn',
       'react-hooks/purity': 'warn',
-      // Destructuring-para-omitir (`const { a: _omit, ...rest } = row`) é o
-      // padrão da base para descartar campos embutidos do PostgREST.
-      '@typescript-eslint/no-unused-vars': [
-        'error',
-        { varsIgnorePattern: '^_', argsIgnorePattern: '^_' },
-      ],
     },
   },
 
@@ -43,6 +37,30 @@ export default tseslint.config(
     languageOptions: {
       ecmaVersion: 2022,
       globals: globals.node,
+    },
+  },
+
+  // Edge Functions: rodam em Deno. Os globais do runtime estão declarados em
+  // supabase/functions/_deno.d.ts para o tsc; aqui só precisam existir.
+  {
+    files: ['supabase/functions/**/*.ts'],
+    extends: [js.configs.recommended, ...tseslint.configs.recommended],
+    languageOptions: {
+      ecmaVersion: 2022,
+      globals: { ...globals.browser, Deno: 'readonly', EdgeRuntime: 'readonly' },
+    },
+  },
+
+  // Prefixo `_` marca "descartado de propósito" em toda a base: o
+  // destructuring-para-omitir (`const { a: _omit, ...rest } = row`) do PostgREST
+  // e o `catch (_err)` de quem só quer o caminho de fallback.
+  {
+    files: ['**/*.{ts,tsx}'],
+    rules: {
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { varsIgnorePattern: '^_', argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
+      ],
     },
   },
 

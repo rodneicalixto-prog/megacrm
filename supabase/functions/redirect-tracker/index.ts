@@ -126,8 +126,9 @@ Deno.serve(async (req) => {
     }
   })();
 
-  // deno-lint-ignore no-explicit-any
-  const rt = (globalThis as any).EdgeRuntime;
+  // EdgeRuntime existe no Supabase Edge Runtime, nao no Deno puro — por isso o
+  // acesso e opcional (ver a declaracao em _shared/../_deno.d.ts).
+  const rt = (globalThis as { EdgeRuntime?: typeof EdgeRuntime }).EdgeRuntime;
   if (rt?.waitUntil) rt.waitUntil(sessionInsert);
   else {
     // Sem waitUntil: não travar o redirect por mais de 250ms pela gravação.
