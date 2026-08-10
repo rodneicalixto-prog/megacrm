@@ -205,10 +205,11 @@ function readSavedCore(): CoreValues {
 }
 
 export default function SetupPage() {
-  const [core, setCore] = useState<CoreValues>(readSavedCore);
   // Reexecução: o wizard foi aberto de propósito numa instalação já
   // configurada, para reaplicar migrations e redeployar as Edge Functions.
+  // Lido antes de tudo porque o estado inicial do passo depende dele.
   const isRerun = new URLSearchParams(window.location.search).get('rerun') === '1';
+  const [core, setCore] = useState<CoreValues>(readSavedCore);
 
   const [step, setStep] = useState<Step>(() => {
     const value = new URLSearchParams(window.location.search).get('step');
@@ -216,6 +217,11 @@ export default function SetupPage() {
     // Sem as credenciais core nao da para retomar: volta ao inicio.
     const saved = readSavedCore();
     if (!saved.supabase_url || !saved.supabase_pat) return 1;
+    // Passo 4 monta o client do navegador, que exige a anon key. Uma
+    // reexecucao nao coleta esse campo, entao chegar la — por deep link ou por
+    // localStorage pela metade — quebra com "supabaseKey is required" numa tela
+    // que a reexecucao nem precisa. Para no 3.
+    if (value === '4' && (isRerun || !saved.supabase_anon_key)) return 3;
     return value === '4' ? 4 : 3;
   });
   const [validation, setValidation] = useState<ValidationMap>({});
@@ -388,7 +394,7 @@ export default function SetupPage() {
     setStep(3);
     // Keep ?step=3 in the URL so a refresh mid-bootstrap returns here (and
     // re-hydrates from _bootstrap_state) instead of bouncing back to Step 1.
-    window.history.replaceState(null, '', '/setup?step=3');
+    window.history.replaceState(null, '', isRerun ? '/setup?step=3&rerun=1' : '/setup?step=3');
     setBootstrapping(true);
     setDeployTimedOut(false);
     setTimeline(['Conectando ao Supabase']);
@@ -410,9 +416,12 @@ export default function SetupPage() {
       if (!res.ok || !body.success) throw new Error(body.message ?? 'Bootstrap falhou.');
       if (isRerun) {
         // Sem redeploy nao ha o que esperar: as envs ja estao vivas e o Step 4
-        // (credenciais de aplicacao) nao faz parte de uma reexecucao.
+        // (credenciais de aplicacao) nao faz parte de uma reexecucao. Devolve
+        // ao app: parado aqui, o proximo clique cai numa tela que a reexecucao
+        // nao tem como preencher.
         setTimeline(TIMELINE_STEPS.slice(0, 3).map((entry) => entry.label));
         toast.success('Atualizacoes aplicadas.');
+        window.setTimeout(() => { window.location.href = '/'; }, 1500);
         return;
       }
       toast.success('Bootstrap concluido. Aguardando o app reiniciar...');
