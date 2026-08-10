@@ -49,9 +49,13 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         headers: { apikey: apiKey },
         signal: AbortSignal.timeout(10000),
       });
-      const body = (await r.json().catch(() => ({}))) as {
-        instance?: { instanceName?: string; state?: string };
-      };
+      const raw = await r.text();
+      let body: Record<string, unknown> = {};
+      try {
+        body = JSON.parse(raw) as Record<string, unknown>;
+      } catch {
+        body = {};
+      }
       if (!r.ok) {
         return res.status(200).json({
           success: true,
@@ -61,14 +65,26 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
           webhook_url: hook,
         });
       }
-      // state: 'open' (conectado) | 'connecting' | 'close'.
-      const state = body.instance?.state ?? null;
+      // A forma da resposta varia entre versoes da Evolution v2: umas devolvem
+      // { instance: { instanceName, state } }, outras { state } na raiz, e as
+      // que reaproveitam o shape do fetchInstances usam `connectionStatus` no
+      // lugar de `state`. Ler so uma delas fazia uma instancia conectada
+      // aparecer como offline, sem erro nenhum para explicar o porque.
+      const nestedInstance = (body.instance ?? {}) as Record<string, unknown>;
+      const pick = (k: string): string | null => {
+        const v = nestedInstance[k] ?? body[k];
+        return typeof v === 'string' ? v : null;
+      };
+      const state = pick('state') ?? pick('connectionStatus') ?? pick('status');
       return res.status(200).json({
         success: true,
         configured: true,
-        connected: state === 'open',
+        // 'open' e o valor da v2; 'connected'/'online' aparecem em forks.
+        connected: state === 'open' || state === 'connected' || state === 'online',
         state,
-        instance_name: body.instance?.instanceName ?? instance,
+        instance_name: pick('instanceName') ?? instance,
+        // Sem isto, um shape novo volta a virar um 'nao conectado' mudo.
+        error: state ? undefined : `Evolution respondeu 200 sem estado reconhecido: ${raw.slice(0, 200)}`,
         webhook_url: hook,
       });
     }
