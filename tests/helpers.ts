@@ -77,22 +77,30 @@ export async function shot(page: Page, name: string) {
   await page.screenshot({ path: path.join(SHOTS, `${name}.png`), fullPage: true });
 }
 
-// Reach Step 4 with an owner session minted via the stubbed GoTrue endpoint.
-export async function reachStep4LoggedIn(page: Page) {
-  await stubOwnerLogin(page);
-  // Step 4 lands after a full reload, so the wizard reads core from localStorage.
-  // The owner login builds a Supabase client from core.supabase_url/anon_key —
-  // seed them so createClient is valid and the stubbed GoTrue route is hit.
+// Steps 3/4 are resumable only when every core value required by that step is
+// present. Keep this seed aligned with SetupPage's deep-link guard so tests do
+// not bypass the real navigation contract with a partial localStorage object.
+export async function seedCoreState(page: Page) {
   await page.addInitScript((core) => {
     window.localStorage.setItem(
       'agentise.setup.step2',
       JSON.stringify({
         supabase_url: core.supabase_url,
         supabase_anon_key: core.supabase_anon_key,
+        supabase_pat: core.supabase_pat,
         owner_email: core.owner_email,
       }),
     );
   }, CORE);
+}
+
+// Reach Step 4 with an owner session minted via the stubbed GoTrue endpoint.
+export async function reachStep4LoggedIn(page: Page) {
+  await stubOwnerLogin(page);
+  // Step 4 lands after a full reload, so the wizard reads core from localStorage.
+  // The owner login builds a Supabase client from core.supabase_url/anon_key —
+  // seed them so createClient is valid and the stubbed GoTrue route is hit.
+  await seedCoreState(page);
   await page.goto('/setup?step=4');
   await expect(page.getByRole('heading', { name: 'APIs da aplicacao' })).toBeVisible();
   await page.getByPlaceholder('email do owner').fill(CORE.owner_email);
