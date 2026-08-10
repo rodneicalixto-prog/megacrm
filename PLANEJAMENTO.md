@@ -391,10 +391,16 @@ melhor que atribuir à pessoa errada.
 3. Definir os cargos de Faturamento, Diretoria e Segurança do Trabalho.
 4. Horário de atendimento **por usuário e por setor** — substitui o filtro de
    período que chegou a existir no inbox e foi removido por não ser isso.
-5. Redeploy das Edge Functions no banco novo: a `whatsapp-inbound` publicada é
-   anterior ao roteamento por departamento. Funciona hoje porque
-   `conversations.department_id` tem DEFAULT; com a segunda linha ativa, não
-   funciona mais.
+5. ~~Redeploy da `whatsapp-inbound`~~ — **feito** (versão 2, via MCP).
+   Verificado com três chamadas reais pelo `pg_net`: instância `estagios` →
+   Recursos Humanos com `connection_id` gravado; instância inexistente →
+   Departamento Pessoal, sem chutar; mensagem de grupo ignorada. Dados de teste
+   removidos depois.
+6. **`send-operator-message` ainda sai pela credencial global.** A resposta a
+   uma conversa de RH sairia pelo `pricall` em vez da linha que recebeu. Não
+   morde hoje — só o dono tem login, e a conversa dele está na linha default —
+   mas morde no primeiro atendente que responder pelo CRM numa linha própria.
+   Deploy pendente.
 
 ### Inbox — filas implementadas (`f0683c6`)
 
