@@ -121,7 +121,7 @@ export function AttendancePanel({
         />
         <Card
           icon={Users}
-          label="Vendedores online"
+          label="Atendentes online"
           value={`${metrics.agentes_online}/${metrics.agentes_total}`}
           tone={metrics.agentes_online > 0 ? 'ok' : 'warn'}
         />
@@ -130,9 +130,9 @@ export function AttendancePanel({
       <div className="grid gap-4 lg:grid-cols-2">
         <SevenDayChart data={metrics.serie_7_dias} />
 
-        {/* Conversas por vendedor */}
+        {/* Conversas por atendente */}
         <div className="glass-card p-4">
-          <span className="text-label">Conversas por vendedor</span>
+          <span className="text-label">Conversas por atendente</span>
           <div className="mt-3 space-y-2">
             {comCarga.length === 0 ? (
               <p className="text-sm text-[var(--color-text-secondary)]">

@@ -118,7 +118,7 @@ export function SalesKpiWidget({
   );
 }
 
-// --- Ranking de vendedores --------------------------------------------------
+// --- Ranking de atendentes --------------------------------------------------
 export function RankingWidget({
   ranking,
   ownerName,
@@ -128,7 +128,7 @@ export function RankingWidget({
 }) {
   const data = ranking.map((r) => ({ name: ownerName(r.owner_id), value: r.value, count: r.count }));
   return (
-    <WidgetCard title="Ranking de vendedores" subtitle="Por valor ganho no período">
+    <WidgetCard title="Ranking de atendentes" subtitle="Por valor ganho no período">
       <div className="h-64">
         {data.length === 0 ? (
           <EmptyState text="Nenhuma venda no período." />

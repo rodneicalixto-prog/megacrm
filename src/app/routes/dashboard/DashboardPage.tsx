@@ -56,7 +56,7 @@ export default function DashboardPage() {
 
   const ownerName = (id: string | null) => {
     if (!id) return 'Não atribuído';
-    return operators.find((o) => o.user_id === id)?.email ?? 'Vendedor';
+    return operators.find((o) => o.user_id === id)?.email ?? 'Atendente';
   };
 
   const setPeriod = (key: PeriodKey) => {

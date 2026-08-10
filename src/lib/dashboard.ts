@@ -25,7 +25,7 @@ export interface WidgetDef {
 export const WIDGETS: WidgetDef[] = [
   { key: 'vendas_ganhas', label: 'Vendas ganhas', group: 'Vendas' },
   { key: 'oportunidades_perdidas', label: 'Oportunidades perdidas', group: 'Vendas' },
-  { key: 'ranking_vendedores', label: 'Ranking de vendedores', group: 'Vendas' },
+  { key: 'ranking_vendedores', label: 'Ranking de atendentes', group: 'Vendas' },
   { key: 'forecast', label: 'Forecast', group: 'Vendas' },
   { key: 'tempo_primeira_resposta', label: 'Tempo médio de 1ª resposta', group: 'Atendimento' },
   { key: 'tempo_conclusao', label: 'Tempo médio para concluir venda', group: 'Atendimento' },
