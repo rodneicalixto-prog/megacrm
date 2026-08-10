@@ -343,7 +343,7 @@ Não é planejamento — é o que está de pé agora, no projeto Supabase
 | Departamento | Cargos | Linhas | Observação |
 |---|---:|---:|---|
 | Departamento Pessoal | 7 | 1 | **default** — recebe o que chega de instância desconhecida |
-| Recursos Humanos | 6 | 0 | modelo "1 número por pessoa" (fila não se aplica) |
+| Recursos Humanos | 6 | 6 | modelo "1 número por pessoa" (fila não se aplica) |
 | Seguranca | 3 | 0 | |
 | Gerencia | 1 | 0 | Priscilla Klein |
 | Administracao Geral | 0 | 0 | caixa reservada do super_admin |
@@ -356,24 +356,50 @@ Recursos Humanos: Supervisor de RH, Recrutamento 1/2/3, Discolabs, Estágios —
 cada um com **número próprio** (`department_connections.position_id` preenchido),
 então a conversa nasce já atribuída e não entra em fila.
 
-### Bloqueio atual — 1 clique
+### Rota Evolution — validada ponta a ponta
 
-O webhook registrado na Evolution ainda aponta para a Edge Function do banco
-antigo. Enquanto não for reapontado, **nada entra na inbox**.
+Webhook reapontado para o banco novo e mensagem real recebida: contato criado,
+conversa aberta no Departamento Pessoal, thread renderizando. O card de status
+mostrava "Não conectado" com a instância conectada — a rota lia só
+`body.instance.state` e esta Evolution devolve o estado em outra chave; corrigido
+em `680f9f5`.
 
-> Produção → **Configurações** → aba **Credenciais** → card
-> **WHATSAPP VIA EVOLUTION** → botão **"Registrar webhook automaticamente"**.
+### Linhas de Recursos Humanos cadastradas, aguardando instância
 
-Confirmação esperada: *"Webhook registrado na Evolution."*
+Seis números gravados em `department_connections`, no modelo "1 número por
+pessoa" (`position_id` preenchido ⇒ conversa nasce atribuída, sem fila):
+
+| Linha | Número | Cargo |
+|---|---|---|
+| `rh_jheny` | +55 11 94291-7761 | Recrutamento 1 (Jheny) |
+| `rh_discolab` | +55 11 96472-8346 | Discolabs |
+| `rh_linha_02` | +55 11 91867-1880 | a definir |
+| `rh_linha_03` | +55 11 94216-7315 | a definir |
+| `rh_linha_04` | +55 11 94355-2467 | a definir |
+| `rh_linha_06` | +55 11 99260-3043 | a definir |
+
+**Cada uma precisa de uma instância na Evolution com exatamente esse nome** — o
+roteamento é por nome de instância, e uma instância com outro nome cai no
+departamento default em vez do RH. As quatro "a definir" ficaram sem
+`position_id` de propósito: sem dono definido, entram na fila do supervisor —
+melhor que atribuir à pessoa errada.
 
 ### Depois disso, em ordem
 
-1. Mensagem de teste para +55 19 96712-8359 → conferir se aparece na inbox.
+1. Criar na Evolution as 6 instâncias de RH com os nomes da tabela acima.
 2. Coletar os e-mails dos 17 cargos e emitir os convites (`invite-team-member`).
 3. Definir os cargos de Faturamento, Diretoria e Segurança do Trabalho.
-4. Cadastrar os números próprios de RH (uma instância Evolution por pessoa).
-5. Implementar os filtros/filas da coluna esquerda do inbox — especificação
-   recebida, ainda **não** implementada: Todos · Não atribuídos · Meus
-   atendimentos · Aguardando · Em atendimento · Aguardando cliente · Encerrados
-   · Prioridade alta · Não lidos · Favoritos, mais filtro por atendente, equipe,
-   marcador, período e canal/número.
+4. Horário de atendimento **por usuário e por setor** — substitui o filtro de
+   período que chegou a existir no inbox e foi removido por não ser isso.
+5. Redeploy das Edge Functions no banco novo: a `whatsapp-inbound` publicada é
+   anterior ao roteamento por departamento. Funciona hoje porque
+   `conversations.department_id` tem DEFAULT; com a segunda linha ativa, não
+   funciona mais.
+
+### Inbox — filas implementadas (`f0683c6`)
+
+Coluna esquerda com as dez filas (Todos · Não atribuídos · Meus atendimentos ·
+Aguardando · Em atendimento · Aguardando cliente · Encerrados · Prioridade alta
+· Não lidos · Favoritos), contadores que batem com a lista, e filtros por
+atendente, equipe, marcador, canal e número. Prioridade e favorito viraram
+colunas — favorito é por usuário (`conversation_favorites`), não da instalação.
