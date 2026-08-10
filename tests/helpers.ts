@@ -115,7 +115,7 @@ export async function reachStep4LoggedIn(page: Page) {
   await page.getByPlaceholder('senha do owner').fill(CORE.owner_password);
   await page.getByRole('button', { name: 'Entrar' }).click();
   // Owner token set -> credential fields render.
-  await expect(page.getByText('Meta Phone Number ID', { exact: true })).toBeVisible();
+  await expect(page.getByText('API Oficial do WhatsApp', { exact: true })).toBeVisible();
 }
 
 // Type into a Step-4 app credential field and return its inline message text.
