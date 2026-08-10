@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { NAV_ITEMS } from './nav-config';
+import { NAV_ITEMS, canSeeAdminNav } from './nav-config';
 import { useAppUser } from '@/app/providers/AppUserProvider';
 import { useBranding } from '@/hooks/useBranding';
 
@@ -15,7 +15,7 @@ interface MobileNavProps {
 export function MobileNav({ open, onClose }: MobileNavProps) {
   const { branding } = useBranding();
   const { role } = useAppUser();
-  const items = NAV_ITEMS.filter((item) => !item.adminOnly || role === 'admin');
+  const items = NAV_ITEMS.filter((item) => !item.adminOnly || canSeeAdminNav(role));
 
   return (
     <div

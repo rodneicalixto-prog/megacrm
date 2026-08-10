@@ -1,13 +1,13 @@
 import { NavLink } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { NAV_ITEMS } from './nav-config';
+import { NAV_ITEMS, canSeeAdminNav } from './nav-config';
 import { useAppUser } from '@/app/providers/AppUserProvider';
 import { useBranding } from '@/hooks/useBranding';
 
 export function Sidebar() {
   const { branding } = useBranding();
   const { role } = useAppUser();
-  const items = NAV_ITEMS.filter((item) => !item.adminOnly || role === 'admin');
+  const items = NAV_ITEMS.filter((item) => !item.adminOnly || canSeeAdminNav(role));
   return (
     <aside
       className="hidden md:flex md:flex-col w-60 shrink-0 glass-surface border-r border-[rgba(59,130,246,0.1)]"

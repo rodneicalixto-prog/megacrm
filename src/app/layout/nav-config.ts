@@ -11,6 +11,14 @@ import {
   CalendarDays,
 } from 'lucide-react';
 
+// Quem enxerga item marcado adminOnly. Uma função em vez da comparação solta
+// que estava repetida em três telas: quando super_admin entrou no enum, duas
+// delas continuaram comparando com 'admin' e o dono da instalação passou a ver
+// menos que um gerente.
+export function canSeeAdminNav(role: string | null | undefined): boolean {
+  return role === 'admin' || role === 'super_admin';
+}
+
 export interface NavItem {
   to: string;
   label: string;

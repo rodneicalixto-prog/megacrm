@@ -12,6 +12,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppUser } from '@/app/providers/AppUserProvider';
+import { canSeeAdminNav } from '@/app/layout/nav-config';
 import { AccountSettings } from './sections/AccountSettings';
 import { BrandingSettings } from './sections/BrandingSettings';
 import { TeamSettings } from './sections/TeamSettings';
@@ -98,7 +99,7 @@ export default function SettingsPage() {
             render: () => <CredentialsPage />,
           },
         ] as TabDef[]
-      ).filter((t) => !t.adminOnly || role === 'admin' || role === 'super_admin'),
+      ).filter((t) => !t.adminOnly || canSeeAdminNav(role)),
     [role],
   );
 
