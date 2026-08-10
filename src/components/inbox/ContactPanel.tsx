@@ -4,7 +4,7 @@ import { Archive, ArchiveRestore, ArrowRightLeft, Bot, CircleX, Clock, Pause, Pi
 import { Button } from '@/components/ui/button';
 import { AddToPipelineDialog } from '@/components/crm/AddToPipelineDialog';
 import { hasSessionWindow, type ConversationWithContact } from '@/types/inbox';
-import type { Operator } from '@/hooks/useOperators';
+import { operatorLabel, type Operator } from '@/hooks/useOperators';
 import { useContactDeals } from '@/hooks/useContactDeals';
 import { useNextActions } from '@/hooks/useNextActions';
 import { NextActions } from '@/components/crm/NextActions';
@@ -186,7 +186,7 @@ export function ContactPanel({
           <option value="">Ninguém</option>
           {operators.map((op) => (
             <option key={op.user_id} value={op.user_id}>
-              {op.email} {op.role === 'admin' ? '(admin)' : ''}
+              {operatorLabel(op)}
             </option>
           ))}
         </select>

@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Inbox as InboxIcon, Info, Pin, Search, X } from 'lucide-react';
 import { useConversations } from '@/hooks/useConversations';
 import { useMessages } from '@/hooks/useMessages';
-import { useOperators } from '@/hooks/useOperators';
+import { operatorLabel, useOperators } from '@/hooks/useOperators';
 import { useDepartments, lineLabel } from '@/hooks/useDepartments';
 import { useAppUser } from '@/app/providers/AppUserProvider';
 import { useTags } from '@/hooks/useTags';
@@ -134,7 +134,10 @@ export default function InboxPage() {
       const label =
         filters.assigned === 'unassigned'
           ? 'Não atribuído'
-          : operators.find((o) => o.user_id === filters.assigned)?.email ?? 'Atribuído';
+          : (() => {
+              const o = operators.find((x) => x.user_id === filters.assigned);
+              return o ? operatorLabel(o) : 'Atribuído';
+            })();
       chips.push({
         key: 'as',
         label: `Atribuído: ${label}`,

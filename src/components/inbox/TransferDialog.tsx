@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ArrowRightLeft, X } from 'lucide-react';
 import { toast } from 'sonner';
-import type { Operator } from '@/hooks/useOperators';
+import { operatorLabel, type Operator } from '@/hooks/useOperators';
 import type { Department } from '@/hooks/useDepartments';
 
 interface Props {
@@ -120,7 +120,7 @@ export function TransferDialog({
             >
               <option value="">Selecione…</option>
               {operators.map((o) => (
-                <option key={o.user_id} value={o.user_id}>{o.email}</option>
+                <option key={o.user_id} value={o.user_id}>{operatorLabel(o)}</option>
               ))}
             </select>
             <p className="text-xs text-[var(--color-text-secondary)]">

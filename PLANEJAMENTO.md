@@ -463,12 +463,31 @@ O filtro do mês busca por **sobreposição** (`starts_at < fim AND ends_at >
 início`), não por contenção: um evento que começou ontem e termina amanhã
 pertence a hoje, e filtrar só por `starts_at` o esconderia.
 
-### Setores (Configurações → Setores)
+### Setores e usuários (Configurações → Setores)
 
-CRUD de departamentos e cargos, e o vínculo cargo → pessoa. Era a peça que só
-existia no banco: sem essa tela, montar a estrutura da empresa exigia SQL. O
-setor padrão não pode ser excluído — é para onde caem as mensagens de linha
-desconhecida, e sem ele elas passam a ser recusadas.
+Três coisas na mesma aba, porque são a mesma decisão:
+
+1. **Cadastrar usuário** — Nome · E-mail · Função · Equipe/setor, mais o cargo
+   opcional. Com cargo, a conversa que chegar na linha daquele cargo já nasce no
+   nome da pessoa; sem cargo, cai na fila do supervisor.
+2. **Setores** — criar e excluir. O padrão recusa exclusão: é para onde caem as
+   mensagens de linha desconhecida, e sem ele elas passam a ser recusadas.
+3. **Cargos** — criar, excluir e vincular a pessoa.
+
+O cadastro é a RPC `create_user`, `SECURITY DEFINER` porque escrever em
+`auth.users` exige privilégio que o `authenticated` não tem — e por isso a
+primeira coisa que ela faz é conferir `is_admin()`. Sem essa checagem seria uma
+porta para qualquer usuário logado criar um `super_admin`. `super_admin` ficou
+de fora das funções aceitas de propósito: é o dono da instalação, criado uma vez
+no bootstrap, não algo que se cadastra por formulário.
+
+A conta nasce **sem senha** — a pessoa define a dela em "Esqueci minha senha",
+o mesmo caminho das dezessete iniciais, e nenhuma senha compartilhada circula.
+
+`app_users.full_name` foi adicionada e `list_operators` passou a devolver nome e
+setor: com dezessete contas sufixadas na mesma caixa, o e-mail não identificava
+ninguém, e três seletores diferentes mostravam
+`priscilla.klein+seg_portaria1@gmail.com` onde devia estar um nome.
 
 ### Correções de RLS encontradas no caminho
 

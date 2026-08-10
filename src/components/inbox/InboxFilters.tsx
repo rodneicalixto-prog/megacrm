@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Clock, SlidersHorizontal, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { Operator } from '@/hooks/useOperators';
+import { operatorLabel, type Operator } from '@/hooks/useOperators';
 import { lineLabel, type Department, type DepartmentLine } from '@/hooks/useDepartments';
 import type { Tag } from '@/types/crm';
 import {
@@ -212,7 +212,7 @@ export function InboxFilters({ filters, onChange, operators, tags, departments, 
           <option value="unassigned">Não atribuído</option>
           {operators.map((o) => (
             <option key={o.user_id} value={o.user_id}>
-              {o.email}
+              {operatorLabel(o)}
             </option>
           ))}
         </select>

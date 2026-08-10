@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Building2, Plus, Trash2, UserPlus } from 'lucide-react';
+import { Building2, Plus, Trash2, UserPlus, UserRoundPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { getSupabase } from '@/lib/supabase';
-import { useOperators } from '@/hooks/useOperators';
+import { operatorLabel, useOperators } from '@/hooks/useOperators';
 
 interface Departamento {
   id: string;
@@ -31,6 +31,15 @@ export function DepartmentsSettings() {
   const [novoDepto, setNovoDepto] = useState('');
   const [novoCargo, setNovoCargo] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+
+  // Cadastro de usuário: nome, e-mail, função e setor. Fica junto de setores e
+  // cargos porque é a mesma decisão — criar alguém sem dizer onde ele atende
+  // deixa a conta existindo e sem enxergar nada.
+  const [nome, setNome] = useState('');
+  const [email, setEmail] = useState('');
+  const [funcao, setFuncao] = useState<'operator' | 'supervisor' | 'admin'>('operator');
+  const [setorNovo, setSetorNovo] = useState('');
+  const [cargoNovo, setCargoNovo] = useState('');
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -99,6 +108,25 @@ export function DepartmentsSettings() {
     void carregar();
   };
 
+  const cadastrar = async () => {
+    if (!nome.trim() || !email.trim()) return;
+    setBusy(true);
+    const { error } = await getSupabase().schema('whatsapp_hub').rpc('create_user', {
+      p_nome: nome.trim(),
+      p_email: email.trim(),
+      p_funcao: funcao,
+      p_department_id: setorNovo || null,
+      p_position_id: cargoNovo || null,
+    });
+    setBusy(false);
+    if (error) return toast.error('Falha ao cadastrar', { description: error.message });
+    toast.success('Usuário cadastrado.', {
+      description: 'A senha é definida pela própria pessoa em "Esqueci minha senha".',
+    });
+    setNome(''); setEmail(''); setCargoNovo('');
+    void carregar();
+  };
+
   if (loading) return <div className="text-label opacity-60">Carregando…</div>;
 
   return (
@@ -127,6 +155,87 @@ export function DepartmentsSettings() {
             className="flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-[#1E3A8A] to-[#3B82F6] px-4 text-sm font-semibold text-white disabled:opacity-40"
           >
             <Plus className="h-4 w-4" /> Criar
+          </button>
+        </div>
+      </div>
+
+      <div className="glass-card p-5">
+        <header className="mb-3">
+          <h2 className="flex items-center gap-2 text-lg font-bold">
+            <UserRoundPlus className="h-4 w-4 text-[var(--accent-primary)]" />
+            Cadastrar usuário
+          </h2>
+          <p className="text-sm text-[var(--color-text-secondary)]">
+            A conta nasce sem senha — a pessoa define a dela em “Esqueci minha senha”
+            na tela de login. Nenhuma senha compartilhada circula.
+          </p>
+        </header>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <div className="text-label">Nome</div>
+            <input value={nome} onChange={(e) => setNome(e.target.value)} className={inputCls} />
+          </div>
+          <div className="space-y-1.5">
+            <div className="text-label">E-mail</div>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className={inputCls}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <div className="text-label">Função</div>
+            <select
+              value={funcao}
+              onChange={(e) => setFuncao(e.target.value as typeof funcao)}
+              className={inputCls}
+            >
+              <option value="operator">Atendente</option>
+              <option value="supervisor">Supervisor</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <div className="text-label">Equipe / setor</div>
+            <select
+              value={setorNovo}
+              onChange={(e) => { setSetorNovo(e.target.value); setCargoNovo(''); }}
+              className={inputCls}
+            >
+              <option value="">Selecione…</option>
+              {departamentos.map((d) => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <div className="text-label">Cargo (opcional)</div>
+            <select
+              value={cargoNovo}
+              onChange={(e) => setCargoNovo(e.target.value)}
+              className={inputCls}
+            >
+              <option value="">Sem cargo — entra na fila do setor</option>
+              {cargos
+                .filter((c) => c.department_id === setorNovo && !c.user_id)
+                .map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+            </select>
+            <p className="text-xs text-[var(--color-text-secondary)]">
+              Com cargo, a conversa que chegar na linha desse cargo já nasce no nome
+              dessa pessoa. Sem cargo, cai na fila do supervisor.
+            </p>
+          </div>
+        </div>
+        <div className="mt-4 flex justify-end">
+          <button
+            onClick={cadastrar}
+            disabled={busy || !nome.trim() || !email.trim()}
+            className="rounded-lg bg-gradient-to-br from-[#1E3A8A] to-[#3B82F6] px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
+          >
+            {busy ? 'Cadastrando…' : 'Cadastrar'}
           </button>
         </div>
       </div>
@@ -164,7 +273,7 @@ export function DepartmentsSettings() {
                   >
                     <option value="">Sem pessoa (fila do supervisor)</option>
                     {operators.map((o) => (
-                      <option key={o.user_id} value={o.user_id}>{o.email}</option>
+                      <option key={o.user_id} value={o.user_id}>{operatorLabel(o)}</option>
                     ))}
                   </select>
                   <button
