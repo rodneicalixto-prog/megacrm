@@ -51,6 +51,9 @@ export interface Pipeline {
   kind: PipelineKind;
   position: number;
   is_default: boolean;
+  // null = funil da empresa (todos veem, só admin edita).
+  // preenchido = funil pessoal daquele usuário.
+  owner_id: string | null;
   created_at: string;
 }
 

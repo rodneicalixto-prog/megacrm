@@ -49,7 +49,9 @@ interface UsePipelineResult {
   moveDeal: (dealId: string, stageId: string) => Promise<void>;
   createDeal: (input: CreateDealInput) => Promise<void>;
   // Gestão de funis
-  createPipeline: (name: string) => Promise<Pipeline | null>;
+  // scope 'pessoal' = só do usuário; 'empresa' = compartilhado (owner_id nulo),
+  // que a RLS reserva a admin.
+  createPipeline: (name: string, scope?: 'pessoal' | 'empresa') => Promise<Pipeline | null>;
   renamePipeline: (id: string, name: string) => Promise<void>;
   deletePipeline: (id: string) => Promise<{ ok: boolean; error?: string }>;
   setDefaultPipeline: (id: string) => Promise<void>;
@@ -243,12 +245,25 @@ export function usePipeline(): UsePipelineResult {
   );
 
   // ---- Gestão de funis ------------------------------------------------------
-  const createPipeline = useCallback<UsePipelineResult['createPipeline']>(async (name) => {
+  const createPipeline = useCallback<UsePipelineResult['createPipeline']>(async (name, scope = 'pessoal') => {
     const supabase = getSupabase();
     const nextPos = pipelines.reduce((m, p) => Math.max(m, p.position), -1) + 1;
+    const { data: auth } = await supabase.auth.getUser();
+    const uid = auth.user?.id ?? null;
+    if (scope === 'pessoal' && !uid) {
+      setError('Sessão expirada — entre novamente para criar um funil.');
+      return null;
+    }
     const { data, error: err } = await supabase
       .from('pipelines')
-      .insert({ name: name.trim(), kind: 'comercial', position: nextPos, is_default: false })
+      .insert({
+        name: name.trim(),
+        kind: 'comercial',
+        position: nextPos,
+        is_default: false,
+        // owner_id nulo é o funil da empresa; a RLS só deixa admin criar assim.
+        owner_id: scope === 'empresa' ? null : uid,
+      })
       .select('*')
       .single();
     if (err) {
@@ -277,7 +292,8 @@ export function usePipeline(): UsePipelineResult {
 
   const deletePipeline = useCallback<UsePipelineResult['deletePipeline']>(
     async (id) => {
-      if (pipelines.length <= 1) return { ok: false, error: 'Não é possível excluir o único funil.' };
+      // Sem piso de "um funil": com funis pessoais, o último funil de alguém é
+      // dele, e proibir apagá-lo prendia a pessoa a um funil que ela não quer.
       const supabase = getSupabase();
       const { count } = await supabase
         .from('deals')

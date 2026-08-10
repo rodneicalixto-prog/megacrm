@@ -14,6 +14,7 @@ export function FunilManager({ funil, onClose }: { funil: FunilController; onClo
   } = funil;
 
   const [newFunil, setNewFunil] = useState('');
+  const [novoEscopo, setNovoEscopo] = useState<'pessoal' | 'empresa'>('pessoal');
   const [newStage, setNewStage] = useState('');
   const [busy, setBusy] = useState(false);
   const dragIdx = useRef<number | null>(null);
@@ -24,7 +25,16 @@ export function FunilManager({ funil, onClose }: { funil: FunilController; onClo
   const handleCreateFunil = async () => {
     if (!newFunil.trim()) return;
     setBusy(true);
-    await createPipeline(newFunil);
+    const criado = await createPipeline(newFunil, novoEscopo);
+    if (!criado) {
+      // A RLS recusa 'empresa' para quem não é admin; sem esta mensagem o
+      // clique simplesmente não fazia nada.
+      toast.error(
+        novoEscopo === 'empresa'
+          ? 'Só admin cria funil da empresa.'
+          : 'Não foi possível criar o funil.',
+      );
+    }
     setNewFunil('');
     setBusy(false);
   };
@@ -89,6 +99,23 @@ export function FunilManager({ funil, onClose }: { funil: FunilController; onClo
                     className="mt-1 w-full rounded border border-[rgba(59,130,246,0.15)] bg-transparent px-2 py-1 text-xs text-[var(--color-text-secondary)] outline-none focus:border-[var(--accent-primary)]"
                   />
                 </div>
+              ))}
+            </div>
+            <div className="flex gap-1.5">
+              {(['pessoal', 'empresa'] as const).map((e) => (
+                <button
+                  key={e}
+                  type="button"
+                  onClick={() => setNovoEscopo(e)}
+                  className={[
+                    'flex-1 rounded-lg border px-2 py-1 text-[11px] font-semibold transition-colors',
+                    novoEscopo === e
+                      ? 'border-[var(--accent-primary)] bg-[rgba(59,130,246,0.15)] text-[var(--color-text-primary)]'
+                      : 'border-[rgba(59,130,246,0.15)] text-[var(--color-text-secondary)]',
+                  ].join(' ')}
+                >
+                  {e === 'pessoal' ? 'Só meu' : 'Da empresa'}
+                </button>
               ))}
             </div>
             <div className="flex gap-2">
