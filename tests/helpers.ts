@@ -32,7 +32,15 @@ export async function stubOwnerLogin(page: Page, opts: { fail?: boolean } = {}) 
       });
     }
     const session = {
-      access_token: 'fake.owner.jwt',
+      // supabase-js decodes the access token before accepting the session. Use
+      // a syntactically valid (but deliberately unsigned and test-only) JWT so
+      // upgrades of the client do not reject the auth stub before the UI sees
+      // the mocked session.
+      access_token: [
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9',
+        'eyJzdWIiOiIwMDAwMDAwMC0wMDAwLTAwMDAtMDAwMC0wMDAwMDAwMDAwMDEiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwicm9sZSI6ImF1dGhlbnRpY2F0ZWQiLCJlbWFpbCI6Im93bmVyQGV4YW1wbGUuY29tIiwiZXhwIjo5OTk5OTk5OTk5fQ',
+        'test-signature',
+      ].join('.'),
       token_type: 'bearer',
       expires_in: 3600,
       expires_at: 9999999999,
