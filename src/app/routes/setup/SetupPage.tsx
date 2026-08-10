@@ -296,18 +296,28 @@ export default function SetupPage() {
     return () => timers.forEach(window.clearTimeout);
   }, [core, step, touched]);
 
-  const coreReady = useMemo(
+  // Reexecucao nao cria dono nem reconfigura a Vercel: pedir os sete campos
+  // obrigava a gerar token de deploy e relembrar a senha do dono so para
+  // reaplicar uma migration.
+  const requiredFields = useMemo<FieldKey[]>(
     () =>
-      ([
-        'supabase_url',
-        'supabase_anon_key',
-        'supabase_service_role_key',
-        'supabase_pat',
-        'vercel_token',
-        'owner_email',
-        'owner_password',
-      ] as FieldKey[]).every((key) => validation[key]?.ok),
-    [validation],
+      isRerun
+        ? ['supabase_url', 'supabase_service_role_key', 'supabase_pat']
+        : [
+            'supabase_url',
+            'supabase_anon_key',
+            'supabase_service_role_key',
+            'supabase_pat',
+            'vercel_token',
+            'owner_email',
+            'owner_password',
+          ],
+    [isRerun],
+  );
+
+  const coreReady = useMemo(
+    () => requiredFields.every((key) => validation[key]?.ok),
+    [validation, requiredFields],
   );
 
   // The redeploy that api/bootstrap fires only activates the core envs in a NEW
@@ -383,13 +393,28 @@ export default function SetupPage() {
     setDeployTimedOut(false);
     setTimeline(['Conectando ao Supabase']);
     try {
+      const payload = isRerun
+        ? {
+            supabase_url: core.supabase_url,
+            supabase_service_role_key: core.supabase_service_role_key,
+            supabase_pat: core.supabase_pat,
+            update_only: true,
+          }
+        : core;
       const res = await fetch('/api/bootstrap', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(core),
+        body: JSON.stringify(payload),
       });
       const body = await res.json();
       if (!res.ok || !body.success) throw new Error(body.message ?? 'Bootstrap falhou.');
+      if (isRerun) {
+        // Sem redeploy nao ha o que esperar: as envs ja estao vivas e o Step 4
+        // (credenciais de aplicacao) nao faz parte de uma reexecucao.
+        setTimeline(TIMELINE_STEPS.slice(0, 3).map((entry) => entry.label));
+        toast.success('Atualizacoes aplicadas.');
+        return;
+      }
       toast.success('Bootstrap concluido. Aguardando o app reiniciar...');
       // Don't jump to Step 4 yet — wait for the redeploy to bring the envs live.
       await waitForAppLive();
@@ -596,7 +621,9 @@ export default function SetupPage() {
                     que ja foi aplicado e pulado.
                   </p>
                   <p className="mt-2 text-sm leading-[1.6] text-[#94A3B8]">
-                    Informe os mesmos tokens de antes. Eles nao ficam salvos no navegador.
+                    Precisa de tres campos: a URL do Supabase, a Service Role Key e o
+                    Personal Access Token. Nao pede token da Vercel nem a senha do dono —
+                    uma reexecucao nao cria conta nem redeploya o site.
                   </p>
                 </div>
               ) : (
@@ -622,7 +649,7 @@ export default function SetupPage() {
                 Estas credenciais sao usadas uma vez para preparar a instancia. Senha do owner nao fica salva.
               </p>
               <div className="grid gap-4">
-                {(Object.keys(emptyCore) as FieldKey[]).map((key) => {
+                {requiredFields.map((key) => {
                   const isSecret = key.includes('key') || key.includes('token') || key.includes('password');
                   const revealed = showCorePassword[key];
                   return (
@@ -687,7 +714,7 @@ export default function SetupPage() {
                 Preparando Supabase, Edge Functions, owner e Vercel.
               </p>
               <div className="space-y-3">
-                {TIMELINE_STEPS.map((entry) => (
+                {(isRerun ? TIMELINE_STEPS.slice(0, 3) : TIMELINE_STEPS).map((entry) => (
                   <div key={entry.label} className="flex items-center gap-3 rounded-xl border border-[rgba(59,130,246,0.12)] bg-white/[0.02] p-4">
                     {timeline.includes(entry.label) ? <Check className="h-5 w-5 text-[#10B981]" /> : <Loader2 className="h-5 w-5 animate-spin text-[#60A5FA]" />}
                     <span className="text-sm text-[#F8FAFC]">{entry.label}</span>

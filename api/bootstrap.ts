@@ -10,6 +10,9 @@ type BootstrapBody = {
   vercel_token?: string;
   owner_email?: string;
   owner_password?: string;
+  // Reexecucao numa instalacao ja configurada: so migrations + Edge Functions.
+  // Nao cria dono, nao toca na Vercel, nao dispara redeploy.
+  update_only?: boolean;
   vercel_project_id?: string;
 };
 
@@ -519,15 +522,21 @@ async function redeploy(projectId: string, token: string, teamId: string | null)
 }
 
 function requireBody(body: BootstrapBody | undefined): Required<BootstrapBody> {
-  const required = [
-    'supabase_url',
-    'supabase_anon_key',
-    'supabase_service_role_key',
-    'supabase_pat',
-    'vercel_token',
-    'owner_email',
-    'owner_password',
-  ] as const;
+  // Uma reexecucao nao cria dono nem reconfigura a Vercel, entao exigir os sete
+  // campos so obrigava a caçar tokens de dono e de deploy para reaplicar uma
+  // migration. Sao tres: a que identifica o projeto, a que roda SQL e a que
+  // autentica na Management API.
+  const required = body?.update_only
+    ? (['supabase_url', 'supabase_service_role_key', 'supabase_pat'] as const)
+    : ([
+        'supabase_url',
+        'supabase_anon_key',
+        'supabase_service_role_key',
+        'supabase_pat',
+        'vercel_token',
+        'owner_email',
+        'owner_password',
+      ] as const);
   // O optional-chaining do loop abaixo não estreita `body` para não-undefined,
   // então o guard explícito precisa vir antes.
   if (!body) throw new Error('Body ausente.');
@@ -546,9 +555,18 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   try {
     const body = requireBody(req.body);
     const ref = projectRef(body.supabase_url);
-    const cryptoKey = /^[a-f0-9]{64}$/i.test(process.env.CRYPTO_KEY ?? '')
-      ? process.env.CRYPTO_KEY as string
-      : randomBytes(32).toString('hex');
+    // Numa instalacao ja configurada a CRYPTO_KEY existe e e a unica coisa que
+    // decifra public.app_settings. Gerar outra aqui deixaria toda credencial
+    // salva ilegivel — e o wizard nao tem como saber disso depois. Falha antes.
+    const envCryptoKey = /^[a-f0-9]{64}$/i.test(process.env.CRYPTO_KEY ?? '')
+      ? (process.env.CRYPTO_KEY as string)
+      : null;
+    if (body.update_only && !envCryptoKey) {
+      throw new Error(
+        'CRYPTO_KEY ausente no runtime. Reaplicar sem ela tornaria as credenciais salvas irrecuperaveis.',
+      );
+    }
+    const cryptoKey = envCryptoKey ?? randomBytes(32).toString('hex');
     const steps: string[] = [];
 
     stepFailed = 'bootstrap_state';
@@ -566,6 +584,10 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     const count = await deployEdgeFunctions(ref, body.supabase_pat);
     await mark(ref, body.supabase_pat, 'edge_functions_deployed', { count });
     steps.push('edge_functions_deployed');
+
+    if (body.update_only) {
+      return res.status(200).json({ success: true, steps, update_only: true });
+    }
 
     stepFailed = 'owner_created';
     const ownerId = await createOwner(ref, body.supabase_pat, body);
