@@ -1,7 +1,7 @@
 # MegaCRM — Avaliação do Repositório e Planejamento
 
 > Avaliação original: 2026-08-08, sobre o commit `f01d683`.
-> Última atualização: 2026-08-08, sobre `52bebdd` (`main`).
+> Última atualização: 2026-08-10, sobre `6e8f8d6` (`main`).
 
 ---
 
@@ -305,7 +305,7 @@ pública, i18n (o v1 é PT-BR fixo por decisão explícita).
 
 ---
 
-## 6. Pendências fora do código
+## 7. Pendências fora do código
 
 1. **Rotacionar a chave Zernio** exposta em conversa (`sk_287ef…`).
 2. **Concluir o `/setup`** no projeto Supabase de destino — é o que cria as
@@ -317,3 +317,63 @@ pública, i18n (o v1 é PT-BR fixo por decisão explícita).
 5. **Limpar `super_calixto_crm`** — repo meio-descompactado com 2 projetos
    Vercel mortos apontados para ele.
 6. `run_secret_scanning` no repositório.
+
+---
+
+## 8. Estado operacional da instalação (10/08/2026)
+
+Não é planejamento — é o que está de pé agora, no projeto Supabase
+`yshvniyhtnyhnjcecbft` e no deploy de produção da Vercel.
+
+### Infra
+
+| | |
+|---|---|
+| **Produção** | `megacrm-git-main-rodnei-calixto-s-projects.vercel.app` |
+| **Último deploy** | `6e8f8d6`, READY, 7 serverless |
+| **Banco** | `yshvniyhtnyhnjcecbft` (o `lxozaxrckrzwhckzsxmv` foi abandonado — o wizard rodou no projeto errado e o dado lá era 1 contato/1 conversa) |
+| **Rota WhatsApp** | Evolution API v2, instância `pricall` → +55 19 96712-8359 |
+| **Agente de IA** | desligado (`ai_agent_config.is_active = false`) |
+| **Rota oficial (Zernio)** | fora de escopo nesta fase |
+
+### Organização carregada no banco
+
+9 departamentos, 17 cargos, 1 linha conectada, 1 usuário (`super_admin`).
+
+| Departamento | Cargos | Linhas | Observação |
+|---|---:|---:|---|
+| Departamento Pessoal | 7 | 1 | **default** — recebe o que chega de instância desconhecida |
+| Recursos Humanos | 6 | 0 | modelo "1 número por pessoa" (fila não se aplica) |
+| Seguranca | 3 | 0 | |
+| Gerencia | 1 | 0 | Priscilla Klein |
+| Administracao Geral | 0 | 0 | caixa reservada do super_admin |
+| Faturamento · Diretoria · Seguranca do Trabalho · Geral | 0 | 0 | cargos ainda não definidos |
+
+Departamento Pessoal: Supervisor, Admissão, Rescisão, Ponto 1, Ponto 2,
+Benefícios, Arquivos — todos na **fila** da linha única do departamento.
+
+Recursos Humanos: Supervisor de RH, Recrutamento 1/2/3, Discolabs, Estágios —
+cada um com **número próprio** (`department_connections.position_id` preenchido),
+então a conversa nasce já atribuída e não entra em fila.
+
+### Bloqueio atual — 1 clique
+
+O webhook registrado na Evolution ainda aponta para a Edge Function do banco
+antigo. Enquanto não for reapontado, **nada entra na inbox**.
+
+> Produção → **Configurações** → aba **Credenciais** → card
+> **WHATSAPP VIA EVOLUTION** → botão **"Registrar webhook automaticamente"**.
+
+Confirmação esperada: *"Webhook registrado na Evolution."*
+
+### Depois disso, em ordem
+
+1. Mensagem de teste para +55 19 96712-8359 → conferir se aparece na inbox.
+2. Coletar os e-mails dos 17 cargos e emitir os convites (`invite-team-member`).
+3. Definir os cargos de Faturamento, Diretoria e Segurança do Trabalho.
+4. Cadastrar os números próprios de RH (uma instância Evolution por pessoa).
+5. Implementar os filtros/filas da coluna esquerda do inbox — especificação
+   recebida, ainda **não** implementada: Todos · Não atribuídos · Meus
+   atendimentos · Aguardando · Em atendimento · Aguardando cliente · Encerrados
+   · Prioridade alta · Não lidos · Favoritos, mais filtro por atendente, equipe,
+   marcador, período e canal/número.

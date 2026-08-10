@@ -419,3 +419,42 @@ deixa o diff legível e a instalação nova sã.
 
 Se a urgência não permitir, dá para inverter — mas o baseline vira dívida que só
 cresce.
+
+---
+
+## 10. Estado aplicado (10/08/2026)
+
+O plano deixou de ser só plano. O que já está no banco `yshvniyhtnyhnjcecbft` e
+em produção:
+
+- **Fase A e B executadas.** `departments`, `department_positions`,
+  `department_connections`, `conversations.department_id` e
+  `conversations.connection_id` existem, com backfill feito e `NOT NULL` onde
+  previsto. `UNIQUE (contact_id)` já foi trocada por
+  `UNIQUE (contact_id, department_id)`.
+- **Quatro papéis no enum**: `super_admin`, `admin`, `supervisor`, `user`. O
+  dono da instalação foi promovido a `super_admin` (uma vez só, marcado em
+  `_bootstrap_state`).
+- **Roteamento por número** ativo: a instância Evolution no root do payload
+  decide o departamento. Instância desconhecida cai no departamento default
+  (Departamento Pessoal) em vez de ser adivinhada.
+- **Resposta sai pela mesma linha** que recebeu, via
+  `conversations.connection_id` — o departamento sozinho não basta quando ele
+  tem 20 números.
+- **Uma linha pode ser de pessoa, não de fila.** Com `position_id` preenchido a
+  conversa nasce atribuída; sem ele, entra na fila do supervisor. É o que separa
+  o modelo do Departamento Pessoal (1 número, 7 pessoas na fila) do de Recursos
+  Humanos (1 número por pessoa).
+
+Fora de escopo confirmado nesta fase: agente de IA e rota oficial (Zernio).
+
+O inventário de departamentos, cargos e linhas, mais o bloqueio atual e a ordem
+dos próximos passos, ficam na seção 8 do `PLANEJAMENTO.md` — fonte única, para
+não divergirem.
+
+### Perguntas da seção 8 já respondidas na prática
+
+3. **Quem cria super_admin?** O dono da instalação foi promovido pela migration.
+   Novos `super_admin` só por outro `super_admin`.
+6. **Esconder no menu o que não opera?** Campanhas, Templates e Recompra seguem
+   visíveis; dependem da rota oficial, que voltou para fase futura.
