@@ -12,9 +12,9 @@
 | **Repositório** | ✅ código versionado, 281 arquivos |
 | **CI** | ✅ lint · typecheck · SQL · build · testes |
 | **Deploy Vercel** | ✅ `megacrm`, produção verde, 7 serverless |
-| **Testes** | ✅ 133 unitários (Vitest) + 9 E2E · lint e tipos em toda a base |
-| **Banco Supabase** | ⏳ wizard `/setup` em andamento |
-| **Rota WhatsApp** | ✅ Zernio (oficial) + Evolution API v2 |
+| **Testes** | ✅ 140 unitários (Vitest) + 9 E2E · lint e tipos em toda a base |
+| **Banco Supabase** | ✅ `yshvniyhtnyhnjcecbft` — 78 migrations, 22 functions |
+| **Rota WhatsApp** | ✅ Evolution API v2 · roteamento por linha/departamento |
 
 O diagnóstico que abriu este documento — *"o produto é sólido; o repositório
 não existe"* — está resolvido. As Fases 0, 1 e 2 foram executadas. O que falta

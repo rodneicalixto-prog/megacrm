@@ -1,11 +1,35 @@
 # Plano — Multi-atendimento por departamento
 
-> Escrito em 2026-08-08 sobre `be7130c`. **Plano, não implementação.** Nada
-> aqui está no código.
+> Atualizado em 2026-08-10. As fases A e B estão **implementadas e aplicadas**
+> no banco de produção (`yshvniyhtnyhnjcecbft`).
 >
-> Substitui a versão anterior deste documento, que partia de um número único
-> compartilhado. O modelo mudou para **um número por departamento** — o que
-> simplifica o sigilo e desloca o trabalho para outro lugar.
+> ## Estado real da instalação
+>
+> | | |
+> |---|---|
+> | Departamentos | 9 (7 da empresa + Geral + Administração Geral) |
+> | Posições | 17 cadastradas, nenhuma com login ainda |
+> | Padrão | **Departamento Pessoal** |
+> | Conexão ativa | `pricall` · +55 19 96712-8359 → Departamento Pessoal |
+> | Dono | `rodnei@calixtosolucoes.com.br` — **super_admin** |
+> | Pendente | registrar o webhook; criar os logins (faltam e-mails) |
+>
+> ## O modelo, corrigido pela realidade
+>
+> **Um departamento tem N linhas.** A primeira versão assumia uma linha por
+> departamento; na prática há departamento com 20. E a linha pode pertencer:
+>
+> - **ao departamento** — a conversa entra na fila e o supervisor distribui
+>   (Departamento Pessoal, hoje);
+> - **a uma pessoa** — a conversa já nasce atribuída a ela, sem fila
+>   (Recursos Humanos, onde cada um tem o próprio número).
+>
+> Os dois convivem: `department_connections.position_id` nulo ou preenchido.
+>
+> **A resposta sai pela linha que recebeu.** Com dezenas de números no mesmo
+> departamento, escolher "o número do departamento" faria o contato escrever
+> para uma linha e ser respondido por outra. Por isso a conversa guarda
+> `connection_id`.
 
 ---
 

@@ -264,3 +264,74 @@ test('header de assinatura presente força a verificação mesmo sem ?provider='
   const res = await handleInbound(post(semProvider, msg(), { 'X-Zernio-Signature': 'lixo' }));
   expect(res.status).toBe(401);
 });
+
+// ------------------------------------- número por pessoa (modelo do RH)
+
+test('número de uma pessoa já nasce atribuído a ela, sem passar por fila', async () => {
+  db.seed('departments', [
+    { id: DEPT, name: 'Departamento Pessoal', is_default: true },
+    { id: 'dept-rh', name: 'Recursos Humanos', is_default: false },
+  ]);
+  db.seed('department_positions', [
+    { id: 'pos-recr1', department_id: 'dept-rh', name: 'Recrutamento 1', user_id: 'user-ana' },
+  ]);
+  db.seed('department_connections', [
+    { id: 'conn1', department_id: 'dept-rh', position_id: 'pos-recr1', instance: 'pricall' },
+  ]);
+
+  await handleInbound(post(EVOLUTION_URL, msg()));
+
+  expect(db.rows('conversations')[0]).toMatchObject({
+    department_id: 'dept-rh',
+    assigned_to: 'user-ana',
+  });
+});
+
+test('número de fila do departamento entra sem dono — o supervisor distribui', async () => {
+  db.seed('departments', [{ id: DEPT, name: 'Departamento Pessoal', is_default: true }]);
+  db.seed('department_connections', [
+    { id: 'conn1', department_id: DEPT, position_id: null, instance: 'pricall' },
+  ]);
+
+  await handleInbound(post(EVOLUTION_URL, msg()));
+
+  expect(db.rows('conversations')[0]).toMatchObject({ department_id: DEPT, assigned_to: null });
+});
+
+test('posição sem usuário vinculado não inventa responsável', async () => {
+  db.seed('departments', [{ id: DEPT, name: 'DP', is_default: true }]);
+  db.seed('department_positions', [
+    { id: 'pos-vaga', department_id: DEPT, name: 'Ponto 1', user_id: null },
+  ]);
+  db.seed('department_connections', [
+    { id: 'conn1', department_id: DEPT, position_id: 'pos-vaga', instance: 'pricall' },
+  ]);
+
+  await handleInbound(post(EVOLUTION_URL, msg()));
+  expect(db.rows('conversations')[0]).toMatchObject({ assigned_to: null });
+});
+
+test('a conversa guarda a linha que recebeu, para responder pela mesma', async () => {
+  db.seed('departments', [{ id: DEPT, name: 'DP', is_default: true }]);
+  db.seed('department_connections', [
+    { id: 'linha-3', department_id: DEPT, position_id: null, instance: 'pricall' },
+  ]);
+
+  await handleInbound(post(EVOLUTION_URL, msg()));
+  expect(db.rows('conversations')[0]).toMatchObject({ connection_id: 'linha-3' });
+});
+
+// Um departamento com 20 linhas: escolher "a linha do departamento" faria o
+// contato escrever para uma e ser respondido por outra.
+test('duas linhas no mesmo departamento não se confundem', async () => {
+  db.seed('departments', [{ id: DEPT, name: 'DP', is_default: true }]);
+  db.seed('department_connections', [
+    { id: 'linha-a', department_id: DEPT, position_id: null, instance: 'linha-a' },
+    { id: 'linha-b', department_id: DEPT, position_id: null, instance: 'linha-b' },
+  ]);
+
+  const url = 'https://fake.supabase.co/functions/v1/whatsapp-inbound?provider=evolution';
+  await handleInbound(post(url, { ...msg(), instance: 'linha-b' }));
+
+  expect(db.rows('conversations')[0]).toMatchObject({ connection_id: 'linha-b' });
+});

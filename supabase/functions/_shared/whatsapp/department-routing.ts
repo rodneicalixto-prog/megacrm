@@ -13,10 +13,18 @@ import { decrypt, getCredential } from '../credentials.ts';
 import { EvolutionProvider } from './evolution-provider.ts';
 
 export interface DepartmentConnection {
+  /** Linha por onde a conversa entrou. A resposta sai por ela, não por outra. */
+  connectionId: string | null;
   departmentId: string;
   instance: string;
   serverUrl: string;
   apiKey: string;
+  /**
+   * Preenchido quando o número é de uma PESSOA, não do departamento. Nesse caso
+   * a conversa já nasce atribuída a ela: quem escreveu para o número do Fulano
+   * está falando com o Fulano, não entrando numa fila.
+   */
+  assignToUserId?: string | null;
 }
 
 // Nome da instancia como a Evolution manda no webhook.
@@ -45,6 +53,7 @@ async function defaultDepartmentId(): Promise<string | null> {
 // server_url / api_key nulos na linha significam "usar a credencial global":
 // util para o primeiro numero, que ja esta configurado no KV.
 async function hydrate(row: {
+  id?: string;
   department_id: string;
   instance: string;
   server_url: string | null;
@@ -69,18 +78,29 @@ async function hydrate(row: {
     apiKey = apiKey || global.apiKey;
   }
 
-  return { departmentId: row.department_id, instance: row.instance, serverUrl, apiKey };
+  return { connectionId: row.id ?? null, departmentId: row.department_id, instance: row.instance, serverUrl, apiKey };
 }
 
-// Da instancia que recebeu -> o departamento dono da conversa.
+// Da instancia que recebeu -> o departamento dono da conversa, e, quando o
+// numero e de uma pessoa, tambem o responsavel.
 export async function connectionForInstance(instance: string): Promise<DepartmentConnection | null> {
   const { data } = await getAdminClient()
     .from('department_connections')
-    .select('department_id, instance, server_url, api_key_encrypted')
+    .select('id, department_id, instance, server_url, api_key_encrypted, position_id')
     .eq('instance', instance)
     .maybeSingle();
 
-  if (data) return hydrate(data as never);
+  if (data) {
+    const conn = await hydrate(data as never);
+    if (!conn) return null;
+    const positionId = (data as { position_id: string | null }).position_id;
+    if (positionId) {
+      const { data: pos } = await getAdminClient()
+        .from('department_positions').select('user_id').eq('id', positionId).maybeSingle();
+      conn.assignToUserId = (pos as { user_id: string | null } | null)?.user_id ?? null;
+    }
+    return conn;
+  }
 
   // Instancia desconhecida: cai no padrao com a credencial global. NAO adivinha
   // um departamento qualquer — se nao ha padrao, a mensagem e recusada em vez
@@ -88,24 +108,33 @@ export async function connectionForInstance(instance: string): Promise<Departmen
   const global = await globalConnection();
   const fallback = await defaultDepartmentId();
   if (!global || !fallback) return null;
-  return { departmentId: fallback, instance, serverUrl: global.serverUrl, apiKey: global.apiKey };
+  return { connectionId: null, departmentId: fallback, instance, serverUrl: global.serverUrl, apiKey: global.apiKey };
 }
 
-// Da conversa -> por onde a resposta sai. Tem que ser o mesmo numero por onde
-// entrou, senao o contato recebe resposta de um numero que nunca procurou.
-export async function connectionForDepartment(departmentId: string): Promise<DepartmentConnection | null> {
-  const { data } = await getAdminClient()
-    .from('department_connections')
-    .select('department_id, instance, server_url, api_key_encrypted')
-    .eq('department_id', departmentId)
-    .maybeSingle();
+// Por onde a resposta sai: a MESMA linha que recebeu.
+//
+// Um departamento pode ter dezenas de numeros. Escolher "o numero do
+// departamento" faria o contato escrever para uma linha e ser respondido por
+// outra — por isso a conversa guarda a conexao, e e ela que manda aqui.
+export async function connectionForConversation(
+  connectionId: string | null | undefined,
+  departmentId?: string | null,
+): Promise<DepartmentConnection | null> {
+  if (connectionId) {
+    const { data } = await getAdminClient()
+      .from('department_connections')
+      .select('id, department_id, instance, server_url, api_key_encrypted')
+      .eq('id', connectionId)
+      .maybeSingle();
+    if (data) return hydrate(data as never);
+  }
 
-  if (data) return hydrate(data as never);
-
+  // Conversa anterior ao cadastro de conexoes: cai na credencial global.
   const global = await globalConnection();
   if (!global) return null;
   return {
-    departmentId,
+    connectionId: null,
+    departmentId: departmentId ?? '',
     instance: global.instance,
     serverUrl: global.serverUrl,
     apiKey: global.apiKey,

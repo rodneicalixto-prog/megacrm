@@ -44,8 +44,13 @@ export class FakeSupabase {
             filters.push([col, value]);
             return q;
           },
+          // `.is(col, null)` no PostgREST: só a forma nula é usada aqui.
+          is(col: string, value: unknown) {
+            filters.push([col, value]);
+            return q;
+          },
           get matches() {
-            return rows.filter((r) => filters.every(([c, v]) => r[c] === v));
+            return rows.filter((r) => filters.every(([c, v]) => (r[c] ?? null) === (v ?? null)));
           },
           async maybeSingle(): Promise<Result<Row>> {
             return { data: q.matches[0] ?? null, error: null };

@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
 
     const { data: conv, error: convErr } = await admin
       .from('conversations')
-      .select('id, contact_id, status, channel, zernio_conversation_id, department_id')
+      .select('id, contact_id, status, channel, zernio_conversation_id, department_id, connection_id')
       .eq('id', conversationId)
       .maybeSingle();
     if (convErr) return jsonResponse({ ok: false, error: convErr.message }, { status: 500 });
@@ -104,7 +104,7 @@ Deno.serve(async (req) => {
       return jsonResponse({ ok: true, message_id: message.id, sent_to_zernio: false });
     }
 
-    const convRow = conv as { contact_id: string; channel: string | null; zernio_conversation_id: string | null; department_id: string | null };
+    const convRow = conv as { contact_id: string; channel: string | null; zernio_conversation_id: string | null; department_id: string | null; connection_id: string | null };
 
     // Conversas do canal 'evolution' respondem pela Evolution API (coexiste com
     // o WABA/Zernio — cada conversa sai por onde a mensagem chegou).
@@ -114,7 +114,7 @@ Deno.serve(async (req) => {
           .from('contacts').select('phone').eq('id', convRow.contact_id).maybeSingle();
         const phone = (contactRow as { phone?: string } | null)?.phone ?? null;
         if (!phone) throw new Error('Contato sem telefone.');
-        const sent = await sendEvolutionMessage(phone, content, null, undefined, convRow.department_id);
+        const sent = await sendEvolutionMessage(phone, content, null, undefined, convRow.connection_id);
         await admin
           .from('messages')
           .update({ meta_status: 'sent', zernio_message_id: sent.messageId ? `evolution:${sent.messageId}` : null })

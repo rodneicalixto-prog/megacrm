@@ -77,7 +77,7 @@ export async function handleOperatorMedia(req: Request): Promise<Response> {
 
     const { data: conv, error: convErr } = await admin
       .from('conversations')
-      .select('id, contact_id, zernio_conversation_id, channel, department_id')
+      .select('id, contact_id, zernio_conversation_id, channel, department_id, connection_id')
       .eq('id', conversationId)
       .maybeSingle();
     if (convErr) return jsonResponse({ ok: false, error: convErr.message }, { status: 500 });
@@ -88,6 +88,7 @@ export async function handleOperatorMedia(req: Request): Promise<Response> {
       zernio_conversation_id: string | null;
       channel: string | null;
       department_id: string | null;
+      connection_id: string | null;
     };
 
     const contentType = classify(file.type || '');
@@ -115,7 +116,7 @@ export async function handleOperatorMedia(req: Request): Promise<Response> {
 
       let evolutionMessageId: string | null = null;
       try {
-        const sent = await sendEvolutionMessage(phone, caption, publicUrl, contentType, convRow.department_id);
+        const sent = await sendEvolutionMessage(phone, caption, publicUrl, contentType, convRow.connection_id);
         evolutionMessageId = sent.messageId;
       } catch (err) {
         // O arquivo já está no bucket; sem o envio ele viraria lixo silencioso.

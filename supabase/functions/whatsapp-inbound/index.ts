@@ -83,6 +83,10 @@ export async function handleInbound(req: Request): Promise<Response> {
   // Qual número recebeu? É isso que define o departamento — não há triagem.
   // Fora da rota Evolution não há instância; cai no padrão.
   let departmentId: string | null = null;
+  // Número de pessoa => a conversa já nasce com dono; número de fila => nulo, e
+  // o supervisor distribui.
+  let assignTo: string | null = null;
+  let connectionId: string | null = null;
   if (provider.name === 'evolution') {
     const instance = instanceFromPayload(payload);
     const conn = instance ? await connectionForInstance(instance) : null;
@@ -94,6 +98,8 @@ export async function handleInbound(req: Request): Promise<Response> {
       );
     }
     departmentId = conn.departmentId;
+    assignTo = conn.assignToUserId ?? null;
+    connectionId = conn.connectionId;
   }
 
   // Mensagem enviada pela própria conta. Na rota não-oficial isso quase sempre
@@ -196,6 +202,9 @@ export async function handleInbound(req: Request): Promise<Response> {
           status: 'ai_active',
           channel: provider.name,
           department_id: departmentId,
+          connection_id: connectionId,
+          assigned_to: assignTo,
+          assigned_at: assignTo ? new Date().toISOString() : null,
           last_message_at: new Date().toISOString(),
         })
         .select('id').single();

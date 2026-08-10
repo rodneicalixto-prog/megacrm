@@ -49,6 +49,7 @@ interface ConversationRow {
   status: 'ai_active' | 'human_active' | 'closed';
   ai_paused: boolean;
   department_id: string | null;
+  connection_id: string | null;
   channel: string | null;
   zernio_conversation_id: string | null;
 }
@@ -266,7 +267,7 @@ Deno.serve(async (req) => {
   const [{ data: convRow }, { data: agentRow }] = await Promise.all([
     admin
       .from('conversations')
-      .select('id, contact_id, status, ai_paused, channel, zernio_conversation_id, department_id')
+      .select('id, contact_id, status, ai_paused, channel, zernio_conversation_id, department_id, connection_id')
       .eq('id', message.conversation_id)
       .maybeSingle(),
     admin
@@ -463,7 +464,7 @@ Deno.serve(async (req) => {
         .select('id').single();
       const outboundId = (ins as { id: string } | null)?.id ?? null;
       try {
-        const sent = await sendEvolutionMessage(phone, textBody, null, undefined, conversation.department_id);
+        const sent = await sendEvolutionMessage(phone, textBody, null, undefined, conversation.connection_id);
         uazTextId = sent.messageId;
         if (outboundId) await admin.from('messages').update({ meta_status: 'sent', zernio_message_id: sent.messageId ? `evolution:${sent.messageId}` : null }).eq('id', outboundId);
       } catch (err) {
@@ -479,7 +480,7 @@ Deno.serve(async (req) => {
         .select('id').single();
       const mId = (mIns as { id: string } | null)?.id ?? null;
       try {
-        const sent = await sendEvolutionMessage(phone, '', m.media_url, m.content_type, conversation.department_id);
+        const sent = await sendEvolutionMessage(phone, '', m.media_url, m.content_type, conversation.connection_id);
         if (mId) await admin.from('messages').update({ meta_status: 'sent', zernio_message_id: sent.messageId ? `evolution:${sent.messageId}` : null }).eq('id', mId);
         uazMediaSent++;
       } catch (_err) {
