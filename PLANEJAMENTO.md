@@ -1,7 +1,7 @@
 # MegaCRM — Avaliação do Repositório e Planejamento
 
 > Avaliação original: 2026-08-08, sobre o commit `f01d683`.
-> Última atualização: 2026-08-10, sobre `6e8f8d6` (`main`).
+> Última atualização: 2026-08-10, branch `work`.
 
 ---
 
@@ -9,11 +9,11 @@
 
 | | |
 |---|---|
-| **Repositório** | ✅ código versionado, 281 arquivos |
+| **Repositório** | ✅ código versionado, 328 arquivos rastreados |
 | **CI** | ✅ lint · typecheck · SQL · build · testes |
-| **Deploy Vercel** | ✅ `megacrm`, produção verde, 7 serverless |
-| **Testes** | ✅ 140 unitários (Vitest) + 9 E2E · lint e tipos em toda a base |
-| **Banco Supabase** | ✅ `yshvniyhtnyhnjcecbft` — 78 migrations, 22 functions |
+| **Deploy Vercel** | ⚠️ `megacrm`, 7 serverless; deploy remoto a confirmar |
+| **Testes** | ✅ 147 unitários (Vitest) + 9 E2E · lint e tipos em toda a base |
+| **Banco Supabase** | ⚠️ `yshvniyhtnyhnjcecbft` — 87 migrations locais, 22 functions; deploy remoto a confirmar |
 | **Rota WhatsApp** | ✅ Evolution API v2 · roteamento por linha/departamento |
 
 O diagnóstico que abriu este documento — *"o produto é sólido; o repositório
@@ -63,11 +63,11 @@ atribuição de UTM e dashboard.
 
 | Área | Linhas | Arquivos |
 |---|---:|---:|
-| `src/` (frontend) | 21.186 | 120 |
-| `supabase/migrations/` | 6.342 | 69 |
-| `supabase/functions/` | 5.880 | 22 funções |
-| `api/` (serverless Vercel) | 1.223 | 7 |
-| `tests/` | ~2.100 | 9 specs E2E + 123 unit |
+| `src/` (frontend) | 23.600 | 132 |
+| `supabase/migrations/` | 7.757 | 87 |
+| `supabase/functions/` | 6.322 | 22 funções |
+| `api/` (serverless Vercel) | 1.296 | 7 |
+| `tests/` | 2.282 | 9 specs E2E + 9 arquivos unitários (147 testes) |
 
 ### O que está genuinamente bom
 
