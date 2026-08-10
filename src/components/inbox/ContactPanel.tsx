@@ -23,6 +23,7 @@ interface ContactPanelProps {
   onSetActiveDeal: (dealId: string | null) => Promise<void>;
   onPinNote: (note: string | null) => Promise<void>;
   onArchive: (archived: boolean) => Promise<void>;
+  onSetPriority: (priority: 'baixa' | 'normal' | 'alta') => Promise<void>;
   onContactRefresh?: () => void;
 }
 
@@ -42,7 +43,7 @@ function Badge({ tone, children }: { tone: 'green' | 'amber' | 'gray'; children:
 
 export function ContactPanel({
   conversation, withinWindow, operators,
-  onPauseAI, onResumeAI, onClose, onReopen, onAssign, onSetActiveDeal, onPinNote, onArchive, onContactRefresh,
+  onPauseAI, onResumeAI, onClose, onReopen, onAssign, onSetActiveDeal, onPinNote, onArchive, onSetPriority, onContactRefresh,
 }: ContactPanelProps) {
   const contact = conversation.contact;
   const displayName = contact?.name?.trim() || contact?.phone || '—';
@@ -187,6 +188,27 @@ export function ContactPanel({
               {op.email} {op.role === 'admin' ? '(admin)' : ''}
             </option>
           ))}
+        </select>
+      </div>
+
+      {/* Prioridade — alimenta a fila "Prioridade alta" da coluna esquerda. */}
+      <div className="space-y-2">
+        <div className="text-label">Prioridade</div>
+        <select
+          value={conversation.priority}
+          onChange={async (e) => {
+            try {
+              await onSetPriority(e.target.value as 'baixa' | 'normal' | 'alta');
+              toast.success('Prioridade atualizada.');
+            } catch (err) {
+              toast.error('Falha', { description: err instanceof Error ? err.message : String(err) });
+            }
+          }}
+          className="h-11 w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)]"
+        >
+          <option value="baixa">Baixa</option>
+          <option value="normal">Normal</option>
+          <option value="alta">Alta</option>
         </select>
       </div>
 

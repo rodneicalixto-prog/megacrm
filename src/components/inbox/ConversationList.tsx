@@ -1,4 +1,4 @@
-import { Bot, Inbox, Instagram, MessageCircle, Smartphone, User } from 'lucide-react';
+import { Bot, Inbox, Instagram, MessageCircle, Smartphone, Star, TriangleAlert, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ConversationChannel, ConversationWithContact } from '@/types/inbox';
 
@@ -18,6 +18,7 @@ interface ConversationListProps {
   loading: boolean;
   selectedId: string | null;
   onSelect: (id: string) => void;
+  onToggleFavorite?: (id: string, favorite: boolean) => void;
 }
 
 function statusBadge(status: ConversationWithContact['status']) {
@@ -46,6 +47,7 @@ export function ConversationList({
   loading,
   selectedId,
   onSelect,
+  onToggleFavorite,
 }: ConversationListProps) {
   if (loading) {
     return (
@@ -75,12 +77,30 @@ export function ConversationList({
         const contact = c.contact;
         const displayName = contact?.name?.trim() || contact?.phone || '—';
         return (
-          <li key={c.id}>
+          <li key={c.id} className="relative">
+            {onToggleFavorite ? (
+              // Fora do <button> da linha de propósito: botão dentro de botão é
+              // HTML inválido e o clique da estrela abriria a conversa.
+              <button
+                type="button"
+                onClick={() => onToggleFavorite(c.id, !c.isFavorite)}
+                aria-label={c.isFavorite ? 'Remover dos favoritos' : 'Favoritar conversa'}
+                aria-pressed={c.isFavorite}
+                className={cn(
+                  'absolute right-2 bottom-2 z-10 flex h-7 w-7 items-center justify-center rounded-lg transition-colors',
+                  c.isFavorite
+                    ? 'text-[#FBBF24]'
+                    : 'text-[var(--color-text-secondary)] opacity-0 hover:bg-white/5 focus-visible:opacity-100 group-hover/row:opacity-100',
+                )}
+              >
+                <Star className={cn('h-3.5 w-3.5', c.isFavorite && 'fill-current')} />
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={() => onSelect(c.id)}
               className={cn(
-                'w-full text-left p-3 transition-colors',
+                'group/row w-full text-left p-3 transition-colors',
                 'hover:bg-white/[0.03]',
                 isActive && 'bg-[rgba(59,130,246,0.08)] border-l-2 border-[var(--accent-primary)]',
                 !isActive && 'border-l-2 border-transparent',
@@ -115,6 +135,12 @@ export function ConversationList({
                       <Icon className="h-3 w-3" />
                       {badge.label}
                     </span>
+                    {c.priority === 'alta' && (
+                      <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide font-semibold text-[#EF4444]">
+                        <TriangleAlert className="h-3 w-3" />
+                        Alta
+                      </span>
+                    )}
                     {c.ai_paused && (
                       <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide font-semibold text-[#FBBF24]">
                         ⏸ IA pausada

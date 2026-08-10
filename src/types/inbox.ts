@@ -29,6 +29,11 @@ export interface Conversation {
   unread_count: number;
   pinned_note: string | null;
   archived: boolean;
+  // Prioridade do atendimento — 'alta' alimenta a fila homônima do inbox.
+  priority: 'baixa' | 'normal' | 'alta';
+  // Departamento dono da conversa e linha (número) que a recebeu.
+  department_id: string | null;
+  connection_id: string | null;
   closed_at: string | null;
   created_at: string;
   updated_at: string;
@@ -65,4 +70,9 @@ export interface ConversationWithContact extends Conversation {
   // Timestamp da última mensagem do CONTATO (inbound) — deriva a janela de 24h
   // da Meta sem coluna dedicada.
   lastInboundAt: string | null;
+  // Última mensagem NOSSA. Junto com lastInboundAt diz de quem é a vez, que é
+  // o que separa a fila "Aguardando" da "Aguardando cliente".
+  lastOutboundAt: string | null;
+  // Favorito DESTE usuário (conversation_favorites é por pessoa).
+  isFavorite: boolean;
 }

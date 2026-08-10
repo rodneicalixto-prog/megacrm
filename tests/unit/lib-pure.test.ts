@@ -8,7 +8,12 @@ import { normalizePhone } from '../../src/lib/phone.ts';
 import { buildUtmUrl } from '../../src/lib/utm.ts';
 import { dueBadge } from '../../src/lib/nextAction.ts';
 import { getDealOrigin } from '../../src/lib/dealOrigin.ts';
-import { matchesFilters, DEFAULT_FILTERS } from '../../src/components/inbox/inbox-filters.ts';
+import {
+  matchesFilters,
+  matchesQueue,
+  lastSpeaker,
+  DEFAULT_FILTERS,
+} from '../../src/components/inbox/inbox-filters.ts';
 
 // ---------------------------------------------------------------- phone.ts
 // O E.164 e a chave de deduplicacao de contato: um numero que normaliza de duas
@@ -133,6 +138,13 @@ function conv(over: Record<string, unknown> = {}) {
     assigned_to: null,
     tagIds: [],
     lastInboundAt: new Date(NOW - 60 * 60 * 1000).toISOString(),
+    lastOutboundAt: null,
+    isFavorite: false,
+    priority: 'normal',
+    unread_count: 0,
+    department_id: null,
+    connection_id: null,
+    last_message_at: new Date(NOW - 60 * 60 * 1000).toISOString(),
     ...over,
   } as never;
 }
@@ -175,4 +187,58 @@ test('eixos diferentes se somam em E, não em OU', () => {
   const f = { ...DEFAULT_FILTERS, channel: 'evolution' as const, tagIds: ['t1'] };
   // canal bate, tag não → reprovado.
   assert.equal(matchesFilters(conv({ tagIds: ['outra'] }), f, NOW), false);
+});
+
+
+// ---- Filas da coluna esquerda do inbox ------------------------------------
+
+test('a vez e de quem falou por ultimo', () => {
+  const antes = new Date(NOW - 2 * 3600_000).toISOString();
+  const depois = new Date(NOW - 3600_000).toISOString();
+  assert.equal(lastSpeaker(conv({ lastInboundAt: depois, lastOutboundAt: antes })), 'contato');
+  assert.equal(lastSpeaker(conv({ lastInboundAt: antes, lastOutboundAt: depois })), 'nos');
+  assert.equal(lastSpeaker(conv({ lastInboundAt: null, lastOutboundAt: null })), null);
+});
+
+test('aguardando e aguardando cliente sao lados opostos, nunca ambos', () => {
+  const antes = new Date(NOW - 2 * 3600_000).toISOString();
+  const depois = new Date(NOW - 3600_000).toISOString();
+  const nossaVez = conv({ lastInboundAt: depois, lastOutboundAt: antes });
+  const vezDele = conv({ lastInboundAt: antes, lastOutboundAt: depois });
+  assert.equal(matchesQueue(nossaVez, 'aguardando', null), true);
+  assert.equal(matchesQueue(nossaVez, 'aguardando_cliente', null), false);
+  assert.equal(matchesQueue(vezDele, 'aguardando', null), false);
+  assert.equal(matchesQueue(vezDele, 'aguardando_cliente', null), true);
+});
+
+test('conversa encerrada sai das filas de trabalho', () => {
+  const fechada = conv({ status: 'closed', assigned_to: null });
+  assert.equal(matchesQueue(fechada, 'encerrados', null), true);
+  assert.equal(matchesQueue(fechada, 'nao_atribuidos', null), false);
+  assert.equal(matchesQueue(fechada, 'aguardando', null), false);
+});
+
+test('meus atendimentos exige um usuario — sem sessao nao cai tudo na fila', () => {
+  const minha = conv({ assigned_to: 'u1' });
+  assert.equal(matchesQueue(minha, 'meus', 'u1'), true);
+  assert.equal(matchesQueue(minha, 'meus', 'u2'), false);
+  assert.equal(matchesQueue(conv({ assigned_to: null }), 'meus', null), false);
+});
+
+test('favoritos ignora o arquivamento; as demais filas nao', () => {
+  const arquivadaFavorita = conv({ archived: true, isFavorite: true });
+  assert.equal(matchesQueue(arquivadaFavorita, 'favoritos', null), true);
+  assert.equal(matchesQueue(arquivadaFavorita, 'nao_lidos', null), false);
+});
+
+test('a fila manda no status: encerrados nao e vencido pelo default abertas', () => {
+  const fechada = conv({ status: 'closed' });
+  const f = { ...DEFAULT_FILTERS, queue: 'encerrados' as const };
+  assert.equal(matchesFilters(fechada, f, NOW), true);
+});
+
+test('filtrar por numero separa duas linhas do mesmo departamento', () => {
+  const f = { ...DEFAULT_FILTERS, connectionId: 'linha-a' };
+  assert.equal(matchesFilters(conv({ connection_id: 'linha-a' }), f, NOW), true);
+  assert.equal(matchesFilters(conv({ connection_id: 'linha-b' }), f, NOW), false);
 });

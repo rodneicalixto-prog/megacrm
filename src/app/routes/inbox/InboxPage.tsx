@@ -4,8 +4,11 @@ import { ArrowLeft, Inbox as InboxIcon, Info, Pin, Search, X } from 'lucide-reac
 import { useConversations } from '@/hooks/useConversations';
 import { useMessages } from '@/hooks/useMessages';
 import { useOperators } from '@/hooks/useOperators';
+import { useDepartments, lineLabel } from '@/hooks/useDepartments';
+import { useAppUser } from '@/app/providers/AppUserProvider';
 import { useTags } from '@/hooks/useTags';
 import { ConversationList } from '@/components/inbox/ConversationList';
+import { QueueSidebar } from '@/components/inbox/QueueSidebar';
 import { MessageThread } from '@/components/inbox/MessageThread';
 import { MessageInput } from '@/components/inbox/MessageInput';
 import { ContactPanel } from '@/components/inbox/ContactPanel';
@@ -14,6 +17,7 @@ import { hasSessionWindow } from '@/types/inbox';
 import {
   DEFAULT_FILTERS,
   matchesFilters,
+  QUEUES,
   readFiltersFromParams,
   writeFiltersToParams,
   type InboxFilterState,
@@ -34,6 +38,8 @@ export default function InboxPage() {
   const [showPanelMobile, setShowPanelMobile] = useState(false);
   const { operators } = useOperators();
   const { tags } = useTags();
+  const { departments, lines } = useDepartments();
+  const { userId } = useAppUser();
 
   // Persiste os filtros na querystring (namespace f*), preservando ?conversation.
   const updateFilters = (next: InboxFilterState) => {
@@ -78,6 +84,8 @@ export default function InboxPage() {
     setActiveDeal,
     setPinnedNote,
     setArchived,
+    setPriority,
+    toggleFavorite,
     markRead,
   } = useConversations();
 
@@ -85,14 +93,14 @@ export default function InboxPage() {
     const now = Date.now();
     const q = search.trim().toLowerCase();
     return conversations.filter((c) => {
-      if (!matchesFilters(c, filters, now)) return false;
+      if (!matchesFilters(c, filters, now, userId)) return false;
       if (!q) return true;
       const name = c.contact?.name?.toLowerCase() ?? '';
       const phone = c.contact?.phone?.toLowerCase() ?? '';
       const preview = c.lastMessagePreview?.toLowerCase() ?? '';
       return name.includes(q) || phone.includes(q) || preview.includes(q);
     });
-  }, [conversations, search, filters]);
+  }, [conversations, search, filters, userId]);
 
   const { messages, loading: loadingMsgs, sendText, retry, dismissFailed } = useMessages(selectedId);
 
@@ -130,6 +138,22 @@ export default function InboxPage() {
         clear: () => updateFilters({ ...filters, assigned: 'any' }),
       });
     }
+    if (filters.departmentId !== 'any') {
+      const name = departments.find((d) => d.id === filters.departmentId)?.name ?? 'equipe';
+      chips.push({
+        key: 'dp',
+        label: `Equipe: ${name}`,
+        clear: () => updateFilters({ ...filters, departmentId: 'any' }),
+      });
+    }
+    if (filters.connectionId !== 'any') {
+      const line = lines.find((l) => l.id === filters.connectionId);
+      chips.push({
+        key: 'cn',
+        label: `Número: ${line ? lineLabel(line) : 'linha'}`,
+        clear: () => updateFilters({ ...filters, connectionId: 'any' }),
+      });
+    }
     for (const tid of filters.tagIds) {
       const name = tags.find((t) => t.id === tid)?.name ?? 'tag';
       chips.push({
@@ -147,7 +171,7 @@ export default function InboxPage() {
     }
     return chips;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters, operators, tags]);
+  }, [filters, operators, tags, departments, lines]);
 
   // Janela de 24h: aberta se a última mensagem do CONTATO foi há menos de 24h.
   // Fora dela, a Meta só permite reiniciar com template. Só vale na rota
@@ -213,7 +237,22 @@ export default function InboxPage() {
         </div>
       )}
 
-      <div className="flex-1 lg:grid lg:grid-cols-[300px_1fr_320px] gap-3 min-h-0">
+      <div className="flex-1 lg:grid lg:grid-cols-[210px_300px_1fr_320px] gap-3 min-h-0">
+        {/* Filas — no mobile viram um scroller horizontal acima da lista */}
+        <div
+          className={`glass-card p-0 overflow-y-auto h-full ${
+            selectedId ? 'hidden lg:block' : 'hidden lg:block'
+          }`}
+        >
+          <div className="px-3 pt-3 text-label">Filas</div>
+          <QueueSidebar
+            conversations={conversations}
+            filters={filters}
+            onChange={(queue) => updateFilters({ ...filters, queue })}
+            userId={userId}
+          />
+        </div>
+
         {/* Left: conversation list — no mobile some quando há conversa aberta */}
         <div
           className={`glass-card p-0 flex-col overflow-hidden h-full ${
@@ -221,6 +260,23 @@ export default function InboxPage() {
           }`}
         >
           <div className="p-3 border-b border-[rgba(59,130,246,0.08)] space-y-2">
+
+            {/* No mobile a coluna de filas não cabe; o mesmo eixo vira um
+                select, para nenhuma fila ficar inalcançável no celular. */}
+            <select
+              value={filters.queue}
+              onChange={(e) =>
+                updateFilters({ ...filters, queue: e.target.value as InboxFilterState['queue'] })
+              }
+              aria-label="Fila"
+              className="lg:hidden w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-2.5 py-2 text-xs text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
+            >
+              {QUEUES.map((q) => (
+                <option key={q.id} value={q.id} className="bg-[#0A0A0F]">
+                  {q.label}
+                </option>
+              ))}
+            </select>
 
             {/* Busca + botão de filtros avançados (7.2) */}
             <div className="flex items-center gap-2">
@@ -238,6 +294,8 @@ export default function InboxPage() {
                 onChange={updateFilters}
                 operators={operators}
                 tags={tags}
+                departments={departments}
+                lines={lines}
               />
             </div>
 
@@ -281,6 +339,9 @@ export default function InboxPage() {
               loading={loadingConvs}
               selectedId={selectedId}
               onSelect={setSelectedId}
+              onToggleFavorite={(id, fav) => {
+                void toggleFavorite(id, fav);
+              }}
             />
           </div>
         </div>
@@ -361,6 +422,7 @@ export default function InboxPage() {
               onSetActiveDeal={(dealId) => setActiveDeal(selected.id, dealId)}
               onPinNote={(note) => setPinnedNote(selected.id, note)}
               onArchive={(a) => setArchived(selected.id, a)}
+              onSetPriority={(pr) => setPriority(selected.id, pr)}
               onContactRefresh={() => void reloadConvs()}
             />
           ) : (
@@ -400,6 +462,7 @@ export default function InboxPage() {
               onSetActiveDeal={(dealId) => setActiveDeal(selected.id, dealId)}
               onPinNote={(note) => setPinnedNote(selected.id, note)}
               onArchive={(a) => setArchived(selected.id, a)}
+              onSetPriority={(pr) => setPriority(selected.id, pr)}
               onContactRefresh={() => void reloadConvs()}
             />
           </div>

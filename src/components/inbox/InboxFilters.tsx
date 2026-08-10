@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Clock, SlidersHorizontal, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Operator } from '@/hooks/useOperators';
+import { lineLabel, type Department, type DepartmentLine } from '@/hooks/useDepartments';
 import type { Tag } from '@/types/crm';
 import {
   activeFilterCount,
@@ -18,6 +19,8 @@ interface Props {
   onChange: (next: InboxFilterState) => void;
   operators: Operator[];
   tags: Tag[];
+  departments: Department[];
+  lines: DepartmentLine[];
 }
 
 function toggle<T>(arr: T[], v: T): T[] {
@@ -73,7 +76,7 @@ const JANELA_OPTS: { v: JanelaFilter; label: string }[] = [
   { v: 'fora', label: 'Fora de 24h' },
 ];
 
-export function InboxFilters({ filters, onChange, operators, tags }: Props) {
+export function InboxFilters({ filters, onChange, operators, tags, departments, lines }: Props) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -133,6 +136,46 @@ export function InboxFilters({ filters, onChange, operators, tags }: Props) {
           </Chip>
         ))}
       </Section>
+
+      {departments.length > 0 && (
+        <div className="space-y-2">
+          <div className="text-label">Equipe</div>
+          <select
+            value={filters.departmentId}
+            onChange={(e) => set({ departmentId: e.target.value })}
+            className="h-10 w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
+          >
+            <option value="any">Todas</option>
+            {departments.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {lines.length > 0 && (
+        <div className="space-y-2">
+          <div className="text-label">Número</div>
+          <select
+            value={filters.connectionId}
+            onChange={(e) => set({ connectionId: e.target.value })}
+            className="h-10 w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
+          >
+            <option value="any">Todos</option>
+            {lines
+              // Só as linhas da equipe escolhida: com dezenas de números, a
+              // lista inteira torna o seletor inútil.
+              .filter((l) => filters.departmentId === 'any' || l.department_id === filters.departmentId)
+              .map((l) => (
+                <option key={l.id} value={l.id}>
+                  {lineLabel(l)}
+                </option>
+              ))}
+          </select>
+        </div>
+      )}
 
       <Section label="Atendente">
         {ATENDENTE_OPTS.map((o) => (

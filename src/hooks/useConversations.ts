@@ -14,6 +14,8 @@ interface UseConversationsResult {
   setActiveDeal: (id: string, dealId: string | null) => Promise<void>;
   setPinnedNote: (id: string, note: string | null) => Promise<void>;
   setArchived: (id: string, archived: boolean) => Promise<void>;
+  setPriority: (id: string, priority: 'baixa' | 'normal' | 'alta') => Promise<void>;
+  toggleFavorite: (id: string, favorite: boolean) => Promise<void>;
   markRead: (id: string) => Promise<void>;
 }
 
@@ -59,8 +61,8 @@ export function useConversations(): UseConversationsResult {
     const contactIds = Array.from(new Set(rows.map((c) => c.contact_id)));
     const conversationIds = rows.map((c) => c.id);
 
-    // Batch: contacts + tags do contato + latest messages por conversa.
-    const [contactsQ, tagsQ, lastMsgsQ] = await Promise.all([
+    // Batch: contacts + tags do contato + latest messages + favoritos do usuário.
+    const [contactsQ, tagsQ, lastMsgsQ, favsQ] = await Promise.all([
       contactIds.length === 0
         ? Promise.resolve({ data: [] as ContactRow[], error: null })
         : supabase
@@ -80,6 +82,12 @@ export function useConversations(): UseConversationsResult {
             .select('conversation_id, content, content_type, created_at, is_private_note, direction')
             .in('conversation_id', conversationIds)
             .order('created_at', { ascending: false }),
+      // RLS já limita a linha ao próprio usuário; o filtro explícito evita
+      // depender disso para a correção do que aparece na estrela.
+      supabase
+        .from('conversation_favorites')
+        .select('conversation_id')
+        .eq('user_id', userId),
     ]);
 
     if (contactsQ.error) {
@@ -102,6 +110,7 @@ export function useConversations(): UseConversationsResult {
     // = última mensagem do contato (janela de 24h).
     const latestByConv = new Map<string, string>();
     const lastInboundByConv = new Map<string, string>();
+    const lastOutboundByConv = new Map<string, string>();
     for (const m of (lastMsgsQ.data ?? []) as Array<{
       conversation_id: string;
       content: string | null;
@@ -117,7 +126,20 @@ export function useConversations(): UseConversationsResult {
       if (m.direction === 'inbound' && !lastInboundByConv.has(m.conversation_id)) {
         lastInboundByConv.set(m.conversation_id, m.created_at);
       }
+      // Nota privada não é resposta ao contato: contá-la como saída faria a
+      // conversa sair de "Aguardando" sem ninguém ter respondido nada.
+      if (
+        m.direction === 'outbound'
+        && !m.is_private_note
+        && !lastOutboundByConv.has(m.conversation_id)
+      ) {
+        lastOutboundByConv.set(m.conversation_id, m.created_at);
+      }
     }
+
+    const favoriteIds = new Set(
+      ((favsQ.data ?? []) as Array<{ conversation_id: string }>).map((f) => f.conversation_id),
+    );
 
     const merged: ConversationWithContact[] = rows.map((c) => ({
       ...c,
@@ -125,6 +147,8 @@ export function useConversations(): UseConversationsResult {
       lastMessagePreview: latestByConv.get(c.id) ?? null,
       tagIds: tagsByContact.get(c.contact_id) ?? [],
       lastInboundAt: lastInboundByConv.get(c.id) ?? null,
+      lastOutboundAt: lastOutboundByConv.get(c.id) ?? null,
+      isFavorite: favoriteIds.has(c.id),
     }));
 
     setConversations(merged);
@@ -233,13 +257,44 @@ export function useConversations(): UseConversationsResult {
     if (error) throw new Error(translateDbError(error.message));
   };
 
+  const setPriority: UseConversationsResult['setPriority'] = async (id, priority) => {
+    const supabase = getSupabase();
+    const { error } = await supabase
+      .schema('whatsapp_hub')
+      .from('conversations')
+      .update({ priority })
+      .eq('id', id);
+    if (error) throw new Error(translateDbError(error.message));
+  };
+
+  const toggleFavorite: UseConversationsResult['toggleFavorite'] = async (id, favorite) => {
+    const supabase = getSupabase();
+    if (!userId) return;
+    // Otimista: a estrela responde ao clique sem esperar o round-trip. O
+    // realtime não cobre conversation_favorites, então sem isso a lista só
+    // mudaria no próximo reload.
+    setConversations((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, isFavorite: favorite } : c)),
+    );
+    const table = supabase.schema('whatsapp_hub').from('conversation_favorites');
+    const { error } = favorite
+      ? await table.upsert({ conversation_id: id, user_id: userId })
+      : await table.delete().eq('conversation_id', id).eq('user_id', userId);
+    if (error) {
+      setConversations((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, isFavorite: !favorite } : c)),
+      );
+      throw new Error(translateDbError(error.message));
+    }
+  };
+
   const markRead: UseConversationsResult['markRead'] = async (id) => {
     const supabase = getSupabase();
     const { error } = await supabase.schema('whatsapp_hub').from('conversations').update({ unread_count: 0 }).eq('id', id);
     if (error) throw new Error(translateDbError(error.message));
   };
 
-  return { conversations, loading, error, reload, setStatus, setAiPaused, setAssigned, setActiveDeal, setPinnedNote, setArchived, markRead };
+  return { conversations, loading, error, reload, setStatus, setAiPaused, setAssigned, setActiveDeal, setPinnedNote, setArchived, setPriority, toggleFavorite, markRead };
 }
 
 // Maps the most common Postgres/PostgREST errors to actionable pt-BR messages.
