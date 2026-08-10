@@ -3,6 +3,7 @@ import { Building2, Plus, Trash2, UserPlus, UserRoundPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { getSupabase } from '@/lib/supabase';
 import { operatorLabel, useOperators } from '@/hooks/useOperators';
+import { LoadErrorBanner } from '@/components/LoadErrorBanner';
 
 interface Departamento {
   id: string;
@@ -18,7 +19,7 @@ interface Cargo {
 }
 
 const inputCls =
-  'h-10 w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)]';
+  'h-10 w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)] [&>option]:bg-[var(--color-bg-primary)] [&>option]:text-[var(--color-text-primary)]';
 
 // Departamentos e cargos. Cargo é a peça que faltava ter tela: é ele que liga
 // uma linha do WhatsApp a uma pessoa, e enquanto só existia no banco não havia
@@ -28,6 +29,7 @@ export function DepartmentsSettings() {
   const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
   const [cargos, setCargos] = useState<Cargo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [novoDepto, setNovoDepto] = useState('');
   const [novoCargo, setNovoCargo] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -43,13 +45,19 @@ export function DepartmentsSettings() {
 
   const carregar = useCallback(async () => {
     setLoading(true);
+    setError(null);
     const supabase = getSupabase().schema('whatsapp_hub');
     const [d, c] = await Promise.all([
       supabase.from('departments').select('id, name, is_default').order('name'),
       supabase.from('department_positions').select('id, department_id, name, user_id').order('name'),
     ]);
-    setDepartamentos((d.data ?? []) as Departamento[]);
-    setCargos((c.data ?? []) as Cargo[]);
+    const loadError = d.error ?? c.error;
+    if (loadError) {
+      setError(loadError.message);
+    } else {
+      setDepartamentos((d.data ?? []) as Departamento[]);
+      setCargos((c.data ?? []) as Cargo[]);
+    }
     setLoading(false);
   }, []);
 
@@ -131,6 +139,7 @@ export function DepartmentsSettings() {
 
   return (
     <div className="space-y-5">
+      {error && <LoadErrorBanner message={error} onRetry={() => void carregar()} />}
       <div className="glass-card p-5">
         <header className="mb-3">
           <h2 className="flex items-center gap-2 text-lg font-bold">
@@ -233,7 +242,7 @@ export function DepartmentsSettings() {
           <button
             onClick={cadastrar}
             disabled={busy || !nome.trim() || !email.trim()}
-            className="rounded-lg bg-gradient-to-br from-[#1E3A8A] to-[#3B82F6] px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
+            className="rounded-lg bg-[linear-gradient(135deg,#1E3A8A,var(--accent-primary))] px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
           >
             {busy ? 'Cadastrando…' : 'Cadastrar'}
           </button>
