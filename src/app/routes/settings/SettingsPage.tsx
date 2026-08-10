@@ -1,6 +1,7 @@
 import type React from 'react';
 import { useMemo, useState } from 'react';
 import {
+  Building2,
   Image as ImageIcon,
   KeyRound,
   Package,
@@ -14,6 +15,7 @@ import { useAppUser } from '@/app/providers/AppUserProvider';
 import { AccountSettings } from './sections/AccountSettings';
 import { BrandingSettings } from './sections/BrandingSettings';
 import { TeamSettings } from './sections/TeamSettings';
+import { DepartmentsSettings } from './sections/DepartmentsSettings';
 import { LeadAssignmentSettings } from './sections/LeadAssignmentSettings';
 import { ProductsSettings } from './sections/ProductsSettings';
 import CredentialsPage from './CredentialsPage';
@@ -22,6 +24,7 @@ type TabId =
   | 'account'
   | 'branding'
   | 'team'
+  | 'departments'
   | 'products'
   | 'credentials';
 
@@ -71,6 +74,14 @@ export default function SettingsPage() {
             ),
           },
           {
+            id: 'departments',
+            label: 'Setores',
+            hint: 'Departamentos, cargos e quem ocupa cada um',
+            icon: Building2,
+            adminOnly: true,
+            render: () => <DepartmentsSettings />,
+          },
+          {
             id: 'products',
             label: 'Produtos',
             hint: 'Catálogo atribuível a leads',
@@ -87,7 +98,7 @@ export default function SettingsPage() {
             render: () => <CredentialsPage />,
           },
         ] as TabDef[]
-      ).filter((t) => !t.adminOnly || role === 'admin'),
+      ).filter((t) => !t.adminOnly || role === 'admin' || role === 'super_admin'),
     [role],
   );
 

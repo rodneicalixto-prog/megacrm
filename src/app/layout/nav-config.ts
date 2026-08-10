@@ -8,6 +8,7 @@ import {
   BarChart3,
   type LucideIcon,
   SquareKanban,
+  CalendarDays,
 } from 'lucide-react';
 
 export interface NavItem {
@@ -29,6 +30,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/inbox', label: 'Inbox', icon: Inbox },
   { to: '/funil', label: 'Funil', icon: SquareKanban },
+  { to: '/agenda', label: 'Agenda', icon: CalendarDays },
   { to: '/contacts', label: 'Contatos', icon: Users },
   { to: '/campaigns', label: 'Campanhas', icon: Megaphone },
   { to: '/vendas', label: 'Vendas & Recompra', icon: BarChart3 },

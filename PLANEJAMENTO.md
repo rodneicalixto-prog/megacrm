@@ -333,7 +333,7 @@ Não é planejamento — é o que está de pé agora, no projeto Supabase
 | **Último deploy** | `6e8f8d6`, READY, 7 serverless |
 | **Banco** | `yshvniyhtnyhnjcecbft` (o `lxozaxrckrzwhckzsxmv` foi abandonado — o wizard rodou no projeto errado e o dado lá era 1 contato/1 conversa) |
 | **Rota WhatsApp** | Evolution API v2, instância `pricall` → +55 19 96712-8359 |
-| **Agente de IA** | desligado (`ai_agent_config.is_active = false`) |
+| **Agente de IA** | **travado no trigger** — `is_active = false` e o disparo nem acontece |
 | **Rota oficial (Zernio)** | fora de escopo nesta fase |
 
 ### Organização carregada no banco
@@ -440,6 +440,43 @@ ou configurar SMTP próprio antes de liberar os dezessete.
    morde ainda porque ninguém definiu senha, mas passa a morder no primeiro
    atendente que entrar e responder pelo CRM numa linha própria.
    Deploy pendente.
+
+### Agenda (`/agenda`)
+
+Calendário mensal com duas naturezas na mesma tabela, separadas por `owner_id`:
+
+- **Minha agenda** — uma por usuário, criada por trigger quando o usuário entra
+  em `app_users`. Sem isso a tela abriria vazia e sem onde criar nada.
+- **Calendário da empresa** — único (`is_company`, com índice parcial), lido por
+  todos e **escrito só por `admin` e `super_admin`** (gerência e diretoria).
+  Supervisor lê, não escreve: é mural da empresa, não quadro de setor. Não pode
+  ser apagado — não há policy de delete que o alcance.
+
+O filtro do mês busca por **sobreposição** (`starts_at < fim AND ends_at >
+início`), não por contenção: um evento que começou ontem e termina amanhã
+pertence a hoje, e filtrar só por `starts_at` o esconderia.
+
+### Setores (Configurações → Setores)
+
+CRUD de departamentos e cargos, e o vínculo cargo → pessoa. Era a peça que só
+existia no banco: sem essa tela, montar a estrutura da empresa exigia SQL. O
+setor padrão não pode ser excluído — é para onde caem as mensagens de linha
+desconhecida, e sem ele elas passam a ser recusadas.
+
+### Correções de RLS encontradas no caminho
+
+Duas, ambas invisíveis até alguém usar o navegador em vez de service role:
+
+1. **42 policies em 41 tabelas listavam só `admin` e `operator`.** O dono é
+   `super_admin` desde a migração de hierarquia, então ele não escrevia em
+   *nada* pelo app; supervisor idem. Passou despercebido porque quase tudo feito
+   até agora saiu por API Route com service role, que ignora RLS. Trocadas por
+   `is_admin()` / `can_operate()`, e a varredura materializa a lista de alvos
+   antes de alterar — iterar `pg_policies` enquanto se altera `pg_policy` não
+   aplica nada e ainda reporta sucesso.
+2. **`department_connections` tinha RLS ligado e nenhuma policy.** O filtro de
+   "Número" do inbox e a tela de Setores viriam sempre vazios. Leitura liberada,
+   escrita admin, e `api_key_encrypted` revogada da leitura do browser.
 
 ### Transferência de conversa
 
