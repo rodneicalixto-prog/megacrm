@@ -364,39 +364,52 @@ mostrava "Não conectado" com a instância conectada — a rota lia só
 `body.instance.state` e esta Evolution devolve o estado em outra chave; corrigido
 em `680f9f5`.
 
-### Linhas de Recursos Humanos cadastradas, aguardando instância
+### Linhas conectadas (12)
 
-Seis números gravados em `department_connections`, no modelo "1 número por
-pessoa" (`position_id` preenchido ⇒ conversa nasce atribuída, sem fila):
+O roteamento é por **nome de instância** da Evolution. Cada linha abaixo foi
+verificada com uma chamada real à `whatsapp-inbound` via `pg_net`, conferindo o
+departamento e o destino gravados na conversa; os contatos de teste foram
+apagados depois.
 
-| Linha | Número | Cargo |
-|---|---|---|
-| `rh_jheny` | +55 11 94291-7761 | Recrutamento 1 (Jheny) |
-| `rh_discolab` | +55 11 96472-8346 | Discolabs |
-| `rh_linha_02` | +55 11 91867-1880 | a definir |
-| `rh_linha_03` | +55 11 94216-7315 | a definir |
-| `rh_linha_04` | +55 11 94355-2467 | a definir |
-| `rh_linha_06` | +55 11 99260-3043 | a definir |
+| Instância | Departamento | Destino | Número |
+|---|---|---|---|
+| `pricall` | Departamento Pessoal | fila do supervisor | +55 11 93221-2892 |
+| `departamento_pessoal` | Departamento Pessoal | fila do supervisor | — |
+| `gerencia` | Gerência | Priscilla Klein | — |
+| `estagios` | Recursos Humanos | Estágios | — |
+| `rh_jheny` | Recursos Humanos | Recrutamento 1 | +55 11 94291-7761 |
+| `rh_discolab` | Recursos Humanos | Discolabs | +55 11 96472-8346 |
+| `rh_linha_02` | Recursos Humanos | fila do supervisor | +55 11 91867-1880 |
+| `rh_linha_03` | Recursos Humanos | fila do supervisor | +55 11 94216-7315 |
+| `rh_linha_04` | Recursos Humanos | fila do supervisor | +55 11 94355-2467 |
+| `rh_linha_06` | Recursos Humanos | fila do supervisor | +55 11 99260-3043 |
+| `portaria1` | Segurança | Portaria 1 | — |
+| `portaria2` | Segurança | Portaria 2 | — |
 
-**Cada uma precisa de uma instância na Evolution com exatamente esse nome** — o
-roteamento é por nome de instância, e uma instância com outro nome cai no
-departamento default em vez do RH. As quatro "a definir" ficaram sem
-`position_id` de propósito: sem dono definido, entram na fila do supervisor —
-melhor que atribuir à pessoa errada.
+"Destino = fila do supervisor" significa `position_id` nulo: a conversa nasce
+sem dono e o supervisor distribui. Com `position_id`, ela já nasce atribuída à
+pessoa daquele cargo — assim que essa pessoa tiver login. Hoje nenhum cargo tem
+usuário vinculado, então tudo cai na fila mesmo com o cargo definido.
+
+As quatro linhas `rh_linha_0*` ficaram sem cargo de propósito: sem dono definido
+é melhor a fila do que atribuir à pessoa errada.
+
+**Departamento Pessoal tem duas linhas** (`pricall` e `departamento_pessoal`) —
+é suportado, e é por isso que a conversa guarda `connection_id`: a resposta tem
+que sair pela linha que recebeu, não por "a linha do departamento".
 
 ### Depois disso, em ordem
 
-1. Criar na Evolution as 6 instâncias de RH com os nomes da tabela acima.
-2. Coletar os e-mails dos 17 cargos e emitir os convites (`invite-team-member`).
-3. Definir os cargos de Faturamento, Diretoria e Segurança do Trabalho.
-4. Horário de atendimento **por usuário e por setor** — substitui o filtro de
+1. Coletar os e-mails dos 17 cargos e emitir os convites (`invite-team-member`).
+2. Definir os cargos de Faturamento, Diretoria e Segurança do Trabalho.
+3. Horário de atendimento **por usuário e por setor** — substitui o filtro de
    período que chegou a existir no inbox e foi removido por não ser isso.
-5. ~~Redeploy da `whatsapp-inbound`~~ — **feito** (versão 2, via MCP).
+4. ~~Redeploy da `whatsapp-inbound`~~ — **feito** (versão 2, via MCP).
    Verificado com três chamadas reais pelo `pg_net`: instância `estagios` →
    Recursos Humanos com `connection_id` gravado; instância inexistente →
    Departamento Pessoal, sem chutar; mensagem de grupo ignorada. Dados de teste
    removidos depois.
-6. **`send-operator-message` ainda sai pela credencial global.** A resposta a
+5. **`send-operator-message` ainda sai pela credencial global.** A resposta a
    uma conversa de RH sairia pelo `pricall` em vez da linha que recebeu. Não
    morde hoje — só o dono tem login, e a conversa dele está na linha default —
    mas morde no primeiro atendente que responder pelo CRM numa linha própria.
