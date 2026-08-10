@@ -16,6 +16,10 @@ interface UseConversationsResult {
   setArchived: (id: string, archived: boolean) => Promise<void>;
   setPriority: (id: string, priority: 'baixa' | 'normal' | 'alta') => Promise<void>;
   toggleFavorite: (id: string, favorite: boolean) => Promise<void>;
+  transfer: (
+    id: string,
+    dest: { userId: string | null; departmentId: string | null; reason: string },
+  ) => Promise<void>;
   markRead: (id: string) => Promise<void>;
 }
 
@@ -288,13 +292,28 @@ export function useConversations(): UseConversationsResult {
     }
   };
 
+  const transfer: UseConversationsResult['transfer'] = async (id, dest) => {
+    const supabase = getSupabase();
+    // RPC e nao dois updates: a mudanca de dono e o registro dela na thread
+    // precisam acontecer juntos, senao a conversa chega no destinatario sem
+    // nenhum contexto de por que caiu com ele.
+    const { error } = await supabase.schema('whatsapp_hub').rpc('transfer_conversation', {
+      p_conversation_id: id,
+      p_to_user_id: dest.userId,
+      p_to_department_id: dest.departmentId,
+      p_reason: dest.reason || null,
+    });
+    if (error) throw new Error(translateDbError(error.message));
+    await reload({ silent: true });
+  };
+
   const markRead: UseConversationsResult['markRead'] = async (id) => {
     const supabase = getSupabase();
     const { error } = await supabase.schema('whatsapp_hub').from('conversations').update({ unread_count: 0 }).eq('id', id);
     if (error) throw new Error(translateDbError(error.message));
   };
 
-  return { conversations, loading, error, reload, setStatus, setAiPaused, setAssigned, setActiveDeal, setPinnedNote, setArchived, setPriority, toggleFavorite, markRead };
+  return { conversations, loading, error, reload, setStatus, setAiPaused, setAssigned, setActiveDeal, setPinnedNote, setArchived, setPriority, toggleFavorite, transfer, markRead };
 }
 
 // Maps the most common Postgres/PostgREST errors to actionable pt-BR messages.

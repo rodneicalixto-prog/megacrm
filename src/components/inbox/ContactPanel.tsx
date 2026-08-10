@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Archive, ArchiveRestore, Bot, CircleX, Clock, Pause, Pin, Play, Mail, Phone, RotateCcw, SquareKanban } from 'lucide-react';
+import { Archive, ArchiveRestore, ArrowRightLeft, Bot, CircleX, Clock, Pause, Pin, Play, Mail, Phone, RotateCcw, SquareKanban } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AddToPipelineDialog } from '@/components/crm/AddToPipelineDialog';
 import { hasSessionWindow, type ConversationWithContact } from '@/types/inbox';
@@ -24,6 +24,7 @@ interface ContactPanelProps {
   onPinNote: (note: string | null) => Promise<void>;
   onArchive: (archived: boolean) => Promise<void>;
   onSetPriority: (priority: 'baixa' | 'normal' | 'alta') => Promise<void>;
+  onTransfer: () => void;
   onContactRefresh?: () => void;
 }
 
@@ -43,7 +44,7 @@ function Badge({ tone, children }: { tone: 'green' | 'amber' | 'gray'; children:
 
 export function ContactPanel({
   conversation, withinWindow, operators,
-  onPauseAI, onResumeAI, onClose, onReopen, onAssign, onSetActiveDeal, onPinNote, onArchive, onSetPriority, onContactRefresh,
+  onPauseAI, onResumeAI, onClose, onReopen, onAssign, onSetActiveDeal, onPinNote, onArchive, onSetPriority, onTransfer, onContactRefresh,
 }: ContactPanelProps) {
   const contact = conversation.contact;
   const displayName = contact?.name?.trim() || contact?.phone || '—';
@@ -190,6 +191,18 @@ export function ContactPanel({
           ))}
         </select>
       </div>
+
+      {/* Transferir — separado do "Atribuído a" logo acima de propósito: aquele
+          troca a pessoa dentro do setor; este move a conversa de setor, e é o
+          único caminho que também ajusta o department_id que as policies leem. */}
+      <button
+        type="button"
+        onClick={onTransfer}
+        className="flex w-full items-center justify-center gap-2 rounded-lg border border-[rgba(59,130,246,0.25)] px-4 py-2.5 text-sm font-medium text-[var(--color-text-primary)] transition hover:border-[var(--accent-primary)]"
+      >
+        <ArrowRightLeft className="h-4 w-4" />
+        Transferir conversa
+      </button>
 
       {/* Prioridade — alimenta a fila "Prioridade alta" da coluna esquerda. */}
       <div className="space-y-2">

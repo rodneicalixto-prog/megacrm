@@ -12,6 +12,7 @@ import { QueueSidebar } from '@/components/inbox/QueueSidebar';
 import { MessageThread } from '@/components/inbox/MessageThread';
 import { MessageInput } from '@/components/inbox/MessageInput';
 import { ContactPanel } from '@/components/inbox/ContactPanel';
+import { TransferDialog } from '@/components/inbox/TransferDialog';
 import { InboxFilters } from '@/components/inbox/InboxFilters';
 import { hasSessionWindow } from '@/types/inbox';
 import {
@@ -36,6 +37,7 @@ export default function InboxPage() {
   // No mobile (<lg) mostramos uma coluna por vez: lista quando nada está
   // selecionado, senão a thread. O painel de contato vira um overlay.
   const [showPanelMobile, setShowPanelMobile] = useState(false);
+  const [showTransfer, setShowTransfer] = useState(false);
   const { operators } = useOperators();
   const { tags } = useTags();
   const { departments, lines } = useDepartments();
@@ -86,6 +88,7 @@ export default function InboxPage() {
     setArchived,
     setPriority,
     toggleFavorite,
+    transfer,
     markRead,
   } = useConversations();
 
@@ -423,6 +426,7 @@ export default function InboxPage() {
               onPinNote={(note) => setPinnedNote(selected.id, note)}
               onArchive={(a) => setArchived(selected.id, a)}
               onSetPriority={(pr) => setPriority(selected.id, pr)}
+              onTransfer={() => setShowTransfer(true)}
               onContactRefresh={() => void reloadConvs()}
             />
           ) : (
@@ -463,11 +467,22 @@ export default function InboxPage() {
               onPinNote={(note) => setPinnedNote(selected.id, note)}
               onArchive={(a) => setArchived(selected.id, a)}
               onSetPriority={(pr) => setPriority(selected.id, pr)}
+              onTransfer={() => setShowTransfer(true)}
               onContactRefresh={() => void reloadConvs()}
             />
           </div>
         </div>
       )}
+      {selected ? (
+        <TransferDialog
+          open={showTransfer}
+          onClose={() => setShowTransfer(false)}
+          departments={departments}
+          operators={operators}
+          currentDepartmentId={selected.department_id}
+          onTransfer={(dest) => transfer(selected.id, dest)}
+        />
+      ) : null}
     </div>
   );
 }

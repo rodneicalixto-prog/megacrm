@@ -441,6 +441,31 @@ ou configurar SMTP próprio antes de liberar os dezessete.
    atendente que entrar e responder pelo CRM numa linha própria.
    Deploy pendente.
 
+### Transferência de conversa
+
+Antes só existia "Atribuído a", que troca a pessoa mas não o departamento — e
+`department_id` é o que as policies leem. Passar uma conversa do RH para o
+Departamento Pessoal era impossível pela tela.
+
+`whatsapp_hub.transfer_conversation(conversa, pessoa, setor, motivo)` faz os
+dois, numa transação com o registro:
+
+- **Para um setor** → entra na fila, sem dono, para o supervisor distribuir.
+- **Para uma pessoa** → vai junto o departamento dela; do contrário a conversa
+  ficaria com um dono que as policies do próprio setor dele não deixam ver.
+- **`connection_id` não muda.** O contato escreveu para um número específico e a
+  resposta continua saindo por ele. Trocar de setor muda quem atende, não por
+  onde o cliente falou.
+- **`ai_paused = true`** — quem transfere está entregando para um humano.
+- Deixa **nota privada** na thread com origem, destino e motivo. Sem isso a
+  conversa chega no destinatário sem contexto nenhum.
+- Recusa com mensagem clara quando o contato já tem conversa no setor de
+  destino, em vez de estourar a `UNIQUE (contact_id, department_id)` crua.
+
+Verificado em produção: transferida para a pessoa da Portaria 1 (foi para
+Segurança, atribuída, IA pausada, nota gravada), devolvida para a fila do
+Departamento Pessoal, e os rastros de teste removidos.
+
 ### Inbox — filas implementadas (`f0683c6`)
 
 Coluna esquerda com as dez filas (Todos · Não atribuídos · Meus atendimentos ·
