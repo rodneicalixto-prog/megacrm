@@ -9,7 +9,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('Step 4: Salvar is disabled while required providers are empty (cannot skip)', async ({ page }) => {
-  await expect(page.getByRole('button', { name: 'Salvar e finalizar' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Salvar e conectar' })).toBeDisabled();
   await shot(page, 'step4-fields');
 });
 
