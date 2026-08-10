@@ -398,21 +398,47 @@ As quatro linhas `rh_linha_0*` ficaram sem cargo de propósito: sem dono definid
 é suportado, e é por isso que a conversa guarda `connection_id`: a resposta tem
 que sair pela linha que recebeu, não por "a linha do departamento".
 
+### Contas dos 17 cargos criadas
+
+Todas entregues na caixa da Gerência, por sufixo `+`:
+`priscilla.klein+dp_supervisor@gmail.com`, `+rh_recrutamento1`, `+seg_portaria1`,
+`+ger_priscillaklein`, e assim por diante.
+
+O sufixo não é preferência estética: o Supabase Auth exige e-mail único, então
+dezessete contas não cabem num endereço só. O Gmail entrega todos os `+algo` na
+mesma caixa, e trocar o e-mail depois é um `update` por linha.
+
+| Papel | Quem | Quantos |
+|---|---|---|
+| `super_admin` | dono, em Administração Geral | 1 |
+| `admin` | Gerência | 1 |
+| `supervisor` | um por departamento com fila (DP, RH, Segurança) | 3 |
+| `operator` | demais cargos | 13 |
+
+Cada conta está vinculada ao seu cargo (`department_positions.user_id`), então a
+linha daquele cargo passa a abrir conversa **já atribuída** à pessoa. O
+`app_users.department_id` foi corrigido para o departamento do cargo — o trigger
+`handle_new_user` põe todo mundo no default, e é esse campo que as policies leem.
+
+**Ninguém tem senha ainda**, de propósito: cada um define a sua por *Esqueci
+minha senha* na tela de login. Nenhuma senha compartilhada circulou. Atenção ao
+SMTP padrão do Supabase, que limita poucos e-mails por hora — fazer aos poucos,
+ou configurar SMTP próprio antes de liberar os dezessete.
+
 ### Depois disso, em ordem
 
-1. Coletar os e-mails dos 17 cargos e emitir os convites (`invite-team-member`).
-2. Definir os cargos de Faturamento, Diretoria e Segurança do Trabalho.
-3. Horário de atendimento **por usuário e por setor** — substitui o filtro de
+1. Definir os cargos de Faturamento, Diretoria e Segurança do Trabalho.
+2. Horário de atendimento **por usuário e por setor** — substitui o filtro de
    período que chegou a existir no inbox e foi removido por não ser isso.
-4. ~~Redeploy da `whatsapp-inbound`~~ — **feito** (versão 2, via MCP).
+3. ~~Redeploy da `whatsapp-inbound`~~ — **feito** (versão 2, via MCP).
    Verificado com três chamadas reais pelo `pg_net`: instância `estagios` →
    Recursos Humanos com `connection_id` gravado; instância inexistente →
    Departamento Pessoal, sem chutar; mensagem de grupo ignorada. Dados de teste
    removidos depois.
-5. **`send-operator-message` ainda sai pela credencial global.** A resposta a
+4. **`send-operator-message` ainda sai pela credencial global.** A resposta a
    uma conversa de RH sairia pelo `pricall` em vez da linha que recebeu. Não
-   morde hoje — só o dono tem login, e a conversa dele está na linha default —
-   mas morde no primeiro atendente que responder pelo CRM numa linha própria.
+   morde ainda porque ninguém definiu senha, mas passa a morder no primeiro
+   atendente que entrar e responder pelo CRM numa linha própria.
    Deploy pendente.
 
 ### Inbox — filas implementadas (`f0683c6`)
