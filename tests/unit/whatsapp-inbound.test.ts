@@ -45,9 +45,14 @@ function msg(over: Record<string, unknown> = {}) {
   });
 }
 
+const DEPT = 'dept-geral';
+
 beforeEach(() => {
   db.tables = {};
   db.rpcCalls = [];
+  // O número que recebe define o departamento. Sem departamento padrão a
+  // mensagem é recusada de propósito — melhor que aterrissar no lugar errado.
+  db.seed('departments', [{ id: DEPT, name: 'Geral', is_default: true }]);
   db.rpcResults = { attribute_inbound_lead: { data: { method: 'whatsapp_direto' }, error: null } };
   for (const k of Object.keys(credentials)) delete credentials[k];
   credentials.evolution_server_url = 'https://evo.example.com';
@@ -89,7 +94,7 @@ test('mensagem nova cria contato, conversa e mensagem no inbox', async () => {
   expect(contato).toMatchObject({ phone: '+5511999998888', name: 'Cliente', source: 'whatsapp' });
 
   const conversa = db.rows('conversations')[0];
-  expect(conversa).toMatchObject({ channel: 'evolution', status: 'ai_active' });
+  expect(conversa).toMatchObject({ channel: 'evolution', status: 'ai_active', department_id: DEPT });
 
   const mensagem = db.rows('messages')[0];
   expect(mensagem).toMatchObject({
@@ -122,6 +127,27 @@ test('a mesma mensagem entregue duas vezes só entra uma', async () => {
   expect(await res.json()).toMatchObject({ deduped: true });
   expect(db.rows('messages')).toHaveLength(1);
   expect(db.rows('contacts')).toHaveLength(1);
+});
+
+test('sem departamento padrão a mensagem é recusada, não chutada', async () => {
+  db.seed('departments', []);
+  const res = await handleInbound(post(EVOLUTION_URL, msg()));
+
+  expect(res.status).toBe(500);
+  expect(db.rows('contacts')).toHaveLength(0);
+});
+
+test('a instância cadastrada manda a conversa para o departamento dela', async () => {
+  db.seed('departments', [
+    { id: DEPT, name: 'Geral', is_default: true },
+    { id: 'dept-rh', name: 'Recursos Humanos', is_default: false },
+  ]);
+  db.seed('department_connections', [
+    { department_id: 'dept-rh', instance: 'pricall', server_url: null, api_key_encrypted: null },
+  ]);
+
+  await handleInbound(post(EVOLUTION_URL, msg()));
+  expect(db.rows('conversations')[0]).toMatchObject({ department_id: 'dept-rh' });
 });
 
 // ------------------------------------------------------------- grupos
@@ -161,7 +187,7 @@ test('evento que não é mensagem é aceito e ignorado', async () => {
 
 test('dono respondendo pelo celular pausa a IA daquela conversa', async () => {
   db.seed('contacts', [{ id: 'c1', phone: '+5511999998888' }]);
-  db.seed('conversations', [{ id: 'conv1', contact_id: 'c1', ai_paused: false, status: 'ai_active' }]);
+  db.seed('conversations', [{ id: 'conv1', contact_id: 'c1', department_id: DEPT, ai_paused: false, status: 'ai_active' }]);
 
   const res = await handleInbound(
     post(EVOLUTION_URL, msg({
@@ -176,7 +202,7 @@ test('dono respondendo pelo celular pausa a IA daquela conversa', async () => {
 
 test('a fala do dono é registrada na thread como do operador', async () => {
   db.seed('contacts', [{ id: 'c1', phone: '+5511999998888' }]);
-  db.seed('conversations', [{ id: 'conv1', contact_id: 'c1', ai_paused: false }]);
+  db.seed('conversations', [{ id: 'conv1', contact_id: 'c1', department_id: DEPT, ai_paused: false }]);
 
   await handleInbound(
     post(EVOLUTION_URL, msg({

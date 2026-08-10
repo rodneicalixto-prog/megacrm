@@ -43,7 +43,9 @@ function getSupabaseAdmin() {
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
-async function decrypt(payload: string): Promise<string> {
+// Exportado para o roteamento por departamento, que guarda a chave da conexao
+// cifrada com o mesmo esquema, so que numa tabela em vez do KV.
+export async function decrypt(payload: string): Promise<string> {
   const [ivHex, tagHex, cipherHex] = payload.split(':');
   if (!ivHex || !tagHex || !cipherHex) {
     throw new Error('Payload de criptografia malformado');

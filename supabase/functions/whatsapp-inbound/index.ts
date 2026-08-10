@@ -22,6 +22,7 @@ import {
   type ProviderName,
 } from '../_shared/whatsapp/index.ts';
 import { verifyWebhookSignature } from '../_shared/signature.ts';
+import { connectionForInstance, instanceFromPayload } from '../_shared/whatsapp/department-routing.ts';
 
 // Nome distinto do normalizePhone de _shared/whatsapp/types.ts — o bundler do
 // bootstrap inlina os _shared no mesmo escopo do módulo.
@@ -79,6 +80,22 @@ export async function handleInbound(req: Request): Promise<Response> {
 
   const admin = getAdminClient();
 
+  // Qual número recebeu? É isso que define o departamento — não há triagem.
+  // Fora da rota Evolution não há instância; cai no padrão.
+  let departmentId: string | null = null;
+  if (provider.name === 'evolution') {
+    const instance = instanceFromPayload(payload);
+    const conn = instance ? await connectionForInstance(instance) : null;
+    if (!conn) {
+      console.log(JSON.stringify({ event: 'instance_sem_departamento', instance }));
+      return jsonResponse(
+        { ok: false, error: 'instância não associada a departamento' },
+        { status: 500 },
+      );
+    }
+    departmentId = conn.departmentId;
+  }
+
   // Mensagem enviada pela própria conta. Na rota não-oficial isso quase sempre
   // significa que o DONO respondeu pelo celular, fora do CRM — e nesse caso a
   // conversa passou a ser dele. Descartar o evento (o que se fazia antes)
@@ -97,7 +114,9 @@ export async function handleInbound(req: Request): Promise<Response> {
 
     const { data: conv } = await admin
       .from('conversations').select('id, ai_paused')
-      .eq('contact_id', (contact as { id: string }).id).maybeSingle();
+      .eq('contact_id', (contact as { id: string }).id)
+      .eq('department_id', departmentId)
+      .maybeSingle();
     if (!conv) return jsonResponse({ ok: true, skipped: 'echo sem conversa' });
 
     const conversationId = (conv as { id: string }).id;
@@ -164,7 +183,10 @@ export async function handleInbound(req: Request): Promise<Response> {
   if (provider.name !== 'zernio') {
     let conversationId: string | null = null;
     const { data: existingConv } = await admin
-      .from('conversations').select('id').eq('contact_id', contactId).maybeSingle();
+      .from('conversations').select('id')
+      .eq('contact_id', contactId)
+      .eq('department_id', departmentId)
+      .maybeSingle();
     if (existingConv) conversationId = (existingConv as { id: string }).id;
     else {
       const { data: createdConv } = await admin
@@ -173,6 +195,7 @@ export async function handleInbound(req: Request): Promise<Response> {
           contact_id: contactId,
           status: 'ai_active',
           channel: provider.name,
+          department_id: departmentId,
           last_message_at: new Date().toISOString(),
         })
         .select('id').single();

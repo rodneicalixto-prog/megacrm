@@ -7,6 +7,7 @@
 
 import { getCredential } from '../credentials.ts';
 import { EvolutionProvider } from './evolution-provider.ts';
+import { connectionForDepartment, providerFor } from './department-routing.ts';
 
 export function isEvolutionChannel(channel: string | null | undefined): boolean {
   return channel === 'evolution';
@@ -23,13 +24,19 @@ export async function loadEvolutionProvider(): Promise<EvolutionProvider> {
 }
 
 // Envia texto (e opcionalmente mídia) para o telefone do contato via Evolution.
+//
+// `departmentId` escolhe POR QUAL NÚMERO a resposta sai. Tem que ser o mesmo por
+// onde a mensagem entrou: responder de outro número faz o contato receber de
+// alguém que ele nunca procurou. Sem departamento, cai na credencial global.
 export async function sendEvolutionMessage(
   phone: string,
   text: string,
   mediaUrl?: string | null,
   mediaType?: string,
+  departmentId?: string | null,
 ): Promise<{ messageId: string | null }> {
-  const provider = await loadEvolutionProvider();
+  const conn = departmentId ? await connectionForDepartment(departmentId) : null;
+  const provider = conn ? providerFor(conn) : await loadEvolutionProvider();
   const result = await provider.sendMessage(phone, text, {
     mediaUrl: mediaUrl ?? undefined,
     mediaType,
