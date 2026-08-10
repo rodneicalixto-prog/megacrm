@@ -364,18 +364,18 @@ mostrava "Não conectado" com a instância conectada — a rota lia só
 `body.instance.state` e esta Evolution devolve o estado em outra chave; corrigido
 em `680f9f5`.
 
-### Linhas conectadas (12)
+### Linhas conectadas (13)
 
-O roteamento é por **nome de instância** da Evolution. Cada linha abaixo foi
-verificada com uma chamada real à `whatsapp-inbound` via `pg_net`, conferindo o
-departamento e o destino gravados na conversa; os contatos de teste foram
-apagados depois.
+O roteamento é por **nome de instância** da Evolution. Cada linha foi verificada
+com uma chamada real à `whatsapp-inbound` via `pg_net`, conferindo o setor e o
+destino gravados na conversa; os contatos de teste foram apagados depois.
 
-| Instância | Departamento | Destino | Número |
+| Instância | Setor | Destino | Número |
 |---|---|---|---|
-| `pricall` | Departamento Pessoal | fila do supervisor | +55 11 93221-2892 |
+| `pricall` | Diretoria | Diretor (Rodnei) | +55 11 93221-2892 |
 | `departamento_pessoal` | Departamento Pessoal | fila do supervisor | — |
 | `gerencia` | Gerência | Priscilla Klein | — |
+| `rh_supervisor` | Recursos Humanos | Supervisor de RH | — |
 | `estagios` | Recursos Humanos | Estágios | — |
 | `rh_jheny` | Recursos Humanos | Recrutamento 1 | +55 11 94291-7761 |
 | `rh_discolab` | Recursos Humanos | Discolabs | +55 11 96472-8346 |
@@ -385,6 +385,13 @@ apagados depois.
 | `rh_linha_06` | Recursos Humanos | fila do supervisor | +55 11 99260-3043 |
 | `portaria1` | Segurança | Portaria 1 | — |
 | `portaria2` | Segurança | Portaria 2 | — |
+
+O `pricall` era a fila do Departamento Pessoal e passou a ser a linha pessoal do
+diretor. O DP não ficou sem número: tem a instância `departamento_pessoal`.
+
+**Atribuição automática está provada.** O teste do `rh_supervisor` abriu a
+conversa já no nome do supervisor de RH, não na fila — é o primeiro cargo com
+pessoa vinculada a receber mensagem.
 
 "Destino = fila do supervisor" significa `position_id` nulo: a conversa nasce
 sem dono e o supervisor distribui. Com `position_id`, ela já nasce atribuída à
