@@ -289,8 +289,10 @@ silêncio. Corrigido e travado por teste de regressão.
 3. ✅ **Bundle (R5)** — `xlsx` passou a ser importado apenas quando uma
    planilha Excel é selecionada. Recharts saiu do dashboard operacional e as
    métricas de campanhas agora são carregadas somente ao abrir a aba Métricas.
-4. Quebrar os arquivos maiores: `SetupPage.tsx` (978), `DealDrawer.tsx` (710),
-   `process-ai-message/index.ts` (600).
+4. 🟨 **Quebrar arquivos maiores** — a primeira extração separou componentes
+   visuais e estado core do wizard, reduzindo `SetupPage.tsx` de 978 para 815
+   linhas. Restam `DealDrawer.tsx` (710), `process-ai-message/index.ts` (600) e
+   a separação das quatro etapas do próprio wizard.
 
 ### ⏳ Fase 5 — Produto
 
