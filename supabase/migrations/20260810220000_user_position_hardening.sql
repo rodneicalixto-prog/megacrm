@@ -1,24 +1,14 @@
--- Cadastro de usuario pela tela: nome, e-mail, funcao, setor e cargo.
+-- Aplica em bancos ja migrados o hardening introduzido no cadastro de usuarios.
+-- As migrations 20260810120000 e 20260810210000 ja estavam marcadas como
+-- aplicadas em producao, portanto alterar apenas os arquivos historicos nao
+-- atualizaria a funcao remota.
 CREATE SCHEMA IF NOT EXISTS whatsapp_hub;
 SET search_path TO whatsapp_hub, public;
 
--- Nome do usuario. Ate aqui a unica identificacao era o e-mail, e numa lista de
--- dezessete contas com sufixo +cargo o e-mail nao diz quem e a pessoa.
-ALTER TABLE whatsapp_hub.app_users
-  ADD COLUMN IF NOT EXISTS full_name text;
-
--- Compromissos precisam ter duracao positiva. A migration original aceitava
--- inicio e fim iguais; substituir a constraint mantem API e formulario sob a
--- mesma regra.
 ALTER TABLE whatsapp_hub.calendar_events
   DROP CONSTRAINT IF EXISTS calendar_events_intervalo;
 ALTER TABLE whatsapp_hub.calendar_events
   ADD CONSTRAINT calendar_events_intervalo CHECK (ends_at > starts_at);
-
-UPDATE whatsapp_hub.app_users au
-SET full_name = coalesce(au.full_name, u.raw_user_meta_data->>'full_name', u.raw_user_meta_data->>'cargo')
-FROM auth.users u
-WHERE u.id = au.user_id AND au.full_name IS NULL;
 
 -- SECURITY DEFINER porque escrever em auth.users exige privilegio que o
 -- authenticated nao tem — e por isso a primeira coisa que ela faz e conferir
@@ -136,30 +126,3 @@ $$;
 
 REVOKE EXECUTE ON FUNCTION whatsapp_hub.create_user(text, text, text, uuid, uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION whatsapp_hub.create_user(text, text, text, uuid, uuid) TO authenticated;
-
--- A lista de pessoas devolvia so o e-mail. Com contas em sufixo +cargo na mesma
--- caixa, o e-mail nao identifica ninguem.
-DROP FUNCTION IF EXISTS whatsapp_hub.list_operators();
-
-CREATE OR REPLACE FUNCTION whatsapp_hub.list_operators()
-RETURNS TABLE(user_id uuid, email text, role whatsapp_hub.tenant_role,
-              full_name text, department_id uuid, department_name text)
-LANGUAGE sql
-SECURITY DEFINER
-SET search_path TO 'whatsapp_hub', 'auth', 'public', 'pg_temp'
-AS $$
-  SELECT au.user_id, u.email::text, au.role,
-         coalesce(nullif(au.full_name, ''), u.raw_user_meta_data->>'full_name') AS full_name,
-         au.department_id, d.name AS department_name
-    FROM whatsapp_hub.app_users au
-    JOIN auth.users u ON u.id = au.user_id
-    LEFT JOIN whatsapp_hub.departments d ON d.id = au.department_id
-   ORDER BY au.role, coalesce(nullif(au.full_name, ''), u.email::text);
-$$;
-
-GRANT EXECUTE ON FUNCTION whatsapp_hub.list_operators() TO authenticated;
-
-UPDATE whatsapp_hub.app_users au
-SET full_name = coalesce(nullif(au.full_name,''), u.raw_user_meta_data->>'cargo')
-FROM auth.users u
-WHERE u.id = au.user_id AND coalesce(au.full_name,'') = '';

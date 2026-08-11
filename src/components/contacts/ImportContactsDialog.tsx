@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
 import { toast } from 'sonner';
-import * as XLSX from 'xlsx';
 import { CheckCircle2, FileUp, Loader2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
@@ -34,8 +33,11 @@ const CHUNK_SIZE = 500;
 function readFile(file: File): Promise<string[][]> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       try {
+        // O parser Excel é carregado sob demanda para não penalizar quem só
+        // navega pelos contatos sem fazer importação.
+        const XLSX = await import('xlsx');
         const data = new Uint8Array(reader.result as ArrayBuffer);
         const wb = XLSX.read(data, { type: 'array' });
         const firstSheet = wb.SheetNames[0];

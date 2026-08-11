@@ -1,11 +1,17 @@
+import { lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { BarChart3, FileText, Link2, Megaphone } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CampaignsList } from '@/components/campaigns/CampaignsList';
 import { TemplatesList } from '@/components/campaigns/TemplatesList';
-import { DispatchMetrics } from '@/components/campaigns/DispatchMetrics';
 import { UtmBuilder } from '@/components/campaigns/UtmBuilder';
+
+const DispatchMetrics = lazy(() =>
+  import('@/components/campaigns/DispatchMetrics').then((module) => ({
+    default: module.DispatchMetrics,
+  })),
+);
 
 // Campanhas concentra as abas: lista de campanhas, templates (Módulo 1),
 // métricas de disparo (Módulo 2) e o gerador de UTMs (Módulo 4). A aba ativa é
@@ -79,7 +85,15 @@ export default function CampaignsPage() {
         })}
       </div>
 
-      <div>{current.render()}</div>
+      <Suspense
+        fallback={(
+          <div className="glass-card p-10 text-center text-label opacity-60">
+            Carregando métricas...
+          </div>
+        )}
+      >
+        <div>{current.render()}</div>
+      </Suspense>
     </div>
   );
 }
