@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Building2, Plus, Trash2, UserPlus, UserRoundPlus } from 'lucide-react';
+import { Building2, ChevronDown, Plus, Trash2, UserPlus, UserRoundPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { getSupabase } from '@/lib/supabase';
 import { operatorLabel, useOperators } from '@/hooks/useOperators';
+import { LoadErrorBanner } from '@/components/LoadErrorBanner';
 
 interface Departamento {
   id: string;
@@ -18,7 +19,7 @@ interface Cargo {
 }
 
 const inputCls =
-  'h-10 w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)]';
+  'h-10 w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)] [&>option]:bg-[var(--color-bg-primary)] [&>option]:text-[var(--color-text-primary)]';
 
 // Departamentos e cargos. Cargo é a peça que faltava ter tela: é ele que liga
 // uma linha do WhatsApp a uma pessoa, e enquanto só existia no banco não havia
@@ -28,9 +29,11 @@ export function DepartmentsSettings() {
   const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
   const [cargos, setCargos] = useState<Cargo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [novoDepto, setNovoDepto] = useState('');
   const [novoCargo, setNovoCargo] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  const [setorAberto, setSetorAberto] = useState<string | null>(null);
 
   // Cadastro de usuário: nome, e-mail, função e setor. Fica junto de setores e
   // cargos porque é a mesma decisão — criar alguém sem dizer onde ele atende
@@ -43,13 +46,19 @@ export function DepartmentsSettings() {
 
   const carregar = useCallback(async () => {
     setLoading(true);
+    setError(null);
     const supabase = getSupabase().schema('whatsapp_hub');
     const [d, c] = await Promise.all([
       supabase.from('departments').select('id, name, is_default').order('name'),
       supabase.from('department_positions').select('id, department_id, name, user_id').order('name'),
     ]);
-    setDepartamentos((d.data ?? []) as Departamento[]);
-    setCargos((c.data ?? []) as Cargo[]);
+    const loadError = d.error ?? c.error;
+    if (loadError) {
+      setError(loadError.message);
+    } else {
+      setDepartamentos((d.data ?? []) as Departamento[]);
+      setCargos((c.data ?? []) as Cargo[]);
+    }
     setLoading(false);
   }, []);
 
@@ -131,6 +140,7 @@ export function DepartmentsSettings() {
 
   return (
     <div className="space-y-5">
+      {error && <LoadErrorBanner message={error} onRetry={() => void carregar()} />}
       <div className="glass-card p-5">
         <header className="mb-3">
           <h2 className="flex items-center gap-2 text-lg font-bold">
@@ -233,7 +243,7 @@ export function DepartmentsSettings() {
           <button
             onClick={cadastrar}
             disabled={busy || !nome.trim() || !email.trim()}
-            className="rounded-lg bg-gradient-to-br from-[#1E3A8A] to-[#3B82F6] px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
+            className="rounded-lg bg-[linear-gradient(135deg,#1E3A8A,var(--accent-primary))] px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
           >
             {busy ? 'Cadastrando…' : 'Cadastrar'}
           </button>
@@ -242,71 +252,106 @@ export function DepartmentsSettings() {
 
       {departamentos.map((d) => {
         const doSetor = cargos.filter((c) => c.department_id === d.id);
+        const vinculados = doSetor.filter((c) => c.user_id).length;
+        const aberto = setorAberto === d.id;
         return (
-          <div key={d.id} className="glass-card p-5">
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="flex items-center gap-2 text-base font-semibold text-[var(--color-text-primary)]">
-                {d.name}
-                {d.is_default && (
-                  <span className="rounded-full bg-[rgba(59,130,246,0.15)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--accent-secondary)]">
-                    padrão
-                  </span>
-                )}
-              </h3>
+          <div key={d.id} className="glass-card overflow-hidden">
+            <div className="flex items-center gap-2 p-2">
               <button
+                type="button"
+                onClick={() => setSetorAberto(aberto ? null : d.id)}
+                aria-expanded={aberto}
+                aria-controls={`setor-${d.id}`}
+                className="flex min-w-0 flex-1 items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-white/[0.03]"
+              >
+                <span className="min-w-0">
+                  <span className="flex items-center gap-2 text-base font-semibold text-[var(--color-text-primary)]">
+                    <span className="truncate">{d.name}</span>
+                    {d.is_default && (
+                      <span className="shrink-0 rounded-full bg-[rgba(59,130,246,0.15)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--accent-secondary)]">
+                        padrão
+                      </span>
+                    )}
+                  </span>
+                  <span className="mt-0.5 block text-xs text-[var(--color-text-secondary)]">
+                    {doSetor.length === 0
+                      ? 'Nenhum cargo'
+                      : `${doSetor.length} ${doSetor.length === 1 ? 'cargo' : 'cargos'} · ${vinculados} ${vinculados === 1 ? 'pessoa vinculada' : 'pessoas vinculadas'}`}
+                  </span>
+                </span>
+                <ChevronDown
+                  aria-hidden="true"
+                  className={`h-4 w-4 shrink-0 text-[var(--color-text-secondary)] transition-transform duration-200 ${aberto ? 'rotate-180' : ''}`}
+                />
+              </button>
+              <button
+                type="button"
                 onClick={() => void excluirDepto(d)}
                 aria-label={`Excluir ${d.name}`}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-text-secondary)] hover:text-[var(--color-error)]"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[var(--color-text-secondary)] transition-colors hover:bg-white/[0.03] hover:text-[var(--color-error)]"
               >
                 <Trash2 className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="space-y-2">
-              {doSetor.map((c) => (
-                <div key={c.id} className="flex items-center gap-2">
-                  <span className="min-w-[150px] text-sm text-[var(--color-text-primary)]">{c.name}</span>
-                  <select
-                    value={c.user_id ?? ''}
-                    onChange={(e) => void vincular(c.id, e.target.value || null)}
-                    className={`${inputCls} flex-1`}
-                  >
-                    <option value="">Sem pessoa (fila do supervisor)</option>
-                    {operators.map((o) => (
-                      <option key={o.user_id} value={o.user_id}>{operatorLabel(o)}</option>
-                    ))}
-                  </select>
+            {aberto && (
+              <div
+                id={`setor-${d.id}`}
+                className="border-t border-[rgba(59,130,246,0.08)] px-5 pb-5 pt-4"
+              >
+                <div className="space-y-3">
+                  {doSetor.map((c) => (
+                    <div key={c.id} className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                      <span className="text-sm font-medium text-[var(--color-text-primary)] sm:w-36 sm:shrink-0">
+                        {c.name}
+                      </span>
+                      <div className="flex min-w-0 flex-1 items-center gap-2">
+                        <select
+                          value={c.user_id ?? ''}
+                          onChange={(e) => void vincular(c.id, e.target.value || null)}
+                          className={`${inputCls} min-w-0 flex-1`}
+                        >
+                          <option value="">Sem pessoa (fila do supervisor)</option>
+                          {operators.map((o) => (
+                            <option key={o.user_id} value={o.user_id}>{operatorLabel(o)}</option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => void excluirCargo(c.id)}
+                          aria-label={`Excluir cargo ${c.name}`}
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[var(--color-text-secondary)] hover:text-[var(--color-error)]"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {doSetor.length === 0 && (
+                    <p className="text-sm text-[var(--color-text-secondary)] opacity-70">
+                      Nenhum cargo ainda.
+                    </p>
+                  )}
+                </div>
+
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                  <input
+                    value={novoCargo[d.id] ?? ''}
+                    onChange={(e) => setNovoCargo((p) => ({ ...p, [d.id]: e.target.value }))}
+                    placeholder="Novo cargo…"
+                    className={inputCls}
+                  />
                   <button
-                    onClick={() => void excluirCargo(c.id)}
-                    aria-label={`Excluir cargo ${c.name}`}
-                    className="flex h-9 w-9 items-center justify-center rounded-lg text-[var(--color-text-secondary)] hover:text-[var(--color-error)]"
+                    type="button"
+                    onClick={() => void criarCargo(d.id)}
+                    disabled={busy || !(novoCargo[d.id] ?? '').trim()}
+                    className="flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[rgba(59,130,246,0.25)] px-4 text-sm font-medium text-[var(--color-text-primary)] disabled:opacity-40"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <UserPlus className="h-4 w-4" /> Cargo
                   </button>
                 </div>
-              ))}
-              {doSetor.length === 0 && (
-                <p className="text-sm text-[var(--color-text-secondary)] opacity-70">
-                  Nenhum cargo ainda.
-                </p>
-              )}
-            </div>
-
-            <div className="mt-3 flex gap-2">
-              <input
-                value={novoCargo[d.id] ?? ''}
-                onChange={(e) => setNovoCargo((p) => ({ ...p, [d.id]: e.target.value }))}
-                placeholder="Novo cargo…"
-                className={inputCls}
-              />
-              <button
-                onClick={() => void criarCargo(d.id)}
-                disabled={busy || !(novoCargo[d.id] ?? '').trim()}
-                className="flex items-center gap-1.5 rounded-lg border border-[rgba(59,130,246,0.25)] px-4 text-sm font-medium text-[var(--color-text-primary)] disabled:opacity-40"
-              >
-                <UserPlus className="h-4 w-4" /> Cargo
-              </button>
-            </div>
+              </div>
+            )}
           </div>
         );
       })}
