@@ -58,6 +58,12 @@ export default function AgendaPage() {
     return m;
   }, [calendars]);
 
+  const podeExcluir = (event: (typeof events)[number]) => {
+    const calendar = calendars.find((c) => c.id === event.calendar_id);
+    return calendar?.owner_id === myCalendar?.owner_id
+      || Boolean(calendar?.is_company && canWriteCompany);
+  };
+
   const dias = useMemo(() => {
     const out: Date[] = [];
     for (let i = 0; i < 42; i += 1) {
@@ -197,14 +203,14 @@ export default function AgendaPage() {
                     <div
                       key={e.id}
                       className="group/ev flex items-start gap-1 rounded px-1 py-0.5 text-[11px] leading-tight text-[var(--color-text-primary)]"
-                      style={{ backgroundColor: `${corPorCalendario.get(e.calendar_id) ?? '#3B82F6'}22` }}
+                      style={{ backgroundColor: `color-mix(in srgb, ${corPorCalendario.get(e.calendar_id) ?? 'var(--accent-primary)'} 13%, transparent)` }}
                     >
                       <span
                         className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full"
-                        style={{ backgroundColor: corPorCalendario.get(e.calendar_id) ?? '#3B82F6' }}
+                        style={{ backgroundColor: corPorCalendario.get(e.calendar_id) ?? 'var(--accent-primary)' }}
                       />
                       <span className="min-w-0 flex-1 truncate">{e.title}</span>
-                      <button
+                      {podeExcluir(e) && <button
                         onClick={async () => {
                           try {
                             await deleteEvent(e.id);
@@ -221,7 +227,7 @@ export default function AgendaPage() {
                         className="opacity-0 transition group-hover/ev:opacity-100"
                       >
                         <Trash2 className="h-3 w-3 text-[var(--color-error)]" />
-                      </button>
+                      </button>}
                     </div>
                   ))}
                 </div>
@@ -292,8 +298,8 @@ export default function AgendaPage() {
               </button>
               <button
                 onClick={salvar}
-                disabled={salvando || !titulo.trim() || !calendarioId || new Date(fimHora) < new Date(inicioHora)}
-                className="rounded-lg bg-gradient-to-br from-[#1E3A8A] to-[#3B82F6] px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
+                disabled={salvando || !titulo.trim() || !calendarioId || new Date(fimHora) <= new Date(inicioHora)}
+                className="rounded-lg bg-[linear-gradient(135deg,#1E3A8A,var(--accent-primary))] px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
               >
                 {salvando ? 'Salvando…' : 'Criar'}
               </button>

@@ -95,8 +95,15 @@ export function useAgenda(from: Date, to: Date) {
 
   const deleteEvent = useCallback(async (id: string) => {
     const supabase = getSupabase().schema('whatsapp_hub');
-    const { error: err } = await supabase.from('calendar_events').delete().eq('id', id);
+    const { data, error: err } = await supabase
+      .from('calendar_events')
+      .delete()
+      .eq('id', id)
+      .select('id');
     if (err) throw new Error(err.message);
+    // RLS pode transformar um DELETE sem permissao em sucesso com zero linhas.
+    // Conferir o retorno evita que a interface anuncie uma exclusao inexistente.
+    if (!data?.length) throw new Error('Compromisso não encontrado ou sem permissão para excluir.');
     await reload();
   }, [reload]);
 
