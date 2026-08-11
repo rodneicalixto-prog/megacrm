@@ -8,7 +8,7 @@ interface OperatorIdentity {
 function safeCell(value: string | number | boolean | null | undefined): string {
   let text = value == null ? '' : String(value);
   // Evita que Excel/LibreOffice interpretem conteúdo vindo de contato como fórmula.
-  if (/^[=+\-@]/.test(text)) text = `'${text}`;
+  if (/^\s*[=+\-@]/.test(text)) text = `'${text}`;
   return `"${text.replaceAll('"', '""')}"`;
 }
 

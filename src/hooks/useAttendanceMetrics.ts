@@ -59,12 +59,23 @@ export function useAttendanceMetrics(departmentId?: string | null, connectionId?
   const reload = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const { data, error: rpcError } = await getSupabase()
-      .schema('whatsapp_hub')
+    const supabase = getSupabase().schema('whatsapp_hub');
+    let { data, error: rpcError } = await supabase
       .rpc('attendance_dashboard', {
         p_department: departmentId ?? null,
         p_connection: connectionId ?? null,
       });
+
+    // Durante um deploy, o frontend pode entrar no ar antes da migration que
+    // adiciona p_connection. Mantém o dashboard disponível nesse intervalo;
+    // a visão por número passa a valer assim que o schema novo estiver ativo.
+    if (rpcError && (rpcError.code === 'PGRST202' || rpcError.message.includes('p_connection'))) {
+      const legacy = await supabase.rpc('attendance_dashboard', {
+        p_department: departmentId ?? null,
+      });
+      data = legacy.data;
+      rpcError = legacy.error;
+    }
 
     if (rpcError) {
       setError(rpcError.message);

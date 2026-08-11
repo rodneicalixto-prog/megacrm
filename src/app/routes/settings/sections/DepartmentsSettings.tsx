@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Building2, ChevronDown, Plus, Smartphone, Trash2, UserPlus, UserRoundPlus } from 'lucide-react';
+import { Building2, ChevronDown, Loader2, Plus, RefreshCw, Smartphone, Trash2, UserPlus, UserRoundPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { getSupabase } from '@/lib/supabase';
 import { operatorLabel, useOperators } from '@/hooks/useOperators';
@@ -27,6 +27,13 @@ interface Linha {
   label: string | null;
 }
 
+interface LinhaStatus {
+  configured: boolean;
+  connected: boolean;
+  state: string | null;
+  error?: string;
+}
+
 const inputCls =
   'h-10 w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)] [&>option]:bg-[var(--color-bg-primary)] [&>option]:text-[var(--color-text-primary)]';
 
@@ -38,6 +45,8 @@ export function DepartmentsSettings() {
   const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
   const [cargos, setCargos] = useState<Cargo[]>([]);
   const [linhas, setLinhas] = useState<Linha[]>([]);
+  const [statusLinhas, setStatusLinhas] = useState<Record<string, LinhaStatus>>({});
+  const [loadingStatus, setLoadingStatus] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [novoDepto, setNovoDepto] = useState('');
@@ -60,6 +69,31 @@ export function DepartmentsSettings() {
   const [setorNovo, setSetorNovo] = useState('');
   const [cargoNovo, setCargoNovo] = useState('');
 
+  const carregarStatus = useCallback(async () => {
+    setLoadingStatus(true);
+    try {
+      const { data } = await getSupabase().auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) throw new Error('Sessão expirada. Entre novamente.');
+      const response = await fetch('/api/department-connection-status', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const body = await response.json() as {
+        success?: boolean;
+        message?: string;
+        statuses?: Array<LinhaStatus & { id: string }>;
+      };
+      if (!response.ok || !body.success) throw new Error(body.message ?? 'Falha ao consultar linhas.');
+      setStatusLinhas(Object.fromEntries((body.statuses ?? []).map(({ id, ...status }) => [id, status])));
+    } catch (statusError) {
+      toast.error('Não foi possível atualizar as conexões', {
+        description: statusError instanceof Error ? statusError.message : 'Erro interno',
+      });
+    } finally {
+      setLoadingStatus(false);
+    }
+  }, []);
+
   const carregar = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -78,9 +112,10 @@ export function DepartmentsSettings() {
       setDepartamentos((d.data ?? []) as Departamento[]);
       setCargos((c.data ?? []) as Cargo[]);
       setLinhas((l.data ?? []) as Linha[]);
+      void carregarStatus();
     }
     setLoading(false);
-  }, []);
+  }, [carregarStatus]);
 
   useEffect(() => { void carregar(); }, [carregar]);
 
@@ -175,7 +210,18 @@ export function DepartmentsSettings() {
 
   const excluirLinha = async (linha: Linha) => {
     if (!window.confirm(`Remover a linha “${linha.label ?? linha.phone_number ?? linha.instance}”?`)) return;
-    const { error } = await getSupabase().schema('whatsapp_hub')
+    const supabase = getSupabase().schema('whatsapp_hub');
+    const { count, error: countError } = await supabase
+      .from('conversations')
+      .select('id', { count: 'exact', head: true })
+      .eq('connection_id', linha.id);
+    if (countError) return toast.error('Falha ao verificar a linha', { description: countError.message });
+    if ((count ?? 0) > 0) {
+      return toast.error('Esta linha possui conversas e não pode ser removida.', {
+        description: 'Mantenha a linha para que respostas e histórico continuem usando o número correto.',
+      });
+    }
+    const { error } = await supabase
       .from('department_connections').delete().eq('id', linha.id);
     if (error) return toast.error('Falha ao remover número', { description: error.message });
     toast.success('Número removido.');
@@ -318,14 +364,13 @@ export function DepartmentsSettings() {
       {departamentos.map((d) => {
         const doSetor = cargos.filter((c) => c.department_id === d.id);
         const linhasDoSetor = linhas.filter((linha) => linha.department_id === d.id);
-        const filaJaTemNumero = linhasDoSetor.some((linha) => !linha.position_id);
         const cargosSemNumero = doSetor.filter(
           (cargo) => !linhasDoSetor.some((linha) => linha.position_id === cargo.id),
         );
         const draftLinha = novaLinha[d.id] ?? { label: '', instance: '', phone: '', positionId: '' };
         const destinoDisponivel = draftLinha.positionId
           ? cargosSemNumero.some((cargo) => cargo.id === draftLinha.positionId)
-          : !filaJaTemNumero;
+          : true;
         const vinculados = doSetor.filter((c) => c.user_id).length;
         const aberto = setorAberto === d.id;
         return (
@@ -383,16 +428,50 @@ export function DepartmentsSettings() {
                         Use o nome da instância Evolution. Sem cargo, a conversa entra na fila do setor.
                       </p>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => void carregarStatus()}
+                      disabled={loadingStatus}
+                      className="ml-auto flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-[rgba(59,130,246,0.2)] px-3 text-xs font-medium text-[var(--color-text-primary)] disabled:opacity-50"
+                    >
+                      <RefreshCw className={`h-3.5 w-3.5 ${loadingStatus ? 'animate-spin' : ''}`} />
+                      Atualizar
+                    </button>
                   </div>
 
                   <div className="space-y-2">
                     {linhasDoSetor.map((linha) => {
                       const cargo = doSetor.find((item) => item.id === linha.position_id);
+                      const status = statusLinhas[linha.id];
                       return (
                         <div key={linha.id} className="flex items-center gap-3 rounded-lg border border-[rgba(59,130,246,0.1)] px-3 py-2">
                           <div className="min-w-0 flex-1">
-                            <div className="truncate text-sm font-medium text-[var(--color-text-primary)]">
-                              {linha.label ?? linha.phone_number ?? linha.instance}
+                            <div className="flex items-center gap-2">
+                              <div className="truncate text-sm font-medium text-[var(--color-text-primary)]">
+                                {linha.label ?? linha.phone_number ?? linha.instance}
+                              </div>
+                              {loadingStatus && !status ? (
+                                <Loader2 className="h-3 w-3 shrink-0 animate-spin text-[var(--accent-secondary)]" />
+                              ) : (
+                                <span
+                                  title={status?.error}
+                                  className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                    status?.connected
+                                      ? 'bg-[rgba(16,185,129,0.14)] text-[var(--color-success)]'
+                                      : status
+                                        ? 'bg-[rgba(239,68,68,0.12)] text-[var(--color-error)]'
+                                        : 'bg-white/[0.06] text-[var(--color-text-secondary)]'
+                                  }`}
+                                >
+                                  {status?.connected
+                                    ? 'conectado'
+                                    : status?.configured
+                                      ? 'offline'
+                                      : status
+                                        ? 'não configurado'
+                                        : 'não verificado'}
+                                </span>
+                              )}
                             </div>
                             <div className="truncate text-xs text-[var(--color-text-secondary)]">
                               {linha.phone_number ? `${linha.phone_number} · ` : ''}{linha.instance} · {cargo?.name ?? 'Fila do setor'}
@@ -419,9 +498,7 @@ export function DepartmentsSettings() {
                     <input value={draftLinha.phone} onChange={(event) => alterarNovaLinha(d.id, 'phone', event.target.value)} placeholder="Telefone (opcional)" className={inputCls} />
                     <input value={draftLinha.instance} onChange={(event) => alterarNovaLinha(d.id, 'instance', event.target.value)} placeholder="Instância Evolution" className={inputCls} />
                     <select value={draftLinha.positionId} onChange={(event) => alterarNovaLinha(d.id, 'positionId', event.target.value)} className={inputCls}>
-                      <option value="" disabled={filaJaTemNumero}>
-                        {filaJaTemNumero ? 'Fila do setor já possui número' : 'Fila do setor'}
-                      </option>
+                      <option value="">Fila do setor</option>
                       {cargosSemNumero.map((cargo) => <option key={cargo.id} value={cargo.id}>{cargo.name}</option>)}
                     </select>
                   </div>

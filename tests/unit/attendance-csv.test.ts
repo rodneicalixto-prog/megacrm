@@ -42,4 +42,13 @@ describe('buildAttendanceCsv', () => {
     expect(csv).toContain('"\'=SOMA(1;1)"');
     expect(csv).not.toContain('\r\n"=SOMA(1;1)"');
   });
+
+  it('neutraliza fórmulas mesmo quando começam depois de espaços', () => {
+    const withWhitespace = {
+      ...metrics,
+      paradas: [{ ...metrics.paradas[0], contact_name: '  +CMD' }],
+    };
+    const csv = buildAttendanceCsv(withWhitespace, [], new Date('2026-08-11T12:00:00Z'));
+    expect(csv).toContain('"\'  +CMD"');
+  });
 });
