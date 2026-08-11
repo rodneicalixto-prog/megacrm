@@ -12,6 +12,31 @@
 
 SET search_path TO whatsapp_hub, public;
 
+-- A tabela nasceu durante a configuracao operacional dos departamentos, mas
+-- precisa existir no historico versionado para uma instalacao nova conseguir
+-- aplicar a FK abaixo. Manter o CREATE aqui (antes da primeira referencia)
+-- torna o bootstrap reproduzivel sem alterar ambientes onde ela ja existe.
+CREATE TABLE IF NOT EXISTS whatsapp_hub.department_positions (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  department_id UUID NOT NULL REFERENCES whatsapp_hub.departments(id) ON DELETE CASCADE,
+  name          TEXT NOT NULL,
+  user_id       UUID UNIQUE REFERENCES auth.users(id) ON DELETE SET NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (department_id, name)
+);
+
+ALTER TABLE whatsapp_hub.department_positions ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS department_positions_select ON whatsapp_hub.department_positions;
+CREATE POLICY department_positions_select ON whatsapp_hub.department_positions
+  FOR SELECT TO authenticated USING (true);
+
+DROP POLICY IF EXISTS department_positions_write ON whatsapp_hub.department_positions;
+CREATE POLICY department_positions_write ON whatsapp_hub.department_positions
+  FOR ALL TO authenticated
+  USING (whatsapp_hub.current_user_role() IN ('super_admin', 'admin'))
+  WITH CHECK (whatsapp_hub.current_user_role() IN ('super_admin', 'admin'));
+
 ALTER TABLE whatsapp_hub.department_connections
   ADD COLUMN IF NOT EXISTS id UUID NOT NULL DEFAULT gen_random_uuid(),
   -- Nulo = numero do departamento (chega na fila).
