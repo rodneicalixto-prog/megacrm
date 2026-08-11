@@ -1,10 +1,11 @@
 import { Link } from 'react-router-dom';
 import {
-  AlertTriangle, CheckCircle2, Clock, Inbox, MessageSquareWarning,
+  AlertTriangle, CheckCircle2, Clock, Download, Inbox, MessageSquareWarning,
   Settings, Timer, Users,
 } from 'lucide-react';
 import { formatDuration, type AttendanceMetrics } from '@/hooks/useAttendanceMetrics';
 import type { Operator } from '@/hooks/useOperators';
+import { downloadAttendanceCsv } from '@/lib/attendanceCsv';
 
 // Painel operacional: quantas conversas estão paradas, com quem, e há quanto
 // tempo. É o que o supervisor olha para decidir o próximo movimento.
@@ -79,6 +80,17 @@ export function AttendancePanel({
 
   return (
     <div className="space-y-4">
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={() => downloadAttendanceCsv(metrics, operators)}
+          className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[rgba(59,130,246,0.25)] bg-white/[0.03] px-4 text-sm font-medium text-[var(--color-text-primary)] transition hover:border-[var(--accent-primary)] hover:bg-white/[0.06]"
+        >
+          <Download className="h-4 w-4 text-[var(--accent-secondary)]" />
+          Exportar relatório CSV
+        </button>
+      </div>
+
       {/* Fila e volume */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card

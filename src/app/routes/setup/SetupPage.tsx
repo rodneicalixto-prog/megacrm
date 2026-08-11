@@ -1,17 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, Eye, EyeOff, Loader2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { createClient } from '@supabase/supabase-js';
-import { CredentialField } from '@/components/credentials/CredentialField';
-import { WhatsAppProviderCards } from '@/components/setup/WhatsAppProviderCards';
 import { setupConfig } from '../../../../setup.config';
 import {
   hasAtLeastOneWhatsAppProvider,
   hasEvolutionProvider,
-  NO_WHATSAPP_PROVIDER_MESSAGE,
 } from './whatsappProviders';
 import { getSupabaseCredentials } from '@/lib/supabase';
-import { PrepItem, PrimaryButton, SetupCard, StepIndicator } from './SetupChrome';
+import { SetupCard, StepIndicator } from './SetupChrome';
+import { BootstrapStep, CredentialsStep, PreparationStep, type TimelineStep } from './SetupCoreSteps';
+import { ApplicationCredentialsStep } from './ApplicationCredentialsStep';
 import {
   readSavedCore,
   STORAGE_KEY,
@@ -27,7 +25,7 @@ import {
 // a refresh mid-bootstrap shows the real progress instead of restarting blind.
 // The final row ('app_live') is NOT a _bootstrap_state checkpoint — it is only
 // completed once the health probe confirms the redeploy is live with envs.
-const TIMELINE_STEPS: { label: string; key: string }[] = [
+const TIMELINE_STEPS: TimelineStep[] = [
   { label: 'Conectando ao Supabase', key: 'connection_ok' },
   { label: 'Rodando migrations', key: 'migrations_done' },
   { label: 'Deployando Edge Functions', key: 'edge_functions_deployed' },
@@ -463,350 +461,73 @@ export default function SetupPage() {
         <StepIndicator step={step} />
         <SetupCard>
           {step === 1 ? (
-            <>
-              <h1 className="mb-2 text-[28px] font-semibold text-[#F8FAFC]">
-                {isRerun ? 'Aplicar atualizacoes' : setupConfig.toolName}
-              </h1>
-              {isRerun ? (
-                <div className="mb-8 rounded-lg border border-[rgba(59,130,246,0.25)] bg-[rgba(59,130,246,0.06)] p-4">
-                  <p className="text-sm leading-[1.6] text-[#CBD5E1]">
-                    Esta instalacao ja esta configurada. Rodar de novo aplica as{' '}
-                    <strong className="text-[#F8FAFC]">migrations novas</strong> e redeploya as{' '}
-                    <strong className="text-[#F8FAFC]">Edge Functions</strong> — nada e apagado, e o
-                    que ja foi aplicado e pulado.
-                  </p>
-                  <p className="mt-2 text-sm leading-[1.6] text-[#94A3B8]">
-                    Precisa de tres campos: a URL do Supabase, a Service Role Key e o
-                    Personal Access Token. Nao pede token da Vercel nem a senha do dono —
-                    uma reexecucao nao cria conta nem redeploya o site.
-                  </p>
-                </div>
-              ) : (
-                <p className="mb-8 text-base leading-[1.6] text-[#94A3B8]">
-                  Antes de iniciar, deixe abertas as contas onde voce vai copiar os tokens de bootstrap.
-                </p>
-              )}
-              <div className="space-y-4">
-                <PrepItem n={1} title="Criar projeto Supabase" text="Crie um projeto vazio e copie URL, anon key e service role key." href="https://supabase.com/dashboard/new" pills={['SUPABASE_URL', 'ANON_KEY', 'SERVICE_ROLE']} />
-                <PrepItem n={2} title="Gerar PAT Supabase" text="Crie um Personal Access Token para rodar migrations e deployar Edge Functions." href="https://supabase.com/dashboard/account/tokens" pills={['SUPABASE_PAT']} />
-                <PrepItem n={3} title="Gerar Vercel Token" text="Crie um token para o wizard configurar envs core e disparar o redeploy." href="https://vercel.com/account/tokens" pills={['VERCEL_TOKEN']} />
-              </div>
-              <div className="mt-8 flex justify-end">
-                <PrimaryButton onClick={() => setStep(2)}>Ja tenho tudo isso, continuar</PrimaryButton>
-              </div>
-            </>
+            <PreparationStep isRerun={isRerun} onContinue={() => setStep(2)} />
           ) : null}
 
           {step === 2 ? (
-            <>
-              <h1 className="mb-2 text-[28px] font-semibold text-[#F8FAFC]">Credenciais core</h1>
-              <p className="mb-8 text-base leading-[1.6] text-[#94A3B8]">
-                Estas credenciais sao usadas uma vez para preparar a instancia. Senha do owner nao fica salva.
-              </p>
-              <div className="grid gap-4">
-                {requiredFields.map((key) => {
-                  const isSecret = key.includes('key') || key.includes('token') || key.includes('password');
-                  const revealed = showCorePassword[key];
-                  return (
-                    <div key={key}>
-                      <label className="mb-1.5 block text-[13px] font-medium text-[#CBD5E1]">
-                        {key.toUpperCase()}
-                      </label>
-                      <div className="relative">
-                        <input
-                          type={isSecret && !revealed ? 'password' : 'text'}
-                          value={core[key]}
-                          onChange={(event) => {
-                            const next = event.target.value;
-                            setTouched((prev) => ({ ...prev, [key]: true }));
-                            setCore((prev) => ({ ...prev, [key]: next }));
-                          }}
-                          autoComplete={key === 'owner_password' ? 'new-password' : 'off'}
-                          className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-4 py-3 pr-16 text-sm text-[#F8FAFC] placeholder:text-[#94A3B8] focus:border-[#3B82F6] focus:outline-none focus:shadow-[0_0_20px_rgba(59,130,246,0.2)]"
-                        />
-                        <div className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-2">
-                          {isSecret ? (
-                            <button
-                              type="button"
-                              aria-label={revealed ? 'Ocultar' : 'Mostrar'}
-                              onClick={() => setShowCorePassword((prev) => ({ ...prev, [key]: !prev[key] }))}
-                              className="text-[#94A3B8] hover:text-[#F8FAFC]"
-                            >
-                              {revealed ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                            </button>
-                          ) : null}
-                          {validation[key]?.ok ? <Check className="h-4 w-4 text-[#10B981]" /> : validation[key] ? <X className="h-4 w-4 text-[#EF4444]" /> : null}
-                        </div>
-                      </div>
-                      {validation[key]?.message ? (
-                        <p className={validation[key]?.ok ? 'mt-1 text-xs text-[#10B981]' : 'mt-1 text-xs text-[#EF4444]'}>
-                          {validation[key]?.message}
-                        </p>
-                      ) : null}
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <button
-                  type="button"
-                  onClick={() => setStep(1)}
-                  className="min-h-11 w-full rounded-lg border border-[rgba(59,130,246,0.25)] bg-white/[0.03] px-5 text-sm font-medium text-[#F8FAFC] transition hover:border-[#3B82F6] sm:w-auto"
-                >
-                  Voltar
-                </button>
-                <PrimaryButton disabled={!coreReady || bootstrapping} onClick={runBootstrap}>
-                  Configurar
-                </PrimaryButton>
-              </div>
-            </>
+            <CredentialsStep
+              fields={requiredFields}
+              core={core}
+              validation={validation}
+              revealed={showCorePassword}
+              ready={coreReady}
+              bootstrapping={bootstrapping}
+              onChange={(key, value) => {
+                setTouched((prev) => ({ ...prev, [key]: true }));
+                setCore((prev) => ({ ...prev, [key]: value }));
+              }}
+              onToggleReveal={(key) => setShowCorePassword((prev) => ({ ...prev, [key]: !prev[key] }))}
+              onBack={() => setStep(1)}
+              onConfigure={runBootstrap}
+            />
           ) : null}
 
           {step === 3 ? (
-            <>
-              <h1 className="mb-2 text-[28px] font-semibold text-[#F8FAFC]">Bootstrap</h1>
-              <p className="mb-8 text-base leading-[1.6] text-[#94A3B8]">
-                Preparando Supabase, Edge Functions, owner e Vercel.
-              </p>
-              <div className="space-y-3">
-                {(isRerun ? TIMELINE_STEPS.slice(0, 3) : TIMELINE_STEPS).map((entry) => (
-                  <div key={entry.label} className="flex items-center gap-3 rounded-xl border border-[rgba(59,130,246,0.12)] bg-white/[0.02] p-4">
-                    {timeline.includes(entry.label) ? <Check className="h-5 w-5 text-[#10B981]" /> : <Loader2 className="h-5 w-5 animate-spin text-[#60A5FA]" />}
-                    <span className="text-sm text-[#F8FAFC]">{entry.label}</span>
-                  </div>
-                ))}
-              </div>
-              {waitingForApp ? (
-                <p className="mt-6 text-center text-sm text-[#94A3B8]">
-                  O Vercel esta publicando o novo deployment com as envs. Isso pode levar alguns minutos.
-                </p>
-              ) : null}
-
-              {deployTimedOut ? (
-                <div className="mt-8 rounded-xl border border-[rgba(239,68,68,0.3)] bg-[rgba(239,68,68,0.06)] p-5">
-                  <p className="text-sm leading-5 text-[#F8FAFC]">
-                    O redeploy esta demorando mais que o esperado. Verifique o status em{' '}
-                    <a
-                      href="https://vercel.com/dashboard"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-[#60A5FA] underline hover:text-[#85B7EB]"
-                    >
-                      vercel.com/dashboard
-                    </a>
-                    . Quando o app estiver no ar, continue.
-                  </p>
-                  <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:justify-end">
-                    <button
-                      type="button"
-                      onClick={() => void waitForAppLive()}
-                      className="min-h-11 rounded-lg border border-[rgba(59,130,246,0.25)] bg-white/[0.03] px-5 text-sm font-medium text-[#F8FAFC] transition hover:border-[#3B82F6]"
-                    >
-                      Verificar de novo
-                    </button>
-                    <PrimaryButton onClick={() => { window.location.href = '/setup?step=4&r=' + Date.now(); }}>
-                      Continuar mesmo assim
-                    </PrimaryButton>
-                  </div>
-                </div>
-              ) : !bootstrapping && !waitingForApp ? (
-                <div className="mt-8 space-y-3">
-                  {!core.owner_password ? (
-                    <div>
-                      <label className="mb-1.5 block text-[13px] font-medium text-[#CBD5E1]">
-                        Reinforme a senha do owner para retomar
-                      </label>
-                      <input
-                        type="password"
-                        value={core.owner_password}
-                        onChange={(event) => setCore((prev) => ({ ...prev, owner_password: event.target.value }))}
-                        placeholder="senha do owner"
-                        autoComplete="current-password"
-                        className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-4 py-3 text-sm text-[#F8FAFC] placeholder:text-[#94A3B8] focus:border-[#3B82F6] focus:outline-none focus:shadow-[0_0_20px_rgba(59,130,246,0.2)]"
-                      />
-                    </div>
-                  ) : null}
-                  <div className="flex justify-end">
-                    <PrimaryButton disabled={!core.owner_password} onClick={runBootstrap}>Tentar de novo</PrimaryButton>
-                  </div>
-                </div>
-              ) : null}
-            </>
+            <BootstrapStep
+              isRerun={isRerun}
+              steps={TIMELINE_STEPS}
+              timeline={timeline}
+              waiting={waitingForApp}
+              timedOut={deployTimedOut}
+              bootstrapping={bootstrapping}
+              ownerPassword={core.owner_password}
+              onOwnerPasswordChange={(value) => setCore((prev) => ({ ...prev, owner_password: value }))}
+              onVerifyAgain={() => void waitForAppLive()}
+              onContinue={() => { window.location.href = '/setup?step=4&r=' + Date.now(); }}
+              onRetry={runBootstrap}
+            />
           ) : null}
 
           {step === 4 ? (
-            <>
-              <h1 className="mb-2 text-[28px] font-semibold text-[#F8FAFC]">APIs da aplicacao</h1>
-              <p className="mb-8 text-base leading-[1.6] text-[#94A3B8]">
-                Salve as chaves usadas pela ferramenta. Elas ficam criptografadas no seu Supabase.
-              </p>
-              {!ownerToken ? (
-                <div className="rounded-xl border border-[rgba(59,130,246,0.12)] bg-white/[0.02] p-5">
-                  <h2 className="text-base font-semibold text-[#F8FAFC]">Confirme o login do owner</h2>
-                  <p className="mt-1 text-[13px] leading-5 text-[#94A3B8]">
-                    Por seguranca, a senha do owner nao foi salva. Entre novamente para autorizar o salvamento das credenciais.
-                  </p>
-                  <div className="mt-4 grid gap-3">
-                    <input
-                      type="email"
-                      value={loginEmail}
-                      onChange={(event) => setLoginEmail(event.target.value)}
-                      placeholder="email do owner"
-                      autoComplete="username"
-                      className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-4 py-3 text-sm text-[#F8FAFC] placeholder:text-[#94A3B8] focus:border-[#3B82F6] focus:outline-none focus:shadow-[0_0_20px_rgba(59,130,246,0.2)]"
-                    />
-                    <div className="relative">
-                      <input
-                        type={showLoginPassword ? 'text' : 'password'}
-                        value={loginPassword}
-                        onChange={(event) => setLoginPassword(event.target.value)}
-                        placeholder="senha do owner"
-                        autoComplete="current-password"
-                        className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-4 py-3 pr-10 text-sm text-[#F8FAFC] placeholder:text-[#94A3B8] focus:border-[#3B82F6] focus:outline-none focus:shadow-[0_0_20px_rgba(59,130,246,0.2)]"
-                      />
-                      <button
-                        type="button"
-                        aria-label={showLoginPassword ? 'Ocultar' : 'Mostrar'}
-                        onClick={() => setShowLoginPassword((next) => !next)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-[#F8FAFC]"
-                      >
-                        {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-                  </div>
-                  <div className="mt-4 flex justify-end">
-                    <PrimaryButton
-                      disabled={!loginEmail.trim() || !loginPassword || loggingIn}
-                      onClick={loginOwner}
-                    >
-                      {loggingIn ? 'Entrando...' : 'Entrar'}
-                    </PrimaryButton>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <p className="mb-4 text-[13px] leading-5 text-[#94A3B8]">
-                    Configure <strong className="text-[#F8FAFC]">pelo menos um</strong> provedor de
-                    WhatsApp. Pode preencher as duas — a oficial (Zernio) e a não-oficial (Evolution)
-                    coexistem.
-                  </p>
-                  <WhatsAppProviderCards
-                    zernioField={zernioField}
-                    evolutionUrlField={evolutionUrlField}
-                    evolutionKeyField={evolutionKeyField}
-                    evolutionInstanceField={evolutionInstanceField}
-                    onCredentialChange={onCredentialChange}
-                    onValidationChange={(key, ok) => setAppValidation((prev) => ({ ...prev, [key]: ok }))}
-                  />
-                  {/* OpenAI — necessária para embeddings/Whisper */}
-                  <div className="glass-card mt-4 p-5">
-                    <div className="mb-3 text-base font-semibold text-[#F8FAFC]">OpenAI (IA)</div>
-                    <CredentialField
-                      field={openaiField}
-                      initialHasValue={false}
-                      onChange={onCredentialChange}
-                      onValidationChange={(key, ok) => setAppValidation((prev) => ({ ...prev, [key]: ok }))}
-                    />
-                  </div>
-                  {!whatsappOk ? (
-                    <p className="mt-3 text-[13px] font-medium text-[#EF4444]">
-                      {NO_WHATSAPP_PROVIDER_MESSAGE}
-                    </p>
-                  ) : null}
-                  {evolutionOk && evolutionWebhookUrl ? (
-                    <div className="mt-4 rounded-xl border border-[rgba(245,158,11,0.3)] bg-[rgba(245,158,11,0.06)] p-5">
-                      <div className="text-sm font-semibold text-[#F8FAFC]">
-                        Cadastre este webhook na Evolution
-                      </div>
-                      <p className="mt-1 text-[13px] leading-5 text-[#94A3B8]">
-                        Para as mensagens chegarem ao CRM, registre esta URL como webhook da sua
-                        instância Evolution. Clique em <strong className="text-[#F8FAFC]">Cadastrar
-                        automaticamente</strong> ou registre manualmente no painel da instância →
-                        Webhook, evento “messages”.
-                      </p>
-                      <div className="mt-3 flex items-start gap-2">
-                        <code className="min-w-0 flex-1 break-all rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-xs text-[#F8FAFC]">
-                          {evolutionWebhookUrl}
-                        </code>
-                        <button
-                          type="button"
-                          aria-label="Copiar URL do webhook"
-                          onClick={() => {
-                            void navigator.clipboard
-                              .writeText(evolutionWebhookUrl)
-                              .then(() => toast.success('URL do webhook copiada.'))
-                              .catch(() => toast.error('Não foi possível copiar — copie manualmente.'));
-                          }}
-                          className="rounded-lg border border-[rgba(59,130,246,0.25)] bg-white/[0.03] px-3 py-2 text-sm font-medium text-[#F8FAFC] transition hover:border-[#3B82F6]"
-                        >
-                          Copiar
-                        </button>
-                      </div>
-                      <div className="mt-3 flex justify-end">
-                        <button
-                          type="button"
-                          disabled={!ownerToken || registeringHook}
-                          onClick={() => void registerEvolutionWebhook()}
-                          className="rounded-lg bg-gradient-to-br from-[#1E3A8A] to-[#3B82F6] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
-                        >
-                          {registeringHook ? 'Registrando…' : 'Cadastrar automaticamente'}
-                        </button>
-                      </div>
-                    </div>
-                  ) : null}
-                  <p className="mt-3 text-[13px] text-[#94A3B8]">
-                    Provider de LLM e chave alternativa ficam em Configurações →
-                    Credenciais (Configurações Avançadas). Sem isso, a IA usa OpenAI por padrão.
-                  </p>
-                  {accountChoices ? (
-                    <div className="mt-6 rounded-xl border border-[rgba(59,130,246,0.12)] bg-white/[0.02] p-5">
-                      <h2 className="text-base font-semibold text-[#F8FAFC]">Escolha a conta WhatsApp</h2>
-                      <p className="mt-1 text-[13px] leading-5 text-[#94A3B8]">
-                        Sua Zernio API Key tem mais de uma conta. Selecione qual numero esta instancia vai operar.
-                      </p>
-                      <div className="mt-4 space-y-2">
-                        {accountChoices.map((acc) => (
-                          <label
-                            key={acc.id}
-                            className={[
-                              'flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition',
-                              selectedAccount === acc.id
-                                ? 'border-[#3B82F6] bg-[rgba(59,130,246,0.08)]'
-                                : 'border-[rgba(59,130,246,0.2)] bg-white/[0.02] hover:border-[#3B82F6]',
-                            ].join(' ')}
-                          >
-                            <input
-                              type="radio"
-                              name="zernio-account"
-                              value={acc.id}
-                              checked={selectedAccount === acc.id}
-                              onChange={() => setSelectedAccount(acc.id)}
-                              className="accent-[#3B82F6]"
-                            />
-                            <span className="min-w-0 flex-1 truncate text-sm text-[#F8FAFC]">{acc.name}</span>
-                            <span className="shrink-0 font-mono text-[11px] text-[#94A3B8]">{acc.id}</span>
-                          </label>
-                        ))}
-                      </div>
-                      <div className="mt-4 flex justify-end">
-                        <PrimaryButton
-                          disabled={!selectedAccount || savingApps}
-                          onClick={() => saveAppCredentials(selectedAccount)}
-                        >
-                          {savingApps ? 'Conectando...' : 'Conectar conta'}
-                        </PrimaryButton>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="mt-8 flex justify-end">
-                      <PrimaryButton disabled={!allAppValid || savingApps} onClick={() => saveAppCredentials()}>
-                        {savingApps ? 'Conectando...' : 'Salvar e conectar'}
-                      </PrimaryButton>
-                    </div>
-                  )}
-                </>
-              )}
-            </>
+            <ApplicationCredentialsStep
+              ownerToken={ownerToken}
+              loginEmail={loginEmail}
+              loginPassword={loginPassword}
+              showLoginPassword={showLoginPassword}
+              loggingIn={loggingIn}
+              zernioField={zernioField}
+              evolutionUrlField={evolutionUrlField}
+              evolutionKeyField={evolutionKeyField}
+              evolutionInstanceField={evolutionInstanceField}
+              openaiField={openaiField}
+              whatsappOk={whatsappOk}
+              evolutionOk={evolutionOk}
+              evolutionWebhookUrl={evolutionWebhookUrl}
+              registeringHook={registeringHook}
+              accountChoices={accountChoices}
+              selectedAccount={selectedAccount}
+              savingApps={savingApps}
+              allAppValid={allAppValid}
+              setLoginEmail={setLoginEmail}
+              setLoginPassword={setLoginPassword}
+              setShowLoginPassword={setShowLoginPassword}
+              setAppValidation={setAppValidation}
+              setSelectedAccount={setSelectedAccount}
+              loginOwner={loginOwner}
+              onCredentialChange={onCredentialChange}
+              registerEvolutionWebhook={registerEvolutionWebhook}
+              saveAppCredentials={saveAppCredentials}
+            />
           ) : null}
         </SetupCard>
       </div>

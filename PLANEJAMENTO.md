@@ -289,15 +289,23 @@ silêncio. Corrigido e travado por teste de regressão.
 3. ✅ **Bundle (R5)** — `xlsx` passou a ser importado apenas quando uma
    planilha Excel é selecionada. Recharts saiu do dashboard operacional e as
    métricas de campanhas agora são carregadas somente ao abrir a aba Métricas.
-4. 🟨 **Quebrar arquivos maiores** — a primeira extração separou componentes
-   visuais e estado core do wizard, reduzindo `SetupPage.tsx` de 978 para 815
-   linhas. Restam `DealDrawer.tsx` (710), `process-ai-message/index.ts` (600) e
-   a separação das quatro etapas do próprio wizard.
+4. 🟨 **Quebrar arquivos maiores** — componentes visuais e estado core do
+   wizard foram separados, reduzindo `SetupPage.tsx` de 978 para 815 linhas.
+   Os editores reutilizáveis do funil também saíram de `DealDrawer.tsx`, que
+   caiu de 710 para 399 linhas. O movimento automático de leads foi isolado
+   em `_shared/auto-move-lead.ts`, reduzindo `process-ai-message/index.ts` de
+   600 para 496 linhas. As três etapas core do wizard vivem em
+   `SetupCoreSteps.tsx`, e a etapa final de credenciais da aplicação em
+   `ApplicationCredentialsStep.tsx`; `SetupPage.tsx` caiu de 815 para 536 linhas.
 
-### ⏳ Fase 5 — Produto
+### 🟨 Fase 5 — Produto — em andamento
 
-Só depois da Fase 3. Pauta sugerida: multi-número, relatórios exportáveis, API
-pública, i18n (o v1 é PT-BR fixo por decisão explícita).
+1. ✅ **Relatório operacional exportável** — o dashboard de atendimento pode
+   ser filtrado por setor e gera CSV do recorte exibido, com indicadores da
+   fila, carga por atendente, volume dos últimos sete dias e conversas paradas,
+   neutralizando fórmulas vindas de dados de contato.
+2. ⏳ **Próximas pautas** — multi-número, API pública e i18n (o v1 permanece
+   PT-BR fixo até essa etapa ser priorizada).
 
 ---
 
