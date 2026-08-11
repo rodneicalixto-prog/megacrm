@@ -56,6 +56,8 @@ export function DepartmentsSettings() {
     instance: string;
     phone: string;
     positionId: string;
+    serverUrl: string;
+    apiKey: string;
   }>>({});
   const [busy, setBusy] = useState(false);
   const [setorAberto, setSetorAberto] = useState<string | null>(null);
@@ -174,12 +176,12 @@ export function DepartmentsSettings() {
 
   const alterarNovaLinha = (
     departmentId: string,
-    field: 'label' | 'instance' | 'phone' | 'positionId',
+    field: 'label' | 'instance' | 'phone' | 'positionId' | 'serverUrl' | 'apiKey',
     value: string,
   ) => {
     setNovaLinha((previous) => {
       const current = previous[departmentId] ?? {
-        label: '', instance: '', phone: '', positionId: '',
+        label: '', instance: '', phone: '', positionId: '', serverUrl: '', apiKey: '',
       };
       return { ...previous, [departmentId]: { ...current, [field]: value } };
     });
@@ -189,20 +191,37 @@ export function DepartmentsSettings() {
     const draft = novaLinha[departmentId];
     if (!draft?.instance.trim()) return;
     setBusy(true);
-    const { error } = await getSupabase().schema('whatsapp_hub')
-      .from('department_connections')
-      .insert({
-        department_id: departmentId,
-        position_id: draft.positionId || null,
-        instance: draft.instance.trim(),
-        label: draft.label.trim() || null,
-        phone_number: draft.phone.trim() || null,
+    try {
+      const { data } = await getSupabase().auth.getSession();
+      const response = await fetch('/api/department-connections', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${data.session?.access_token ?? ''}`,
+        },
+        body: JSON.stringify({
+          departmentId,
+          positionId: draft.positionId || null,
+          instance: draft.instance,
+          label: draft.label,
+          phone: draft.phone,
+          serverUrl: draft.serverUrl,
+          apiKey: draft.apiKey,
+        }),
       });
-    setBusy(false);
-    if (error) return toast.error('Falha ao adicionar número', { description: error.message });
+      const result = await response.json() as { success?: boolean; message?: string };
+      if (!response.ok || !result.success) throw new Error(result.message ?? 'Erro interno');
+    } catch (createError) {
+      toast.error('Falha ao adicionar número', {
+        description: createError instanceof Error ? createError.message : 'Erro interno',
+      });
+      return;
+    } finally {
+      setBusy(false);
+    }
     setNovaLinha((previous) => ({
       ...previous,
-      [departmentId]: { label: '', instance: '', phone: '', positionId: '' },
+      [departmentId]: { label: '', instance: '', phone: '', positionId: '', serverUrl: '', apiKey: '' },
     }));
     toast.success('Número adicionado ao setor.');
     void carregar();
@@ -367,7 +386,9 @@ export function DepartmentsSettings() {
         const cargosSemNumero = doSetor.filter(
           (cargo) => !linhasDoSetor.some((linha) => linha.position_id === cargo.id),
         );
-        const draftLinha = novaLinha[d.id] ?? { label: '', instance: '', phone: '', positionId: '' };
+        const draftLinha = novaLinha[d.id] ?? {
+          label: '', instance: '', phone: '', positionId: '', serverUrl: '', apiKey: '',
+        };
         const destinoDisponivel = draftLinha.positionId
           ? cargosSemNumero.some((cargo) => cargo.id === draftLinha.positionId)
           : true;
@@ -501,7 +522,12 @@ export function DepartmentsSettings() {
                       <option value="">Fila do setor</option>
                       {cargosSemNumero.map((cargo) => <option key={cargo.id} value={cargo.id}>{cargo.name}</option>)}
                     </select>
+                    <input value={draftLinha.serverUrl} onChange={(event) => alterarNovaLinha(d.id, 'serverUrl', event.target.value)} placeholder="URL Evolution própria (opcional)" className={inputCls} />
+                    <input type="password" autoComplete="new-password" value={draftLinha.apiKey} onChange={(event) => alterarNovaLinha(d.id, 'apiKey', event.target.value)} placeholder="Chave da linha (opcional)" className={inputCls} />
                   </div>
+                  <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
+                    Deixe URL e chave vazias para usar a Evolution global. A chave própria é criptografada no servidor e nunca volta ao navegador.
+                  </p>
                   <div className="mt-3 flex justify-end">
                     <button type="button" onClick={() => void criarLinha(d.id)} disabled={busy || !draftLinha.instance.trim() || !destinoDisponivel} className="flex h-10 items-center gap-1.5 rounded-lg border border-[rgba(59,130,246,0.25)] px-4 text-sm font-medium text-[var(--color-text-primary)] disabled:opacity-40">
                       <Plus className="h-4 w-4" /> Adicionar número
