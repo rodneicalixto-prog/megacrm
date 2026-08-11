@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getSupabase } from '@/lib/supabase';
 
-// Painel de ATENDIMENTO: fila, tempos e carga por atendente. Distinto do painel
-// de vendas (funil, origem de tráfego), que vive em useDashboardMetrics.
+// Painel de ATENDIMENTO: fila, tempos e carga por atendente. Esta consulta é
+// exclusiva da central operacional.
 //
 // Uma RPC única: os tempos médios exigem correlacionar mensagens por conversa, e
 // fazer isso no cliente significaria baixar a tabela de mensagens inteira.
@@ -51,7 +51,7 @@ const EMPTY: AttendanceMetrics = {
   paradas: [],
 };
 
-export function useAttendanceMetrics(departmentId?: string | null) {
+export function useAttendanceMetrics(departmentId?: string | null, connectionId?: string | null) {
   const [metrics, setMetrics] = useState<AttendanceMetrics>(EMPTY);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -59,9 +59,23 @@ export function useAttendanceMetrics(departmentId?: string | null) {
   const reload = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const { data, error: rpcError } = await getSupabase()
-      .schema('whatsapp_hub')
-      .rpc('attendance_dashboard', { p_department: departmentId ?? null });
+    const supabase = getSupabase().schema('whatsapp_hub');
+    let { data, error: rpcError } = await supabase
+      .rpc('attendance_dashboard', {
+        p_department: departmentId ?? null,
+        p_connection: connectionId ?? null,
+      });
+
+    // Durante um deploy, o frontend pode entrar no ar antes da migration que
+    // adiciona p_connection. Mantém o dashboard disponível nesse intervalo;
+    // a visão por número passa a valer assim que o schema novo estiver ativo.
+    if (rpcError && (rpcError.code === 'PGRST202' || rpcError.message.includes('p_connection'))) {
+      const legacy = await supabase.rpc('attendance_dashboard', {
+        p_department: departmentId ?? null,
+      });
+      data = legacy.data;
+      rpcError = legacy.error;
+    }
 
     if (rpcError) {
       setError(rpcError.message);
@@ -70,7 +84,7 @@ export function useAttendanceMetrics(departmentId?: string | null) {
       setMetrics({ ...EMPTY, ...(data as Partial<AttendanceMetrics> | null) });
     }
     setLoading(false);
-  }, [departmentId]);
+  }, [departmentId, connectionId]);
 
   useEffect(() => {
     void reload();

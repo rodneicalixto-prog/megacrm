@@ -1,7 +1,7 @@
 # MegaCRM — Avaliação do Repositório e Planejamento
 
 > Avaliação original: 2026-08-08, sobre o commit `f01d683`.
-> Última atualização: 2026-08-10, sobre `6e8f8d6` (`main`).
+> Última atualização: 2026-08-11, branch `work`.
 
 ---
 
@@ -9,16 +9,16 @@
 
 | | |
 |---|---|
-| **Repositório** | ✅ código versionado, 281 arquivos |
+| **Repositório** | ✅ código versionado, 328 arquivos rastreados |
 | **CI** | ✅ lint · typecheck · SQL · build · testes |
-| **Deploy Vercel** | ✅ `megacrm`, produção verde, 7 serverless |
-| **Testes** | ✅ 140 unitários (Vitest) + 9 E2E · lint e tipos em toda a base |
-| **Banco Supabase** | ✅ `yshvniyhtnyhnjcecbft` — 78 migrations, 22 functions |
+| **Deploy Vercel** | ✅ `megacrm`, produção ativa, 7 serverless |
+| **Testes** | ✅ 147 unitários (Vitest) + 9 E2E · lint e tipos em toda a base |
+| **Banco Supabase** | ✅ `yshvniyhtnyhnjcecbft` — 87 migrations, 22 functions |
 | **Rota WhatsApp** | ✅ Evolution API v2 · roteamento por linha/departamento |
 
 O diagnóstico que abriu este documento — *"o produto é sólido; o repositório
-não existe"* — está resolvido. As Fases 0, 1 e 2 foram executadas. O que falta
-é ligar o banco e cobrir o núcleo com teste.
+não existe"* — está resolvido. As Fases 0 a 3 foram executadas, produção e banco
+estão ligados, e a Fase 4 de consolidação técnica está em andamento.
 
 ---
 
@@ -63,11 +63,11 @@ atribuição de UTM e dashboard.
 
 | Área | Linhas | Arquivos |
 |---|---:|---:|
-| `src/` (frontend) | 21.186 | 120 |
-| `supabase/migrations/` | 6.342 | 69 |
-| `supabase/functions/` | 5.880 | 22 funções |
-| `api/` (serverless Vercel) | 1.223 | 7 |
-| `tests/` | ~2.100 | 9 specs E2E + 123 unit |
+| `src/` (frontend) | 23.600 | 132 |
+| `supabase/migrations/` | 7.757 | 87 |
+| `supabase/functions/` | 6.322 | 22 funções |
+| `api/` (serverless Vercel) | 1.296 | 7 |
+| `tests/` | 2.282 | 9 specs E2E + 9 arquivos unitários (147 testes) |
 
 ### O que está genuinamente bom
 
@@ -146,17 +146,18 @@ De **5** para **3**. Detalhe completo, exposição e comando de correção em
 code-splitting por rota, mas recharts e xlsx passam de 700 KB juntos. Candidatos
 a import dinâmico.
 
-### 🟡 R6 — 69 migrations lineares
+### 🟡 R6 — 87 migrations lineares
 
 A cadeia inclui `drop_super_admin`, `drop_multitenant`, `drop_onboarding` —
 migrations que desfazem arquitetura antiga. Toda instalação nova cria e depois
 destrói o modelo multi-tenant. Alonga o `/setup` e amplia a superfície de falha.
 
-### 🟡 R7 — Divergência doc/código — quase resolvido
+### ✅ R7 — Divergência doc/código — resolvido
 
 A rota não-oficial passou de Uazapi para Evolution API v2 e o `README` agora
-documenta as duas rotas corretamente. **Sobra:** o `AGENTS.md` ainda cita
-`META_*` e `LLM_PROVIDER` como env vars, que o `README` diz não existirem mais.
+documenta as duas rotas corretamente. O `AGENTS.md` também registra que o
+provider e as credenciais vêm de `public.app_settings`, não de env vars de
+aplicação.
 
 ### ✅ R8 — Endpoints públicos sem rate limit — resolvido
 
@@ -279,19 +280,38 @@ vazio é *truthy*, então um `referral: {}` no primeiro candidato interrompia a
 busca e os outros dois nunca eram olhados — atribuição de anúncio perdida em
 silêncio. Corrigido e travado por teste de regressão.
 
-### ⏳ Fase 4 — Consolidação técnica — 2–3 semanas
+### 🟨 Fase 4 — Consolidação técnica — em andamento
 
 1. **Baseline de migrations (R6)** — `_baseline.sql` do schema atual, arquivando
-   as 69 históricas. Instalação nova passa a aplicar 1 arquivo.
-2. **Documentação (R7)** — remover `META_*` e `LLM_PROVIDER` do `AGENTS.md`.
-3. **Bundle (R5)** — import dinâmico de `xlsx` e recharts.
-4. Quebrar os arquivos maiores: `SetupPage.tsx` (896), `DealDrawer.tsx` (710),
-   `process-ai-message/index.ts` (709).
+   as 87 históricas. Instalação nova passa a aplicar 1 arquivo.
+2. ✅ **Documentação (R7)** — `AGENTS.md` alinhado ao cofre de credenciais;
+   não apresenta `META_*` ou `LLM_PROVIDER` como variáveis de ambiente.
+3. ✅ **Bundle (R5)** — `xlsx` passou a ser importado apenas quando uma
+   planilha Excel é selecionada. Recharts saiu do dashboard operacional e as
+   métricas de campanhas agora são carregadas somente ao abrir a aba Métricas.
+4. 🟨 **Quebrar arquivos maiores** — componentes visuais e estado core do
+   wizard foram separados, reduzindo `SetupPage.tsx` de 978 para 815 linhas.
+   Os editores reutilizáveis do funil também saíram de `DealDrawer.tsx`, que
+   caiu de 710 para 399 linhas. O movimento automático de leads foi isolado
+   em `_shared/auto-move-lead.ts`, reduzindo `process-ai-message/index.ts` de
+   600 para 496 linhas. As três etapas core do wizard vivem em
+   `SetupCoreSteps.tsx`, e a etapa final de credenciais da aplicação em
+   `ApplicationCredentialsStep.tsx`; `SetupPage.tsx` caiu de 815 para 536 linhas.
 
-### ⏳ Fase 5 — Produto
+### 🟨 Fase 5 — Produto — em andamento
 
-Só depois da Fase 3. Pauta sugerida: multi-número, relatórios exportáveis, API
-pública, i18n (o v1 é PT-BR fixo por decisão explícita).
+1. ✅ **Relatório operacional exportável** — o dashboard de atendimento pode
+   ser filtrado por setor e gera CSV do recorte exibido, com indicadores da
+   fila, carga por atendente, volume dos últimos sete dias e conversas paradas,
+   neutralizando fórmulas vindas de dados de contato.
+2. 🟨 **Multi-número** — Inbox e roteamento já distinguem linha por
+   `connection_id`; o dashboard operacional agora também filtra por número e
+   exporta o CSV desse recorte. A tela de Setores permite cadastrar e remover
+   instâncias Evolution, vinculando cada linha à fila do setor ou a um cargo.
+   O status conectado/offline é consultado server-side, sem expor chaves no
+   navegador. Restam credenciais específicas por linha.
+3. ⏳ **Próximas pautas** — API pública e i18n (o v1 permanece PT-BR fixo até
+   essa etapa ser priorizada).
 
 ---
 
