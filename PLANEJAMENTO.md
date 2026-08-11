@@ -297,6 +297,11 @@ silêncio. Corrigido e travado por teste de regressão.
    600 para 496 linhas. As três etapas core do wizard vivem em
    `SetupCoreSteps.tsx`, e a etapa final de credenciais da aplicação em
    `ApplicationCredentialsStep.tsx`; `SetupPage.tsx` caiu de 815 para 536 linhas.
+   A gestão visual das linhas Evolution saiu de `DepartmentsSettings.tsx` para
+   `DepartmentLinesSection.tsx`, deixando o container responsável por dados e
+   mutations. O cadastro de usuário também foi isolado em
+   `UserRegistrationSection.tsx`; com as duas extrações, o container caiu de
+   653 para 470 linhas.
 
 ### 🟨 Fase 5 — Produto — em andamento
 
