@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import * as XLSX from 'xlsx';
 import { getSupabase } from '@/lib/supabase';
 
 // Schema de colunas fixo do relatório do ERP (Ganso). Aceita variações comuns
@@ -205,6 +204,9 @@ export function useSalesUpload() {
     if (/\.csv$/i.test(file.name)) {
       all = parseCsv(await file.text());
     } else {
+      // SheetJS pesa mais de 300 KB. Só baixa quando o usuário realmente
+      // escolhe uma planilha Excel; CSV continua sem carregar a biblioteca.
+      const XLSX = await import('xlsx');
       const buf = await file.arrayBuffer();
       const wb = XLSX.read(buf, { type: 'array' });
       const sheet = wb.Sheets[wb.SheetNames[0]];
