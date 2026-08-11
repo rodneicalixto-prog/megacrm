@@ -15,6 +15,7 @@ type ApiResponse = {
 };
 
 interface CreateConnectionBody {
+  id?: unknown;
   departmentId?: unknown;
   positionId?: unknown;
   instance?: unknown;
@@ -46,7 +47,7 @@ function getAdmin() {
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   try {
-    if (req.method !== 'POST') return res.status(405).end();
+    if (req.method !== 'POST' && req.method !== 'PATCH') return res.status(405).end();
     const auth = await requireAdmin(req.headers?.authorization ?? req.headers?.Authorization);
     if (!auth.ok) return res.status(auth.status).json({ success: false, message: auth.message });
 
@@ -56,6 +57,32 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     const instance = text(body.instance);
     const serverUrl = text(body.serverUrl).replace(/\/$/, '');
     const apiKey = text(body.apiKey);
+    if (req.method === 'PATCH') {
+      const id = optionalUuid(body.id);
+      if (!id) return res.status(400).json({ success: false, message: 'Linha inválida.' });
+      if (Boolean(serverUrl) !== Boolean(apiKey)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Informe URL e chave juntas, ou esvazie ambas para voltar à credencial global.',
+        });
+      }
+      if (serverUrl) {
+        const parsed = new URL(serverUrl);
+        if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('URL da Evolution inválida.');
+      }
+      const { error } = await getAdmin().schema('whatsapp_hub')
+        .from('department_connections')
+        .update({
+          server_url: serverUrl || null,
+          api_key_encrypted: apiKey ? encrypt(apiKey) : null,
+        })
+        .eq('id', id)
+        .select('id')
+        .single();
+      if (error) throw error;
+      return res.status(200).json({ success: true });
+    }
+
     if (!departmentId || !instance) {
       return res.status(400).json({ success: false, message: 'Setor e instância são obrigatórios.' });
     }
