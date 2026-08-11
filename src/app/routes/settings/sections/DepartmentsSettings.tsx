@@ -25,6 +25,23 @@ interface Cargo {
   user_id: string | null;
 }
 
+interface Linha {
+  id: string;
+  department_id: string;
+  position_id: string | null;
+  instance: string;
+  phone_number: string | null;
+  label: string | null;
+  server_url: string | null;
+}
+
+interface LinhaStatus {
+  configured: boolean;
+  connected: boolean;
+  state: string | null;
+  error?: string;
+}
+
 const inputCls =
   'h-10 w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)] [&>option]:bg-[var(--color-bg-primary)] [&>option]:text-[var(--color-text-primary)]';
 
