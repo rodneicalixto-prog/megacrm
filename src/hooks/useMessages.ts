@@ -10,6 +10,7 @@ export type ThreadMessage = Message & {
   _state?: 'pending' | 'sent' | 'failed';
   _realId?: string;
   _retry?: { text: string; isPrivate: boolean };
+  _error?: string;
 };
 
 export interface SendResult {
@@ -146,17 +147,18 @@ export function useMessages(conversationId: string | null): UseMessagesResult {
     async (tempId: string, text: string, isPrivate: boolean): Promise<SendResult> => {
       if (!conversationId) return { ok: false };
       setOptimistic((prev) =>
-        prev.map((o) => (o._tempId === tempId ? { ...o, _state: 'pending' } : o)),
+        prev.map((o) => (o._tempId === tempId ? { ...o, _state: 'pending', _error: undefined } : o)),
       );
       const supabase = getSupabase();
       const { data, error: err } = await supabase.functions.invoke('send-operator-message', {
         body: { conversation_id: conversationId, content: text, is_private_note: isPrivate },
       });
       if (err || !data?.ok) {
+        const sendError = data?.error ?? err?.message ?? 'Falha desconhecida no envio.';
         setOptimistic((prev) =>
-          prev.map((o) => (o._tempId === tempId ? { ...o, _state: 'failed' } : o)),
+          prev.map((o) => (o._tempId === tempId ? { ...o, _state: 'failed', _error: sendError } : o)),
         );
-        return { ok: false, zernioError: data?.error ?? err?.message ?? null };
+        return { ok: false, zernioError: sendError };
       }
       setOptimistic((prev) =>
         prev.map((o) =>
