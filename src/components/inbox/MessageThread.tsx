@@ -91,11 +91,13 @@ function FailedActions({
   onRetry,
   onDismiss,
   inverse,
+  error,
 }: {
   tempId: string;
   onRetry?: (tempId: string) => void;
   onDismiss?: (tempId: string) => void;
   inverse?: boolean;
+  error?: string;
 }) {
   // inverse=true → dentro do balão azul (texto claro); senão card claro.
   const base = inverse ? 'text-white/90' : 'text-[var(--color-error)]';
@@ -108,6 +110,7 @@ function FailedActions({
       <button type="button" onClick={() => onDismiss?.(tempId)} className="underline opacity-70 hover:opacity-100">
         Descartar
       </button>
+      {error ? <span className="max-w-56 truncate opacity-80" title={error}>{error}</span> : null}
     </div>
   );
 }
@@ -165,7 +168,7 @@ export function MessageThread({ messages, loading, onRetry, onDismiss }: Message
                 {m.content}
               </div>
               {m._state === 'failed' && m._tempId && (
-                <FailedActions tempId={m._tempId} onRetry={onRetry} onDismiss={onDismiss} />
+                <FailedActions tempId={m._tempId} onRetry={onRetry} onDismiss={onDismiss} error={m._error} />
               )}
             </div>
           );
@@ -222,7 +225,7 @@ export function MessageThread({ messages, loading, onRetry, onDismiss }: Message
                 )}
               </div>
               {m._state === 'failed' && m._tempId && (
-                <FailedActions tempId={m._tempId} onRetry={onRetry} onDismiss={onDismiss} inverse />
+                <FailedActions tempId={m._tempId} onRetry={onRetry} onDismiss={onDismiss} error={m._error} inverse />
               )}
             </div>
           </div>
