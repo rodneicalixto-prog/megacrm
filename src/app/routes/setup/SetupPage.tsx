@@ -220,8 +220,9 @@ export default function SetupPage() {
     // Passo 4 monta o client do navegador, que exige a anon key. Uma
     // reexecucao nao coleta esse campo, entao chegar la — por deep link ou por
     // localStorage pela metade — quebra com "supabaseKey is required" numa tela
-    // que a reexecucao nem precisa. Para no 3.
-    if (value === '4' && (isRerun || !saved.supabase_anon_key)) return 3;
+    // que a reexecucao nem precisa. Volta ao inicio em vez de entrar num ciclo
+    // entre os passos 3 e 4.
+    if (value === '4' && (isRerun || !saved.supabase_anon_key)) return 1;
     return value === '4' ? 4 : 3;
   });
   const [validation, setValidation] = useState<ValidationMap>({});
@@ -365,6 +366,10 @@ export default function SetupPage() {
   // already triggered, resume polling for the app to come live.
   useEffect(() => {
     if (step !== 3 || bootstrapping) return;
+    // Reexecucao nunca dispara redeploy da Vercel. Reaproveitar aqui o
+    // checkpoint historico `redeploy_triggered` da instalacao inicial criava um
+    // loop Step 3 -> Step 4 -> Step 3 depois de aplicar uma atualizacao.
+    if (isRerun) return;
     if (!core.supabase_url || !core.supabase_pat) return;
     let cancelled = false;
     (async () => {
@@ -388,7 +393,7 @@ export default function SetupPage() {
     return () => {
       cancelled = true;
     };
-  }, [step, bootstrapping, core.supabase_url, core.supabase_pat, waitForAppLive]);
+  }, [step, bootstrapping, core.supabase_url, core.supabase_pat, isRerun, waitForAppLive]);
 
   const runBootstrap = async () => {
     setStep(3);
@@ -421,6 +426,10 @@ export default function SetupPage() {
         // nao tem como preencher.
         setTimeline(TIMELINE_STEPS.slice(0, 3).map((entry) => entry.label));
         toast.success('Atualizacoes aplicadas.');
+        // URL, service role e PAT sao segredos temporarios de bootstrap. A
+        // reexecucao termina no app e deve remove-los mesmo sem passar pelo
+        // Step 4 do fluxo de primeira instalacao.
+        window.localStorage.removeItem(STORAGE_KEY);
         window.setTimeout(() => { window.location.href = '/'; }, 1500);
         return;
       }

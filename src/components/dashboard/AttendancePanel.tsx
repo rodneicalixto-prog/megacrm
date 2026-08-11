@@ -7,8 +7,7 @@ import { formatDuration, type AttendanceMetrics } from '@/hooks/useAttendanceMet
 import type { Operator } from '@/hooks/useOperators';
 
 // Painel operacional: quantas conversas estão paradas, com quem, e há quanto
-// tempo. É o que o supervisor olha para decidir o próximo movimento — diferente
-// do painel de vendas logo abaixo, que olha funil e origem de tráfego.
+// tempo. É o que o supervisor olha para decidir o próximo movimento.
 
 function Card({
   icon: Icon, label, value, hint, tone = 'neutral',
