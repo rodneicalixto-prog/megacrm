@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getSupabase } from '@/lib/supabase';
 
-// Painel de ATENDIMENTO: fila, tempos e carga por atendente. Distinto do painel
-// de vendas (funil, origem de tráfego), que vive em useDashboardMetrics.
+// Painel de ATENDIMENTO: fila, tempos e carga por atendente. Esta consulta é
+// exclusiva da central operacional.
 //
 // Uma RPC única: os tempos médios exigem correlacionar mensagens por conversa, e
 // fazer isso no cliente significaria baixar a tabela de mensagens inteira.
@@ -51,7 +51,7 @@ const EMPTY: AttendanceMetrics = {
   paradas: [],
 };
 
-export function useAttendanceMetrics(departmentId?: string | null) {
+export function useAttendanceMetrics(departmentId?: string | null, connectionId?: string | null) {
   const [metrics, setMetrics] = useState<AttendanceMetrics>(EMPTY);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -61,7 +61,10 @@ export function useAttendanceMetrics(departmentId?: string | null) {
     setError(null);
     const { data, error: rpcError } = await getSupabase()
       .schema('whatsapp_hub')
-      .rpc('attendance_dashboard', { p_department: departmentId ?? null });
+      .rpc('attendance_dashboard', {
+        p_department: departmentId ?? null,
+        p_connection: connectionId ?? null,
+      });
 
     if (rpcError) {
       setError(rpcError.message);
@@ -70,7 +73,7 @@ export function useAttendanceMetrics(departmentId?: string | null) {
       setMetrics({ ...EMPTY, ...(data as Partial<AttendanceMetrics> | null) });
     }
     setLoading(false);
-  }, [departmentId]);
+  }, [departmentId, connectionId]);
 
   useEffect(() => {
     void reload();
