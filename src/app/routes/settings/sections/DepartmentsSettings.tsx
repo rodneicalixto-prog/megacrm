@@ -1,9 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Building2, ChevronDown, KeyRound, Loader2, Plus, RefreshCw, Smartphone, Trash2, UserPlus, UserRoundPlus } from 'lucide-react';
+import { Building2, ChevronDown, Plus, Trash2, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { getSupabase } from '@/lib/supabase';
 import { operatorLabel, useOperators } from '@/hooks/useOperators';
 import { LoadErrorBanner } from '@/components/LoadErrorBanner';
+import {
+  DepartmentLinesSection,
+  type DepartmentLine,
+  type DepartmentLineDraft,
+  type DepartmentLineStatus,
+} from './DepartmentLinesSection';
+import { UserRegistrationSection, type RegistrationRole } from './UserRegistrationSection';
 
 interface Departamento {
   id: string;
@@ -45,24 +52,15 @@ export function DepartmentsSettings() {
   const { operators } = useOperators();
   const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
   const [cargos, setCargos] = useState<Cargo[]>([]);
-  const [linhas, setLinhas] = useState<Linha[]>([]);
-  const [statusLinhas, setStatusLinhas] = useState<Record<string, LinhaStatus>>({});
+  const [linhas, setLinhas] = useState<DepartmentLine[]>([]);
+  const [statusLinhas, setStatusLinhas] = useState<Record<string, DepartmentLineStatus>>({});
   const [loadingStatus, setLoadingStatus] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [novoDepto, setNovoDepto] = useState('');
   const [novoCargo, setNovoCargo] = useState<Record<string, string>>({});
-  const [novaLinha, setNovaLinha] = useState<Record<string, {
-    label: string;
-    instance: string;
-    phone: string;
-    positionId: string;
-    serverUrl: string;
-    apiKey: string;
-  }>>({});
+  const [novaLinha, setNovaLinha] = useState<Record<string, DepartmentLineDraft>>({});
   const [busy, setBusy] = useState(false);
-  const [linhaCredencialAberta, setLinhaCredencialAberta] = useState<string | null>(null);
-  const [credencialLinha, setCredencialLinha] = useState({ serverUrl: '', apiKey: '' });
   const [setorAberto, setSetorAberto] = useState<string | null>(null);
 
   // Cadastro de usuário: nome, e-mail, função e setor. Fica junto de setores e
@@ -70,7 +68,7 @@ export function DepartmentsSettings() {
   // deixa a conta existindo e sem enxergar nada.
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
-  const [funcao, setFuncao] = useState<'operator' | 'supervisor' | 'admin'>('operator');
+  const [funcao, setFuncao] = useState<RegistrationRole>('operator');
   const [setorNovo, setSetorNovo] = useState('');
   const [cargoNovo, setCargoNovo] = useState('');
 
@@ -86,7 +84,7 @@ export function DepartmentsSettings() {
       const body = await response.json() as {
         success?: boolean;
         message?: string;
-        statuses?: Array<LinhaStatus & { id: string }>;
+        statuses?: Array<DepartmentLineStatus & { id: string }>;
       };
       if (!response.ok || !body.success) throw new Error(body.message ?? 'Falha ao consultar linhas.');
       setStatusLinhas(Object.fromEntries((body.statuses ?? []).map(({ id, ...status }) => [id, status])));
@@ -116,7 +114,7 @@ export function DepartmentsSettings() {
     } else {
       setDepartamentos((d.data ?? []) as Departamento[]);
       setCargos((c.data ?? []) as Cargo[]);
-      setLinhas((l.data ?? []) as Linha[]);
+      setLinhas((l.data ?? []) as DepartmentLine[]);
       void carregarStatus();
     }
     setLoading(false);
@@ -179,7 +177,7 @@ export function DepartmentsSettings() {
 
   const alterarNovaLinha = (
     departmentId: string,
-    field: 'label' | 'instance' | 'phone' | 'positionId' | 'serverUrl' | 'apiKey',
+    field: keyof DepartmentLineDraft,
     value: string,
   ) => {
     setNovaLinha((previous) => {
@@ -230,7 +228,7 @@ export function DepartmentsSettings() {
     void carregar();
   };
 
-  const excluirLinha = async (linha: Linha) => {
+  const excluirLinha = async (linha: DepartmentLine) => {
     if (!window.confirm(`Remover a linha “${linha.label ?? linha.phone_number ?? linha.instance}”?`)) return;
     const supabase = getSupabase().schema('whatsapp_hub');
     const { count, error: countError } = await supabase
@@ -252,7 +250,7 @@ export function DepartmentsSettings() {
 
   const salvarCredencialLinha = async (
     linhaId: string,
-    credential = credencialLinha,
+    credential: { serverUrl: string; apiKey: string },
   ) => {
     setBusy(true);
     try {
@@ -268,13 +266,13 @@ export function DepartmentsSettings() {
       const result = await response.json() as { success?: boolean; message?: string };
       if (!response.ok || !result.success) throw new Error(result.message ?? 'Erro interno');
       toast.success(credential.serverUrl.trim() ? 'Credencial própria salva.' : 'Linha usando a credencial global.');
-      setLinhaCredencialAberta(null);
-      setCredencialLinha({ serverUrl: '', apiKey: '' });
       void carregar();
+      return true;
     } catch (saveError) {
       toast.error('Falha ao salvar credencial', {
         description: saveError instanceof Error ? saveError.message : 'Erro interno',
       });
+      return false;
     } finally {
       setBusy(false);
     }
@@ -332,86 +330,23 @@ export function DepartmentsSettings() {
         </div>
       </div>
 
-      <div className="glass-card p-5">
-        <header className="mb-3">
-          <h2 className="flex items-center gap-2 text-lg font-bold">
-            <UserRoundPlus className="h-4 w-4 text-[var(--accent-primary)]" />
-            Cadastrar usuário
-          </h2>
-          <p className="text-sm text-[var(--color-text-secondary)]">
-            A conta nasce sem senha — a pessoa define a dela em “Esqueci minha senha”
-            na tela de login. Nenhuma senha compartilhada circula.
-          </p>
-        </header>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <div className="text-label">Nome</div>
-            <input value={nome} onChange={(e) => setNome(e.target.value)} className={inputCls} />
-          </div>
-          <div className="space-y-1.5">
-            <div className="text-label">E-mail</div>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className={inputCls}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <div className="text-label">Função</div>
-            <select
-              value={funcao}
-              onChange={(e) => setFuncao(e.target.value as typeof funcao)}
-              className={inputCls}
-            >
-              <option value="operator">Atendente</option>
-              <option value="supervisor">Supervisor</option>
-              <option value="admin">Admin</option>
-            </select>
-          </div>
-          <div className="space-y-1.5">
-            <div className="text-label">Equipe / setor</div>
-            <select
-              value={setorNovo}
-              onChange={(e) => { setSetorNovo(e.target.value); setCargoNovo(''); }}
-              className={inputCls}
-            >
-              <option value="">Selecione…</option>
-              {departamentos.map((d) => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-1.5 sm:col-span-2">
-            <div className="text-label">Cargo (opcional)</div>
-            <select
-              value={cargoNovo}
-              onChange={(e) => setCargoNovo(e.target.value)}
-              className={inputCls}
-            >
-              <option value="">Sem cargo — entra na fila do setor</option>
-              {cargos
-                .filter((c) => c.department_id === setorNovo && !c.user_id)
-                .map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-            </select>
-            <p className="text-xs text-[var(--color-text-secondary)]">
-              Com cargo, a conversa que chegar na linha desse cargo já nasce no nome
-              dessa pessoa. Sem cargo, cai na fila do supervisor.
-            </p>
-          </div>
-        </div>
-        <div className="mt-4 flex justify-end">
-          <button
-            onClick={cadastrar}
-            disabled={busy || !nome.trim() || !email.trim()}
-            className="rounded-lg bg-[linear-gradient(135deg,#1E3A8A,var(--accent-primary))] px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
-          >
-            {busy ? 'Cadastrando…' : 'Cadastrar'}
-          </button>
-        </div>
-      </div>
+      <UserRegistrationSection
+        name={nome}
+        email={email}
+        role={funcao}
+        departmentId={setorNovo}
+        positionId={cargoNovo}
+        departments={departamentos}
+        positions={cargos}
+        busy={busy}
+        inputClass={inputCls}
+        onNameChange={setNome}
+        onEmailChange={setEmail}
+        onRoleChange={setFuncao}
+        onDepartmentChange={(value) => { setSetorNovo(value); setCargoNovo(''); }}
+        onPositionChange={setCargoNovo}
+        onSubmit={() => void cadastrar()}
+      />
 
       {departamentos.map((d) => {
         const doSetor = cargos.filter((c) => c.department_id === d.id);
@@ -473,124 +408,23 @@ export function DepartmentsSettings() {
                 id={`setor-${d.id}`}
                 className="border-t border-[rgba(59,130,246,0.08)] px-5 pb-5 pt-4"
               >
-                <section className="mb-5 rounded-xl border border-[rgba(59,130,246,0.12)] bg-white/[0.02] p-4">
-                  <div className="mb-3 flex items-start gap-2">
-                    <Smartphone className="mt-0.5 h-4 w-4 text-[var(--accent-secondary)]" />
-                    <div>
-                      <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">Números / linhas</h3>
-                      <p className="text-xs text-[var(--color-text-secondary)]">
-                        Use o nome da instância Evolution. Sem cargo, a conversa entra na fila do setor.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => void carregarStatus()}
-                      disabled={loadingStatus}
-                      className="ml-auto flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-[rgba(59,130,246,0.2)] px-3 text-xs font-medium text-[var(--color-text-primary)] disabled:opacity-50"
-                    >
-                      <RefreshCw className={`h-3.5 w-3.5 ${loadingStatus ? 'animate-spin' : ''}`} />
-                      Atualizar
-                    </button>
-                  </div>
-
-                  <div className="space-y-2">
-                    {linhasDoSetor.map((linha) => {
-                      const cargo = doSetor.find((item) => item.id === linha.position_id);
-                      const status = statusLinhas[linha.id];
-                      return (
-                        <div key={linha.id} className="rounded-lg border border-[rgba(59,130,246,0.1)] px-3 py-2">
-                          <div className="flex items-center gap-3">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <div className="truncate text-sm font-medium text-[var(--color-text-primary)]">
-                                {linha.label ?? linha.phone_number ?? linha.instance}
-                              </div>
-                              {loadingStatus && !status ? (
-                                <Loader2 className="h-3 w-3 shrink-0 animate-spin text-[var(--accent-secondary)]" />
-                              ) : (
-                                <span
-                                  title={status?.error}
-                                  className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                                    status?.connected
-                                      ? 'bg-[rgba(16,185,129,0.14)] text-[var(--color-success)]'
-                                      : status
-                                        ? 'bg-[rgba(239,68,68,0.12)] text-[var(--color-error)]'
-                                        : 'bg-white/[0.06] text-[var(--color-text-secondary)]'
-                                  }`}
-                                >
-                                  {status?.connected
-                                    ? 'conectado'
-                                    : status?.configured
-                                      ? 'offline'
-                                      : status
-                                        ? 'não configurado'
-                                        : 'não verificado'}
-                                </span>
-                              )}
-                            </div>
-                            <div className="truncate text-xs text-[var(--color-text-secondary)]">
-                              {linha.phone_number ? `${linha.phone_number} · ` : ''}{linha.instance} · {cargo?.name ?? 'Fila do setor'} · {linha.server_url ? 'credencial própria' : 'credencial global'}
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const abrir = linhaCredencialAberta !== linha.id;
-                              setLinhaCredencialAberta(abrir ? linha.id : null);
-                              setCredencialLinha({ serverUrl: abrir ? (linha.server_url ?? '') : '', apiKey: '' });
-                            }}
-                            aria-label={`Configurar credencial da linha ${linha.label ?? linha.instance}`}
-                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[var(--color-text-secondary)] hover:text-[var(--accent-secondary)]"
-                          >
-                            <KeyRound className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void excluirLinha(linha)}
-                            aria-label={`Remover linha ${linha.label ?? linha.instance}`}
-                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[var(--color-text-secondary)] hover:text-[var(--color-error)]"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                          </div>
-                          {linhaCredencialAberta === linha.id ? (
-                            <div className="mt-2 grid gap-2 border-t border-[rgba(59,130,246,0.08)] pt-3 sm:grid-cols-2">
-                              <input value={credencialLinha.serverUrl} onChange={(event) => setCredencialLinha((current) => ({ ...current, serverUrl: event.target.value }))} placeholder="URL Evolution própria" className={inputCls} />
-                              <input type="password" autoComplete="new-password" value={credencialLinha.apiKey} onChange={(event) => setCredencialLinha((current) => ({ ...current, apiKey: event.target.value }))} placeholder="Digite a chave da linha" className={inputCls} />
-                              <div className="flex gap-2 sm:col-span-2 sm:justify-end">
-                                <button type="button" onClick={() => void salvarCredencialLinha(linha.id, { serverUrl: '', apiKey: '' })} disabled={busy} className="h-9 rounded-lg px-3 text-xs text-[var(--color-text-secondary)]">Usar global</button>
-                                <button type="button" onClick={() => void salvarCredencialLinha(linha.id)} disabled={busy || !credencialLinha.serverUrl.trim() || !credencialLinha.apiKey.trim()} className="h-9 rounded-lg bg-[var(--accent-primary)] px-4 text-xs font-semibold text-white disabled:opacity-40">Salvar</button>
-                              </div>
-                            </div>
-                          ) : null}
-                        </div>
-                      );
-                    })}
-                    {linhasDoSetor.length === 0 ? (
-                      <p className="text-sm text-[var(--color-text-secondary)] opacity-70">Nenhum número neste setor.</p>
-                    ) : null}
-                  </div>
-
-                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                    <input value={draftLinha.label} onChange={(event) => alterarNovaLinha(d.id, 'label', event.target.value)} placeholder="Nome visível (opcional)" className={inputCls} />
-                    <input value={draftLinha.phone} onChange={(event) => alterarNovaLinha(d.id, 'phone', event.target.value)} placeholder="Telefone (opcional)" className={inputCls} />
-                    <input value={draftLinha.instance} onChange={(event) => alterarNovaLinha(d.id, 'instance', event.target.value)} placeholder="Instância Evolution" className={inputCls} />
-                    <select value={draftLinha.positionId} onChange={(event) => alterarNovaLinha(d.id, 'positionId', event.target.value)} className={inputCls}>
-                      <option value="">Fila do setor</option>
-                      {cargosSemNumero.map((cargo) => <option key={cargo.id} value={cargo.id}>{cargo.name}</option>)}
-                    </select>
-                    <input value={draftLinha.serverUrl} onChange={(event) => alterarNovaLinha(d.id, 'serverUrl', event.target.value)} placeholder="URL Evolution própria (opcional)" className={inputCls} />
-                    <input type="password" autoComplete="new-password" value={draftLinha.apiKey} onChange={(event) => alterarNovaLinha(d.id, 'apiKey', event.target.value)} placeholder="Chave da linha (opcional)" className={inputCls} />
-                  </div>
-                  <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
-                    Deixe URL e chave vazias para usar a Evolution global. A chave própria é criptografada no servidor e nunca volta ao navegador.
-                  </p>
-                  <div className="mt-3 flex justify-end">
-                    <button type="button" onClick={() => void criarLinha(d.id)} disabled={busy || !draftLinha.instance.trim() || !destinoDisponivel} className="flex h-10 items-center gap-1.5 rounded-lg border border-[rgba(59,130,246,0.25)] px-4 text-sm font-medium text-[var(--color-text-primary)] disabled:opacity-40">
-                      <Plus className="h-4 w-4" /> Adicionar número
-                    </button>
-                  </div>
-                </section>
+                <DepartmentLinesSection
+                  departmentId={d.id}
+                  lines={linhasDoSetor}
+                  positions={doSetor}
+                  availablePositions={cargosSemNumero}
+                  statuses={statusLinhas}
+                  loadingStatus={loadingStatus}
+                  busy={busy}
+                  draft={draftLinha}
+                  destinationAvailable={destinoDisponivel}
+                  inputClass={inputCls}
+                  onRefresh={() => void carregarStatus()}
+                  onDraftChange={(field, value) => alterarNovaLinha(d.id, field, value)}
+                  onCreate={() => void criarLinha(d.id)}
+                  onDelete={(line) => void excluirLinha(line)}
+                  onSaveCredentials={salvarCredencialLinha}
+                />
 
                 <div className="space-y-3">
                   {doSetor.map((c) => (
