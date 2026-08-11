@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { fillCoreStep2, setScenario, shot } from '../helpers';
+import { fillCoreStep2, seedCoreState, setScenario, shot } from '../helpers';
 
 test.beforeEach(async ({ page }) => setScenario(page, 'default'));
 
@@ -48,6 +48,7 @@ test('Step 2 -> Step 1 backward navigation works (Voltar)', async ({ page }) => 
 });
 
 test('direct deep-link to ?step=4 shows owner login gate (cannot jump past auth)', async ({ page }) => {
+  await seedCoreState(page);
   await page.goto('/setup?step=4');
   await expect(page.getByRole('heading', { name: 'APIs da aplicacao' })).toBeVisible();
   await expect(page.getByText('Confirme o login do owner')).toBeVisible();

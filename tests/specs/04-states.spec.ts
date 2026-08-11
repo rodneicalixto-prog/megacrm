@@ -9,6 +9,13 @@ async function toStep2(page: import('@playwright/test').Page) {
 
 test('loading: Step 3 shows the bootstrap timeline with a spinner', async ({ page }) => {
   await setScenario(page, 'default');
+  // O shim local responde quase instantaneamente em runners rápidos. Segure a
+  // chamada por um instante para testar o estado de loading de forma
+  // determinística, em vez de disputar uma janela de poucos milissegundos.
+  await page.route('**/api/bootstrap', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    await route.continue();
+  });
   await toStep2(page);
   await page.getByRole('button', { name: 'Configurar' }).click();
   await expect(page.getByRole('heading', { name: 'Bootstrap' })).toBeVisible();
