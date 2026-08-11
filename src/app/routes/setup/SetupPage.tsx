@@ -1,6 +1,5 @@
-import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, Eye, EyeOff, ExternalLink, Loader2, X } from 'lucide-react';
+import { Check, Eye, EyeOff, Loader2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { createClient } from '@supabase/supabase-js';
 import { CredentialField } from '@/components/credentials/CredentialField';
@@ -12,22 +11,16 @@ import {
   NO_WHATSAPP_PROVIDER_MESSAGE,
 } from './whatsappProviders';
 import { getSupabaseCredentials } from '@/lib/supabase';
-
-type Step = 1 | 2 | 3 | 4;
-type FieldKey =
-  | 'supabase_url'
-  | 'supabase_anon_key'
-  | 'supabase_service_role_key'
-  | 'supabase_pat'
-  | 'vercel_token'
-  | 'owner_email'
-  | 'owner_password';
-
-type CoreValues = Record<FieldKey, string>;
-type ValidationMap = Partial<Record<FieldKey, { ok: boolean; message: string }>>;
-
-const STORAGE_KEY = 'agentise.setup.step2';
-const STEP_LABELS = ['PREPARAR', 'CREDENCIAIS', 'BOOTSTRAP', 'APIS'] as const;
+import { PrepItem, PrimaryButton, SetupCard, StepIndicator } from './SetupChrome';
+import {
+  readSavedCore,
+  STORAGE_KEY,
+  validateCoreField,
+  type CoreValues,
+  type FieldKey,
+  type Step,
+  type ValidationMap,
+} from './setupCore';
 
 // Each Step 3 row maps to the checkpoint that api/bootstrap.ts writes into
 // public._bootstrap_state. The wizard hydrates the timeline from those rows so
@@ -47,162 +40,6 @@ const TIMELINE_STEPS: { label: string; key: string }[] = [
 const HEALTH_POLL_INTERVAL_MS = 4000;
 const HEALTH_POLL_TIMEOUT_MS = 5 * 60 * 1000;
 
-const emptyCore: CoreValues = {
-  supabase_url: '',
-  supabase_anon_key: '',
-  supabase_service_role_key: '',
-  supabase_pat: '',
-  vercel_token: '',
-  owner_email: '',
-  owner_password: '',
-};
-
-function PrimaryButton(props: React.ButtonHTMLAttributes<HTMLButtonElement>) {
-  return (
-    <button
-      {...props}
-      className={[
-        'min-h-12 rounded-xl px-8 py-4 text-base font-medium text-white transition-[box-shadow,opacity,transform] duration-[400ms] ease-[cubic-bezier(0.4,0,0.2,1)]',
-        'bg-[linear-gradient(135deg,#1E3A8A_0%,#3B82F6_100%)] shadow-[0_8px_40px_rgba(59,130,246,0.4),0_0_60px_rgba(59,130,246,0.2)]',
-        'hover:shadow-[0_8px_50px_rgba(59,130,246,0.6),0_0_80px_rgba(59,130,246,0.3)] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none',
-        'w-full sm:w-auto',
-        props.className ?? '',
-      ].join(' ')}
-    />
-  );
-}
-
-function StepIndicator({ step }: { step: Step }) {
-  return (
-    <div className="mb-10 flex w-full items-start justify-center">
-      {STEP_LABELS.map((label, index) => {
-        const n = index + 1;
-        const active = step === n;
-        const complete = step > n;
-        return (
-          <div key={label} className="flex min-w-0 flex-1 items-start last:flex-none sm:flex-none">
-            <div className="flex flex-col items-center">
-              <div
-                className={[
-                  'flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold',
-                  active
-                    ? 'bg-[#3B82F6] text-white shadow-[0_0_30px_rgba(59,130,246,0.5)]'
-                    : complete
-                      ? 'bg-[#1E3A8A] text-white'
-                      : 'border border-[rgba(59,130,246,0.3)] bg-transparent text-[#94A3B8]',
-                ].join(' ')}
-              >
-                {complete ? <Check className="h-4 w-4" /> : n}
-              </div>
-              <div
-                className={[
-                  'mt-3 whitespace-nowrap text-[11px] font-medium uppercase tracking-[0.1em]',
-                  active ? 'text-[#F8FAFC]' : 'text-[#94A3B8]',
-                ].join(' ')}
-              >
-                {label}
-              </div>
-            </div>
-            {index < STEP_LABELS.length - 1 ? (
-              <div className="mx-2 mt-5 h-px w-8 border-t border-[rgba(59,130,246,0.2)] sm:mx-5 sm:w-20" />
-            ) : null}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function SetupCard({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="rounded-2xl border border-[rgba(59,130,246,0.15)] bg-white/[0.02] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-[40px] md:p-12">
-      {children}
-    </div>
-  );
-}
-
-function PrepItem({
-  n,
-  title,
-  text,
-  href,
-  pills,
-}: {
-  n: number;
-  title: string;
-  text: string;
-  href: string;
-  pills: string[];
-}) {
-  return (
-    <div className="relative rounded-xl border border-[rgba(59,130,246,0.12)] bg-white/[0.02] p-5">
-      <div className="flex gap-4 pr-16">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[rgba(59,130,246,0.4)] text-sm font-medium text-[#60A5FA]">
-          {n}
-        </div>
-        <div>
-          <h2 className="text-base font-semibold text-[#F8FAFC]">{title}</h2>
-          <p className="mt-1 text-[13px] leading-5 text-[#94A3B8]">{text}</p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {pills.map((pill) => (
-              <span
-                key={pill}
-                className="rounded-full border border-[rgba(59,130,246,0.3)] bg-[rgba(30,58,138,0.4)] px-3 py-1 font-mono text-[11px] uppercase tracking-[0.05em] text-[#60A5FA]"
-              >
-                {pill}
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-      <a
-        href={href}
-        target="_blank"
-        rel="noreferrer"
-        className="absolute right-5 top-5 inline-flex items-center gap-1 text-sm text-[#60A5FA] hover:text-[#85B7EB]"
-      >
-        abrir
-        <ExternalLink className="h-3.5 w-3.5" />
-      </a>
-    </div>
-  );
-}
-
-// Network-backed field checks (Supabase keys/PAT, Vercel token) run through
-// the server proxy so the tokens never go from the browser to api.supabase.com
-// / api.vercel.com directly. Pure-regex fields stay client-side.
-async function validateCoreField(
-  key: FieldKey,
-  value: string,
-  context: Record<string, string>,
-): Promise<{ ok: boolean; message: string }> {
-  try {
-    const res = await fetch('/api/validate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ kind: 'core', key, value, context }),
-    });
-    const body = (await res.json()) as { ok: boolean; message?: string };
-    return { ok: body.ok, message: body.message ?? '' };
-  } catch {
-    return { ok: false, message: 'Falha ao validar.' };
-  }
-}
-
-// O estado core vive em localStorage, que e por ORIGEM. Abrir o wizard na URL
-// de outro deploy (ou em aba anonima) chega sem nada salvo — e ai um ?step=3/4
-// levaria a uma tela que nao tem como funcionar: o passo 4 monta um client
-// Supabase com core.supabase_url e falharia com "supabaseUrl is required".
-// Por isso o deep link so vale quando o estado que ele pressupoe existe.
-function readSavedCore(): CoreValues {
-  try {
-    const saved = window.localStorage.getItem(STORAGE_KEY);
-    if (!saved) return emptyCore;
-    return { ...emptyCore, ...JSON.parse(saved), owner_password: '' };
-  } catch {
-    return emptyCore;
-  }
-}
 
 export default function SetupPage() {
   // Reexecução: o wizard foi aberto de propósito numa instalação já
@@ -220,8 +57,9 @@ export default function SetupPage() {
     // Passo 4 monta o client do navegador, que exige a anon key. Uma
     // reexecucao nao coleta esse campo, entao chegar la — por deep link ou por
     // localStorage pela metade — quebra com "supabaseKey is required" numa tela
-    // que a reexecucao nem precisa. Para no 3.
-    if (value === '4' && (isRerun || !saved.supabase_anon_key)) return 3;
+    // que a reexecucao nem precisa. Volta ao inicio em vez de entrar num ciclo
+    // entre os passos 3 e 4.
+    if (value === '4' && (isRerun || !saved.supabase_anon_key)) return 1;
     return value === '4' ? 4 : 3;
   });
   const [validation, setValidation] = useState<ValidationMap>({});
@@ -365,6 +203,10 @@ export default function SetupPage() {
   // already triggered, resume polling for the app to come live.
   useEffect(() => {
     if (step !== 3 || bootstrapping) return;
+    // Reexecucao nunca dispara redeploy da Vercel. Reaproveitar aqui o
+    // checkpoint historico `redeploy_triggered` da instalacao inicial criava um
+    // loop Step 3 -> Step 4 -> Step 3 depois de aplicar uma atualizacao.
+    if (isRerun) return;
     if (!core.supabase_url || !core.supabase_pat) return;
     let cancelled = false;
     (async () => {
@@ -388,7 +230,7 @@ export default function SetupPage() {
     return () => {
       cancelled = true;
     };
-  }, [step, bootstrapping, core.supabase_url, core.supabase_pat, waitForAppLive]);
+  }, [step, bootstrapping, core.supabase_url, core.supabase_pat, isRerun, waitForAppLive]);
 
   const runBootstrap = async () => {
     setStep(3);
@@ -421,6 +263,10 @@ export default function SetupPage() {
         // nao tem como preencher.
         setTimeline(TIMELINE_STEPS.slice(0, 3).map((entry) => entry.label));
         toast.success('Atualizacoes aplicadas.');
+        // URL, service role e PAT sao segredos temporarios de bootstrap. A
+        // reexecucao termina no app e deve remove-los mesmo sem passar pelo
+        // Step 4 do fluxo de primeira instalacao.
+        window.localStorage.removeItem(STORAGE_KEY);
         window.setTimeout(() => { window.location.href = '/'; }, 1500);
         return;
       }

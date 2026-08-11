@@ -1,49 +1,44 @@
 import { test, expect } from '@playwright/test';
 import { reachStep4LoggedIn, appFieldMessage, setScenario, shot } from '../helpers';
 
-// NOTE: no real Meta/WABA token is ever used. We exercise ONLY the field-level
-// validation: empty (guard) and bad-format (clear pt-BR error). The format-valid
-// "ping" path is also safe — the offline fetch guard answers it 401, so the real
-// validator returns its rejection message without contacting Meta.
-
+// No real provider credential is used. The setup-only API shim executes the
+// production validators while blocking every outbound provider request.
 test.beforeEach(async ({ page }) => {
   await setScenario(page, 'default');
   await reachStep4LoggedIn(page);
 });
 
-test('Step 4: Salvar is disabled while required fields are empty (cannot skip)', async ({ page }) => {
-  await expect(page.getByRole('button', { name: 'Salvar e finalizar' })).toBeDisabled();
+test('Step 4: Salvar is disabled while required providers are empty (cannot skip)', async ({ page }) => {
+  await expect(page.getByRole('button', { name: 'Salvar e conectar' })).toBeDisabled();
   await shot(page, 'step4-fields');
 });
 
-test('Meta connection check: bad format -> clear pt-BR error (no real token)', async ({ page }) => {
-  await appFieldMessage(page, 'meta_connection_check', 'garbage-no-pipe');
-  await expect(
-    page.getByText('Use o formato PHONE_NUMBER_ID|ACCESS_TOKEN para validar na Meta.'),
-  ).toBeVisible();
+test('Zernio: bad format -> clear pt-BR error', async ({ page }) => {
+  await appFieldMessage(page, 'zernio_api_key', 'garbage');
+  await expect(page.getByText('A chave Zernio deve ter o formato sk_ seguido de 64 caracteres hex.')).toBeVisible();
 });
 
-test('Meta connection check: well-formed but rejected offline -> Meta-invalid error', async ({ page }) => {
-  await appFieldMessage(page, 'meta_connection_check', '123456789012345|EAAfaketoken');
-  await expect(page.getByText('Phone Number ID ou token Meta invalido.')).toBeVisible();
+test('Zernio: well-formed but rejected offline -> invalid-key error', async ({ page }) => {
+  await appFieldMessage(page, 'zernio_api_key', `sk_${'a'.repeat(64)}`);
+  await expect(page.getByText('Chave Zernio invalida ou sem permissao.')).toBeVisible();
 });
 
-test('Meta Tier: invalid value -> clear pt-BR error', async ({ page }) => {
-  await appFieldMessage(page, 'meta_tier', 'tier_999');
-  await expect(page.getByText('Use tier_250, tier_1k, tier_10k ou tier_100k.')).toBeVisible();
+test('Evolution URL: non-HTTPS -> clear pt-BR error', async ({ page }) => {
+  await appFieldMessage(page, 'evolution_server_url', 'evolution.local');
+  await expect(page.getByText('Informe uma URL HTTPS valida (ex.: https://sua-evolution.com).')).toBeVisible();
 });
 
-test('Meta Webhook Verify Token: too short -> clear pt-BR error', async ({ page }) => {
-  await appFieldMessage(page, 'meta_webhook_verify_token', 'short');
-  await expect(page.getByText('Use um token com pelo menos 16 caracteres.')).toBeVisible();
+test('Evolution API key: too short -> clear pt-BR error', async ({ page }) => {
+  await appFieldMessage(page, 'evolution_api_key', 'short');
+  await expect(page.getByText('API key muito curta.')).toBeVisible();
 });
 
-test('LLM Provider: invalid value -> clear pt-BR error', async ({ page }) => {
-  await appFieldMessage(page, 'llm_provider', 'mistral');
-  await expect(page.getByText('Use openai, claude ou gemini.')).toBeVisible();
+test('Evolution instance: invalid characters -> clear pt-BR error', async ({ page }) => {
+  await appFieldMessage(page, 'evolution_instance', 'instancia invalida!');
+  await expect(page.getByText('Use apenas letras, numeros, ponto, hifen ou underline.')).toBeVisible();
 });
 
-test('App URL: non-HTTPS -> clear pt-BR error', async ({ page }) => {
-  await appFieldMessage(page, 'app_url', 'meu-app.com');
-  await expect(page.getByText('Informe uma URL HTTPS publica.')).toBeVisible();
+test('OpenAI key: bad prefix -> clear pt-BR error', async ({ page }) => {
+  await appFieldMessage(page, 'openai_api_key', 'invalid-key');
+  await expect(page.getByText('A chave OpenAI deve comecar com sk-.')).toBeVisible();
 });

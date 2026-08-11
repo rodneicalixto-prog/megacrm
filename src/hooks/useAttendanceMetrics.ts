@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getSupabase } from '@/lib/supabase';
 
-// Painel de ATENDIMENTO: fila, tempos e carga por atendente. Distinto do painel
-// de vendas (funil, origem de tráfego), que vive em useDashboardMetrics.
+// Painel de ATENDIMENTO: fila, tempos e carga por atendente. Esta consulta é
+// exclusiva da central operacional.
 //
 // Uma RPC única: os tempos médios exigem correlacionar mensagens por conversa, e
 // fazer isso no cliente significaria baixar a tabela de mensagens inteira.
