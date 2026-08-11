@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { LayoutDashboard } from 'lucide-react';
 import { useOperators } from '@/hooks/useOperators';
 import { useAttendanceMetrics } from '@/hooks/useAttendanceMetrics';
-import { useDepartments } from '@/hooks/useDepartments';
+import { lineLabel, useDepartments } from '@/hooks/useDepartments';
 import { AttendancePanel } from '@/components/dashboard/AttendancePanel';
 import { LoadErrorBanner } from '@/components/LoadErrorBanner';
 
@@ -10,9 +10,16 @@ import { LoadErrorBanner } from '@/components/LoadErrorBanner';
 // e financeiros pertencem ao módulo Vendas & Recompra, não a esta visão.
 export default function DashboardPage() {
   const [departmentId, setDepartmentId] = useState('all');
+  const [connectionId, setConnectionId] = useState('all');
   const { operators } = useOperators();
-  const { departments, loading: loadingDepartments } = useDepartments();
-  const attendance = useAttendanceMetrics(departmentId === 'all' ? null : departmentId);
+  const { departments, lines, loading: loadingDepartments } = useDepartments();
+  const attendance = useAttendanceMetrics(
+    departmentId === 'all' ? null : departmentId,
+    connectionId === 'all' ? null : connectionId,
+  );
+  const visibleLines = departmentId === 'all'
+    ? lines
+    : lines.filter((line) => line.department_id === departmentId);
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
@@ -29,20 +36,43 @@ export default function DashboardPage() {
             </p>
           </div>
         </div>
-        <label className="w-full sm:w-64">
-          <span className="mb-1.5 block text-label">Setor</span>
-          <select
-            value={departmentId}
-            disabled={loadingDepartments}
-            onChange={(event) => setDepartmentId(event.target.value)}
-            className="min-h-11 w-full rounded-lg border border-[rgba(59,130,246,0.25)] bg-[#0F1223] px-3 text-sm text-[var(--color-text-primary)] outline-none transition focus:border-[var(--accent-primary)] disabled:opacity-50"
-          >
-            <option value="all">Todos os setores</option>
-            {departments.map((department) => (
-              <option key={department.id} value={department.id}>{department.name}</option>
-            ))}
-          </select>
-        </label>
+        <div className="grid w-full gap-3 sm:w-auto sm:grid-cols-2">
+          <label className="w-full sm:w-56">
+            <span className="mb-1.5 block text-label">Setor</span>
+            <select
+              value={departmentId}
+              disabled={loadingDepartments}
+              onChange={(event) => {
+                setDepartmentId(event.target.value);
+                setConnectionId('all');
+              }}
+              className="min-h-11 w-full rounded-lg border border-[rgba(59,130,246,0.25)] bg-[#0F1223] px-3 text-sm text-[var(--color-text-primary)] outline-none transition focus:border-[var(--accent-primary)] disabled:opacity-50"
+            >
+              <option value="all">Todos os setores</option>
+              {departments.map((department) => (
+                <option key={department.id} value={department.id}>{department.name}</option>
+              ))}
+            </select>
+          </label>
+          <label className="w-full sm:w-56">
+            <span className="mb-1.5 block text-label">Número / linha</span>
+            <select
+              value={connectionId}
+              disabled={loadingDepartments || visibleLines.length === 0}
+              onChange={(event) => setConnectionId(event.target.value)}
+              className="min-h-11 w-full rounded-lg border border-[rgba(59,130,246,0.25)] bg-[#0F1223] px-3 text-sm text-[var(--color-text-primary)] outline-none transition focus:border-[var(--accent-primary)] disabled:opacity-50"
+            >
+              <option value="all">Todos os números</option>
+              {visibleLines.map((line) => {
+                const department = departments.find((item) => item.id === line.department_id);
+                const label = departmentId === 'all' && department
+                  ? `${department.name} — ${lineLabel(line)}`
+                  : lineLabel(line);
+                return <option key={line.id} value={line.id}>{label}</option>;
+              })}
+            </select>
+          </label>
+        </div>
       </div>
 
       {attendance.error ? (
