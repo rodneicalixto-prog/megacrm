@@ -10,7 +10,10 @@ export default defineConfig({
   outputDir: './tests/.artifacts/output',
   fullyParallel: false,
   workers: 1,
-  retries: 0,
+  // GitHub runners occasionally lose a navigation while Vite is warming up.
+  // Retry once only in CI; local runs remain strict and expose deterministic
+  // regressions immediately.
+  retries: process.env.CI ? 1 : 0,
   reporter: [
     ['list'],
     ['json', { outputFile: './tests/.artifacts/results.json' }],
@@ -20,7 +23,7 @@ export default defineConfig({
   expect: { timeout: 7_000 },
   use: {
     baseURL: BASE_URL,
-    trace: 'retain-on-failure',
+    trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'off',
   },

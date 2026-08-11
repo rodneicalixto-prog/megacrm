@@ -1,5 +1,6 @@
 import { getCredential } from '../src/lib/credentials.js';
 import { requireAdmin } from '../src/lib/admin-auth.js';
+import { isEvolutionConnected, readEvolutionConnectionState } from '../src/lib/evolutionState.js';
 
 // Status e webhook da instância Evolution (server-side; a API key nunca vai ao
 // browser). Doc oficial (doc.evolution-api.com, v2):
@@ -75,12 +76,12 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         const v = nestedInstance[k] ?? body[k];
         return typeof v === 'string' ? v : null;
       };
-      const state = pick('state') ?? pick('connectionStatus') ?? pick('status');
+      const state = readEvolutionConnectionState(body);
       return res.status(200).json({
         success: true,
         configured: true,
         // 'open' e o valor da v2; 'connected'/'online' aparecem em forks.
-        connected: state === 'open' || state === 'connected' || state === 'online',
+        connected: isEvolutionConnected(state),
         state,
         instance_name: pick('instanceName') ?? instance,
         // Sem isto, um shape novo volta a virar um 'nao conectado' mudo.

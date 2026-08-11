@@ -297,9 +297,9 @@ service role key vêm de Vault entries (`whatsapp_hub_supabase_url`,
 2. Audiência: tags + filtros custom + upload CSV/XLSX (E.164 + dedup).
 3. Mapear variáveis → campos do contato / colunas do CSV.
 4. Agendar ou disparar imediatamente.
-5. `dispatch-campaign` (cron 30s) lê batch de `campaign_contacts.pending`
-   limitado pelo `META_TIER`, envia via Meta, atualiza status individual,
-   tolera 429 com backoff.
+5. `dispatch-campaign` (cron 30s) lê batch de `campaign_contacts.pending`,
+   envia pelo provedor configurado, atualiza status individual e tolera 429
+   com backoff.
 6. `meta-webhook` ingere statuses (sent / delivered / read / failed) e
    incrementa contadores agregados na campanha.
 
