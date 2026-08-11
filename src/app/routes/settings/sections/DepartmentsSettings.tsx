@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Building2, ChevronDown, Loader2, Plus, RefreshCw, Smartphone, Trash2, UserPlus, UserRoundPlus } from 'lucide-react';
+import { Building2, ChevronDown, KeyRound, Loader2, Plus, RefreshCw, Smartphone, Trash2, UserPlus, UserRoundPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { getSupabase } from '@/lib/supabase';
 import { operatorLabel, useOperators } from '@/hooks/useOperators';
@@ -25,6 +25,7 @@ interface Linha {
   instance: string;
   phone_number: string | null;
   label: string | null;
+  server_url: string | null;
 }
 
 interface LinhaStatus {
@@ -60,6 +61,8 @@ export function DepartmentsSettings() {
     apiKey: string;
   }>>({});
   const [busy, setBusy] = useState(false);
+  const [linhaCredencialAberta, setLinhaCredencialAberta] = useState<string | null>(null);
+  const [credencialLinha, setCredencialLinha] = useState({ serverUrl: '', apiKey: '' });
   const [setorAberto, setSetorAberto] = useState<string | null>(null);
 
   // Cadastro de usuário: nome, e-mail, função e setor. Fica junto de setores e
@@ -104,7 +107,7 @@ export function DepartmentsSettings() {
       supabase.from('departments').select('id, name, is_default').order('name'),
       supabase.from('department_positions').select('id, department_id, name, user_id').order('name'),
       supabase.from('department_connections')
-        .select('id, department_id, position_id, instance, phone_number, label')
+        .select('id, department_id, position_id, instance, phone_number, label, server_url')
         .order('created_at'),
     ]);
     const loadError = d.error ?? c.error ?? l.error;
@@ -245,6 +248,36 @@ export function DepartmentsSettings() {
     if (error) return toast.error('Falha ao remover número', { description: error.message });
     toast.success('Número removido.');
     void carregar();
+  };
+
+  const salvarCredencialLinha = async (
+    linhaId: string,
+    credential = credencialLinha,
+  ) => {
+    setBusy(true);
+    try {
+      const { data } = await getSupabase().auth.getSession();
+      const response = await fetch('/api/department-connections', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${data.session?.access_token ?? ''}`,
+        },
+        body: JSON.stringify({ id: linhaId, ...credential }),
+      });
+      const result = await response.json() as { success?: boolean; message?: string };
+      if (!response.ok || !result.success) throw new Error(result.message ?? 'Erro interno');
+      toast.success(credential.serverUrl.trim() ? 'Credencial própria salva.' : 'Linha usando a credencial global.');
+      setLinhaCredencialAberta(null);
+      setCredencialLinha({ serverUrl: '', apiKey: '' });
+      void carregar();
+    } catch (saveError) {
+      toast.error('Falha ao salvar credencial', {
+        description: saveError instanceof Error ? saveError.message : 'Erro interno',
+      });
+    } finally {
+      setBusy(false);
+    }
   };
 
   const cadastrar = async () => {
@@ -465,7 +498,8 @@ export function DepartmentsSettings() {
                       const cargo = doSetor.find((item) => item.id === linha.position_id);
                       const status = statusLinhas[linha.id];
                       return (
-                        <div key={linha.id} className="flex items-center gap-3 rounded-lg border border-[rgba(59,130,246,0.1)] px-3 py-2">
+                        <div key={linha.id} className="rounded-lg border border-[rgba(59,130,246,0.1)] px-3 py-2">
+                          <div className="flex items-center gap-3">
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
                               <div className="truncate text-sm font-medium text-[var(--color-text-primary)]">
@@ -495,9 +529,21 @@ export function DepartmentsSettings() {
                               )}
                             </div>
                             <div className="truncate text-xs text-[var(--color-text-secondary)]">
-                              {linha.phone_number ? `${linha.phone_number} · ` : ''}{linha.instance} · {cargo?.name ?? 'Fila do setor'}
+                              {linha.phone_number ? `${linha.phone_number} · ` : ''}{linha.instance} · {cargo?.name ?? 'Fila do setor'} · {linha.server_url ? 'credencial própria' : 'credencial global'}
                             </div>
                           </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const abrir = linhaCredencialAberta !== linha.id;
+                              setLinhaCredencialAberta(abrir ? linha.id : null);
+                              setCredencialLinha({ serverUrl: abrir ? (linha.server_url ?? '') : '', apiKey: '' });
+                            }}
+                            aria-label={`Configurar credencial da linha ${linha.label ?? linha.instance}`}
+                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[var(--color-text-secondary)] hover:text-[var(--accent-secondary)]"
+                          >
+                            <KeyRound className="h-4 w-4" />
+                          </button>
                           <button
                             type="button"
                             onClick={() => void excluirLinha(linha)}
@@ -506,6 +552,17 @@ export function DepartmentsSettings() {
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
+                          </div>
+                          {linhaCredencialAberta === linha.id ? (
+                            <div className="mt-2 grid gap-2 border-t border-[rgba(59,130,246,0.08)] pt-3 sm:grid-cols-2">
+                              <input value={credencialLinha.serverUrl} onChange={(event) => setCredencialLinha((current) => ({ ...current, serverUrl: event.target.value }))} placeholder="URL Evolution própria" className={inputCls} />
+                              <input type="password" autoComplete="new-password" value={credencialLinha.apiKey} onChange={(event) => setCredencialLinha((current) => ({ ...current, apiKey: event.target.value }))} placeholder="Digite a chave da linha" className={inputCls} />
+                              <div className="flex gap-2 sm:col-span-2 sm:justify-end">
+                                <button type="button" onClick={() => void salvarCredencialLinha(linha.id, { serverUrl: '', apiKey: '' })} disabled={busy} className="h-9 rounded-lg px-3 text-xs text-[var(--color-text-secondary)]">Usar global</button>
+                                <button type="button" onClick={() => void salvarCredencialLinha(linha.id)} disabled={busy || !credencialLinha.serverUrl.trim() || !credencialLinha.apiKey.trim()} className="h-9 rounded-lg bg-[var(--accent-primary)] px-4 text-xs font-semibold text-white disabled:opacity-40">Salvar</button>
+                              </div>
+                            </div>
+                          ) : null}
                         </div>
                       );
                     })}
