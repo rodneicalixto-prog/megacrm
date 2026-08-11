@@ -306,7 +306,9 @@ silêncio. Corrigido e travado por teste de regressão.
    neutralizando fórmulas vindas de dados de contato.
 2. 🟨 **Multi-número** — Inbox e roteamento já distinguem linha por
    `connection_id`; o dashboard operacional agora também filtra por número e
-   exporta o CSV desse recorte. Resta a gestão completa do ciclo de conexão.
+   exporta o CSV desse recorte. A tela de Setores permite cadastrar e remover
+   instâncias Evolution, vinculando cada linha à fila do setor ou a um cargo.
+   Resta o monitoramento de conexão e credenciais específicas por linha.
 3. ⏳ **Próximas pautas** — API pública e i18n (o v1 permanece PT-BR fixo até
    essa etapa ser priorizada).
 
