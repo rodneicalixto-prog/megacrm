@@ -360,11 +360,11 @@ Deno.serve(async (req) => {
         .select('id').single();
       const outboundId = (ins as { id: string } | null)?.id ?? null;
       try {
-        const sent = await sendEvolutionMessage(phone, textBody, null, undefined, conversation.connection_id);
+        const sent = await sendEvolutionMessage(phone, textBody, null, undefined, conversation.connection_id, conversation.channel);
         uazTextId = sent.messageId;
-        if (outboundId) await admin.from('messages').update({ meta_status: 'sent', zernio_message_id: sent.messageId ? `evolution:${sent.messageId}` : null }).eq('id', outboundId);
+        if (outboundId) await admin.from('messages').update({ meta_status: 'sent', zernio_message_id: sent.messageId ? `${sent.providerName}:${sent.messageId}` : null }).eq('id', outboundId);
       } catch (err) {
-        evoError = err instanceof Error ? err.message : 'Erro ao enviar via Evolution.';
+        evoError = err instanceof Error ? err.message : `Erro ao enviar via ${conversation.channel === 'uazapi' ? 'UAZAPI' : 'Evolution'}.`;
         if (outboundId) await admin.from('messages').update({ meta_status: 'failed' }).eq('id', outboundId);
       }
     }
@@ -376,8 +376,8 @@ Deno.serve(async (req) => {
         .select('id').single();
       const mId = (mIns as { id: string } | null)?.id ?? null;
       try {
-        const sent = await sendEvolutionMessage(phone, '', m.media_url, m.content_type, conversation.connection_id);
-        if (mId) await admin.from('messages').update({ meta_status: 'sent', zernio_message_id: sent.messageId ? `evolution:${sent.messageId}` : null }).eq('id', mId);
+        const sent = await sendEvolutionMessage(phone, '', m.media_url, m.content_type, conversation.connection_id, conversation.channel);
+        if (mId) await admin.from('messages').update({ meta_status: 'sent', zernio_message_id: sent.messageId ? `${sent.providerName}:${sent.messageId}` : null }).eq('id', mId);
         uazMediaSent++;
       } catch (_err) {
         if (mId) await admin.from('messages').update({ meta_status: 'failed' }).eq('id', mId);

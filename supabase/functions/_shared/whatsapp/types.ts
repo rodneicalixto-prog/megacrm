@@ -9,7 +9,7 @@
 // serem testáveis em Node e reutilizáveis em qualquer runtime.
 // ============================================================================
 
-export type ProviderName = 'zernio' | 'evolution';
+export type ProviderName = 'zernio' | 'evolution' | 'uazapi';
 
 // Contrato único de mensagem inbound, normalizado a partir do payload bruto de
 // cada provedor (Zernio Cloud-API-shape vs Evolution Baileys-shape).

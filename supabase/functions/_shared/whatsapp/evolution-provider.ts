@@ -34,12 +34,18 @@ function toMediaType(raw: string | undefined): 'image' | 'video' | 'document' {
 }
 
 export class EvolutionProvider implements WhatsAppProvider {
-  readonly name = 'evolution' as const;
+  readonly name: 'evolution' | 'uazapi';
   private readonly serverUrl: string;
   private readonly apiKey: string;
   private readonly instance: string;
 
-  constructor(serverUrl: string, apiKey: string, instance: string) {
+  constructor(
+    serverUrl: string,
+    apiKey: string,
+    instance: string,
+    providerName: 'evolution' | 'uazapi' = 'evolution',
+  ) {
+    this.name = providerName;
     this.serverUrl = serverUrl.replace(/\/$/, '');
     this.apiKey = apiKey;
     this.instance = instance;
@@ -108,6 +114,9 @@ export class EvolutionProvider implements WhatsAppProvider {
       const isAudio = opts.mediaUrl != null && opts.mediaType === 'audio';
       const path = opts.mediaUrl
         ? isAudio
+          // Baileys-style providers expose either sendWhatsAppAudio (Evolution)
+          // or route sendMedia audio internally (some UAZAPI installs). We try
+          // the dedicated endpoint first and fallback to sendMedia below.
           ? `/message/sendWhatsAppAudio/${this.instance}`
           : `/message/sendMedia/${this.instance}`
         : `/message/sendText/${this.instance}`;
@@ -128,6 +137,27 @@ export class EvolutionProvider implements WhatsAppProvider {
         headers: { apikey: this.apiKey, 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
+      if (!res.ok && isAudio) {
+        const fallback = await fetch(`${this.serverUrl}/message/sendMedia/${this.instance}`, {
+          method: 'POST',
+          headers: { apikey: this.apiKey, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            number,
+            mediatype: 'audio',
+            media: opts.mediaUrl,
+            caption: text || undefined,
+          }),
+        });
+        const fallbackRaw = await fallback.json().catch(() => ({}));
+        const fallbackMessageId =
+          str(asObject(asObject(fallbackRaw).key), ['id']) ?? str(asObject(fallbackRaw), ['id']);
+        return {
+          ok: fallback.ok,
+          messageId: fallbackMessageId,
+          raw: fallbackRaw,
+          error: fallback.ok ? undefined : `HTTP ${fallback.status}`,
+        };
+      }
       const raw = await res.json().catch(() => ({}));
       const messageId = str(asObject(asObject(raw).key), ['id']) ?? str(asObject(raw), ['id']);
       return { ok: res.ok, messageId, raw, error: res.ok ? undefined : `HTTP ${res.status}` };

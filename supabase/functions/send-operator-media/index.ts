@@ -114,10 +114,12 @@ export async function handleOperatorMedia(req: Request): Promise<Response> {
       const { data: pub } = admin.storage.from(OUTBOUND_BUCKET).getPublicUrl(path);
       const publicUrl = pub.publicUrl;
 
-      let evolutionMessageId: string | null = null;
+      let providerMessageId: string | null = null;
+      let providerName: 'evolution' | 'uazapi' = convRow.channel === 'uazapi' ? 'uazapi' : 'evolution';
       try {
-        const sent = await sendEvolutionMessage(phone, caption, publicUrl, contentType, convRow.connection_id);
-        evolutionMessageId = sent.messageId;
+        const sent = await sendEvolutionMessage(phone, caption, publicUrl, contentType, convRow.connection_id, convRow.channel);
+        providerMessageId = sent.messageId;
+        providerName = sent.providerName;
       } catch (err) {
         // O arquivo já está no bucket; sem o envio ele viraria lixo silencioso.
         await admin.storage.from(OUTBOUND_BUCKET).remove([path]);
@@ -137,7 +139,7 @@ export async function handleOperatorMedia(req: Request): Promise<Response> {
           content_type: contentType,
           content: caption || null,
           media_url: publicUrl,
-          zernio_message_id: evolutionMessageId ? `evolution:${evolutionMessageId}` : null,
+          zernio_message_id: providerMessageId ? `${providerName}:${providerMessageId}` : null,
           meta_status: 'sent',
           is_private_note: false,
         })
@@ -158,7 +160,7 @@ export async function handleOperatorMedia(req: Request): Promise<Response> {
         ok: true,
         message_id: (row as { id: string }).id,
         media_url: publicUrl,
-        sent_via: 'evolution',
+        sent_via: providerName,
       });
     }
 

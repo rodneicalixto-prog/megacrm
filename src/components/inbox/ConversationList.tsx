@@ -10,6 +10,9 @@ function channelBadge(channel: ConversationChannel | undefined) {
   if (channel === 'evolution') {
     return { Icon: Smartphone, label: 'Evolution', color: 'text-[#F59E0B]' };
   }
+  if (channel === 'uazapi') {
+    return { Icon: Smartphone, label: 'UAZAPI', color: 'text-[#60A5FA]' };
+  }
   return { Icon: MessageCircle, label: 'WhatsApp', color: 'text-[#25D366]' };
 }
 

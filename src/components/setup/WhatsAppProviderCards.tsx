@@ -6,6 +6,9 @@ type Props = {
   evolutionUrlField: CredentialFieldConfig;
   evolutionKeyField: CredentialFieldConfig;
   evolutionInstanceField: CredentialFieldConfig;
+  uazapiUrlField: CredentialFieldConfig;
+  uazapiKeyField: CredentialFieldConfig;
+  uazapiInstanceField: CredentialFieldConfig;
   onCredentialChange: (key: string, value: string | null) => void;
   onValidationChange: (key: string, isValid: boolean) => void;
 };
@@ -27,6 +30,9 @@ export function WhatsAppProviderCards({
   evolutionUrlField,
   evolutionKeyField,
   evolutionInstanceField,
+  uazapiUrlField,
+  uazapiKeyField,
+  uazapiInstanceField,
   onCredentialChange,
   onValidationChange,
 }: Props) {
@@ -75,6 +81,39 @@ export function WhatsAppProviderCards({
           />
           <CredentialField
             field={evolutionInstanceField}
+            initialHasValue={false}
+            onChange={onCredentialChange}
+            onValidationChange={onValidationChange}
+          />
+        </div>
+      </div>
+
+      {/* Card 3 — UAZAPI (Baileys/WebSocket) */}
+      <div className="glass-card p-5">
+        <div className="mb-1 flex items-center gap-2">
+          <span className="text-base font-semibold text-[#F8FAFC]">UAZAPI</span>
+          <OptionalBadge />
+        </div>
+        <p className="mb-3 text-[13px] leading-5 text-[#94A3B8]">
+          Canal não-oficial com espelhamento no celular: conversas continuam visíveis
+          no WhatsApp mobile e no CRM, com envio/recebimento de áudio, vídeo, imagem
+          e documentos.
+        </p>
+        <div className="space-y-3">
+          <CredentialField
+            field={uazapiUrlField}
+            initialHasValue={false}
+            onChange={onCredentialChange}
+            onValidationChange={onValidationChange}
+          />
+          <CredentialField
+            field={uazapiKeyField}
+            initialHasValue={false}
+            onChange={onCredentialChange}
+            onValidationChange={onValidationChange}
+          />
+          <CredentialField
+            field={uazapiInstanceField}
             initialHasValue={false}
             onChange={onCredentialChange}
             onValidationChange={onValidationChange}

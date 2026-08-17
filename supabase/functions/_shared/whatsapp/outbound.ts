@@ -10,7 +10,7 @@ import { EvolutionProvider } from './evolution-provider.ts';
 import { connectionForConversation, providerFor } from './department-routing.ts';
 
 export function isEvolutionChannel(channel: string | null | undefined): boolean {
-  return channel === 'evolution';
+  return channel === 'evolution' || channel === 'uazapi';
 }
 
 export async function loadEvolutionProvider(): Promise<EvolutionProvider> {
@@ -21,6 +21,16 @@ export async function loadEvolutionProvider(): Promise<EvolutionProvider> {
     throw new Error('Credenciais Evolution ausentes (server URL / API key / instance).');
   }
   return new EvolutionProvider(serverUrl, apiKey, instance);
+}
+
+export async function loadUazapiProvider(): Promise<EvolutionProvider> {
+  const serverUrl = (await getCredential('uazapi_server_url')) ?? '';
+  const apiKey = (await getCredential('uazapi_api_key')) ?? '';
+  const instance = (await getCredential('uazapi_instance')) ?? '';
+  if (!serverUrl || !apiKey || !instance) {
+    throw new Error('Credenciais UAZAPI ausentes (server URL / API key / instance).');
+  }
+  return new EvolutionProvider(serverUrl, apiKey, instance, 'uazapi');
 }
 
 // Envia texto (e opcionalmente mídia) para o telefone do contato via Evolution.
@@ -34,9 +44,14 @@ export async function sendEvolutionMessage(
   mediaUrl?: string | null,
   mediaType?: string,
   connectionId?: string | null,
-): Promise<{ messageId: string | null }> {
-  const conn = await connectionForConversation(connectionId);
-  const provider = conn ? providerFor(conn) : await loadEvolutionProvider();
+  channel?: string | null,
+): Promise<{ messageId: string | null; providerName: 'evolution' | 'uazapi' }> {
+  const conn = channel === 'uazapi' ? null : await connectionForConversation(connectionId);
+  const provider = conn
+    ? providerFor(conn)
+    : channel === 'uazapi'
+      ? await loadUazapiProvider()
+      : await loadEvolutionProvider();
   const result = await provider.sendMessage(phone, text, {
     mediaUrl: mediaUrl ?? undefined,
     mediaType,
@@ -44,5 +59,5 @@ export async function sendEvolutionMessage(
   if (!result.ok) {
     throw new Error(result.error ?? 'Erro ao enviar via Evolution.');
   }
-  return { messageId: result.messageId };
+  return { messageId: result.messageId, providerName: provider.name };
 }

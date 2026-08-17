@@ -144,6 +144,50 @@ export const setupConfig: SetupConfig = {
       },
     },
     {
+      key: 'uazapi_server_url',
+      label: 'UAZAPI Server URL',
+      placeholder: 'https://sua-uazapi.com',
+      inputType: 'text',
+      docsUrl: 'https://docs.uazapi.com',
+      helpText:
+        'Opcional. URL do servidor UAZAPI/Baileys. Útil para conversas visíveis no CRM e no celular, texto livre e mídia (áudio/vídeo/documento).',
+      validate: async (value) => {
+        const v = value.trim();
+        if (!v) return ok;
+        return /^https:\/\/[^\s]+$/i.test(v)
+          ? ok
+          : { ok: false, message: 'Informe uma URL HTTPS valida (ex.: https://sua-uazapi.com).' };
+      },
+    },
+    {
+      key: 'uazapi_api_key',
+      label: 'UAZAPI API Key',
+      placeholder: 'token da instância',
+      inputType: 'password',
+      helpText:
+        'Opcional. Token usado no header apikey. Atribuição via código de rastreio, pois provedores Baileys não entregam ctwa_clid.',
+      validate: async (value) => {
+        const v = value.trim();
+        if (!v) return ok;
+        return v.length >= 8 ? ok : { ok: false, message: 'API key muito curta.' };
+      },
+    },
+    {
+      key: 'uazapi_instance',
+      label: 'UAZAPI Instance',
+      placeholder: 'nome-da-instancia',
+      inputType: 'text',
+      helpText:
+        'Opcional. Nome da instância UAZAPI usada nos endpoints de envio e no webhook.',
+      validate: async (value) => {
+        const v = value.trim();
+        if (!v) return ok;
+        return /^[\w.-]{1,64}$/.test(v)
+          ? ok
+          : { ok: false, message: 'Use apenas letras, numeros, ponto, hifen ou underline.' };
+      },
+    },
+    {
       key: 'openai_api_key',
       label: 'OpenAI API Key',
       placeholder: 'sk-...',
