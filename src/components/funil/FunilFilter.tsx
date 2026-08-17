@@ -18,7 +18,7 @@ export interface DealFilter {
   interactionTo: string;
   purchaseFrom: string;
   purchaseTo: string;
-  channels: string[];   // canal de mensageria: whatsapp | instagram | evolution
+  channels: string[];   // canal de mensageria: whatsapp | instagram | evolution | uazapi
   origins: string[];    // origem (badge): Meta Ads | Orgânico | Google Ads | TikTok Ads | LinkedIn Ads
   tagIds: string[];
   productIds: string[];
@@ -54,6 +54,7 @@ const CHANNELS: { value: string; label: string }[] = [
   { value: 'whatsapp', label: 'WhatsApp' },
   { value: 'instagram', label: 'Instagram' },
   { value: 'evolution', label: 'Evolution' },
+  { value: 'uazapi', label: 'UAZAPI' },
 ];
 // Origem = badge de alto nível de getDealOrigin. Para "Orgânico" casamos pelo
 // tom (traffic_type='organico'), que cobre qualquer origem orgânica mesmo sem um

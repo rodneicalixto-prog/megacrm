@@ -5,6 +5,7 @@ import { setupConfig } from '../../../../setup.config';
 import {
   hasAtLeastOneWhatsAppProvider,
   hasEvolutionProvider,
+  hasUazapiProvider,
 } from './whatsappProviders';
 import { getSupabaseCredentials } from '@/lib/supabase';
 import { SetupCard, StepIndicator } from './SetupChrome';
@@ -329,12 +330,12 @@ export default function SetupPage() {
       const saveBody = await saveRes.json();
       if (!saveRes.ok || !saveBody.success) throw new Error(saveBody.message ?? 'Falha ao salvar.');
 
-      // Evolution-only: sem Zernio não há conta oficial/webhook para resolver.
+      // Rota não-oficial only: sem Zernio não há conta oficial/webhook para resolver.
       // A conexão da rota não-oficial é tratada nas fases de inbound.
       const hasZernio = !!(creds.zernio_api_key ?? '').trim();
       if (!hasZernio) {
         window.localStorage.removeItem(STORAGE_KEY);
-        toast.success('Credenciais salvas (Evolution).');
+        toast.success('Credenciais salvas (canal não-oficial).');
         window.location.href = setupConfig.postBootstrapRedirect;
         return;
       }
@@ -440,10 +441,14 @@ export default function SetupPage() {
   const evolutionUrlField = fieldByKey('evolution_server_url');
   const evolutionKeyField = fieldByKey('evolution_api_key');
   const evolutionInstanceField = fieldByKey('evolution_instance');
+  const uazapiUrlField = fieldByKey('uazapi_server_url');
+  const uazapiKeyField = fieldByKey('uazapi_api_key');
+  const uazapiInstanceField = fieldByKey('uazapi_instance');
   const openaiField = fieldByKey('openai_api_key');
 
   const whatsappOk = hasAtLeastOneWhatsAppProvider(appCredentials, appValidation);
   const evolutionOk = hasEvolutionProvider(appCredentials, appValidation);
+  const uazapiOk = hasUazapiProvider(appCredentials, appValidation);
   const openaiOk = appValidation['openai_api_key'] === true;
   const allAppValid = whatsappOk && openaiOk;
 
@@ -453,6 +458,9 @@ export default function SetupPage() {
   const supabaseBase = (core.supabase_url || getSupabaseCredentials()?.url || '').replace(/\/$/, '');
   const evolutionWebhookUrl = supabaseBase
     ? `${supabaseBase}/functions/v1/whatsapp-inbound?provider=evolution`
+    : '';
+  const uazapiWebhookUrl = supabaseBase
+    ? `${supabaseBase}/functions/v1/whatsapp-inbound?provider=uazapi`
     : '';
 
   return (
@@ -509,10 +517,15 @@ export default function SetupPage() {
               evolutionUrlField={evolutionUrlField}
               evolutionKeyField={evolutionKeyField}
               evolutionInstanceField={evolutionInstanceField}
+              uazapiUrlField={uazapiUrlField}
+              uazapiKeyField={uazapiKeyField}
+              uazapiInstanceField={uazapiInstanceField}
               openaiField={openaiField}
               whatsappOk={whatsappOk}
-              evolutionOk={evolutionOk}
-              evolutionWebhookUrl={evolutionWebhookUrl}
+              evolutionOk={evolutionOk || uazapiOk}
+              evolutionWebhookUrl={uazapiOk ? uazapiWebhookUrl : evolutionWebhookUrl}
+              webhookProviderLabel={uazapiOk ? 'UAZAPI' : 'Evolution'}
+              allowAutoWebhookRegistration={!uazapiOk}
               registeringHook={registeringHook}
               accountChoices={accountChoices}
               selectedAccount={selectedAccount}

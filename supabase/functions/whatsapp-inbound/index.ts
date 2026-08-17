@@ -67,6 +67,9 @@ export async function handleInbound(req: Request): Promise<Response> {
     evolution_server_url: await getCredential('evolution_server_url'),
     evolution_api_key: await getCredential('evolution_api_key'),
     evolution_instance: await getCredential('evolution_instance'),
+    uazapi_server_url: await getCredential('uazapi_server_url'),
+    uazapi_api_key: await getCredential('uazapi_api_key'),
+    uazapi_instance: await getCredential('uazapi_instance'),
   };
   const provider = resolveInboundProvider(hint, creds);
   if (!provider) {
@@ -100,6 +103,20 @@ export async function handleInbound(req: Request): Promise<Response> {
     departmentId = conn.departmentId;
     assignTo = conn.assignToUserId ?? null;
     connectionId = conn.connectionId;
+  }
+  if (provider.name === 'uazapi') {
+    departmentId = await (async () => {
+      const { data } = await admin.from('departments').select('id').eq('is_default', true).maybeSingle();
+      return (data as { id: string } | null)?.id ?? null;
+    })();
+    if (!departmentId) {
+      console.log(JSON.stringify({ event: 'uazapi_sem_departamento_padrao' }));
+      return jsonResponse(
+        { ok: false, error: 'departamento padrão não encontrado para UAZAPI' },
+        { status: 500 },
+      );
+    }
+    connectionId = null;
   }
 
   // Mensagem enviada pela própria conta. Na rota não-oficial isso quase sempre

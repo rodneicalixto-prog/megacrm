@@ -1,5 +1,5 @@
 export type ConversationStatus = 'ai_active' | 'human_active' | 'closed';
-export type ConversationChannel = 'whatsapp' | 'instagram' | 'evolution';
+export type ConversationChannel = 'whatsapp' | 'instagram' | 'evolution' | 'uazapi';
 
 // A janela de 24h é regra da Meta, e só existe na rota oficial (Zernio sobre a
 // Cloud API): fora dela, só template reinicia a conversa. A rota não-oficial
@@ -7,7 +7,7 @@ export type ConversationChannel = 'whatsapp' | 'instagram' | 'evolution';
 // então tratá-la como "janela fechada" esconderia o campo de mensagem sem
 // motivo e ofereceria um template que ela nem usa.
 export function hasSessionWindow(channel: ConversationChannel | undefined): boolean {
-  return channel !== 'evolution';
+  return channel !== 'evolution' && channel !== 'uazapi';
 }
 export type MessageDirection = 'inbound' | 'outbound';
 export type SenderType = 'contact' | 'ai' | 'operator' | 'system';

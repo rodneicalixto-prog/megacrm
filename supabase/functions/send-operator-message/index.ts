@@ -106,7 +106,7 @@ Deno.serve(async (req) => {
 
     const convRow = conv as { contact_id: string; channel: string | null; zernio_conversation_id: string | null; department_id: string | null; connection_id: string | null };
 
-    // Conversas do canal 'evolution' respondem pela Evolution API (coexiste com
+    // Conversas de canais Baileys-style ('evolution'/'uazapi') respondem pelo mesmo provider (coexiste com
     // o WABA/Zernio — cada conversa sai por onde a mensagem chegou).
     if (isEvolutionChannel(convRow.channel)) {
       try {
@@ -114,10 +114,10 @@ Deno.serve(async (req) => {
           .from('contacts').select('phone').eq('id', convRow.contact_id).maybeSingle();
         const phone = (contactRow as { phone?: string } | null)?.phone ?? null;
         if (!phone) throw new Error('Contato sem telefone.');
-        const sent = await sendEvolutionMessage(phone, content, null, undefined, convRow.connection_id);
+        const sent = await sendEvolutionMessage(phone, content, null, undefined, convRow.connection_id, convRow.channel);
         await admin
           .from('messages')
-          .update({ meta_status: 'sent', zernio_message_id: sent.messageId ? `evolution:${sent.messageId}` : null })
+          .update({ meta_status: 'sent', zernio_message_id: sent.messageId ? `${sent.providerName}:${sent.messageId}` : null })
           .eq('id', message.id);
         return jsonResponse({ ok: true, message_id: message.id, sent_via: convRow.channel });
       } catch (err) {
@@ -126,7 +126,7 @@ Deno.serve(async (req) => {
           ok: true,
           message_id: message.id,
           sent_via: convRow.channel,
-          evolution_error: err instanceof Error ? err.message : 'Erro ao enviar via Evolution.',
+          evolution_error: err instanceof Error ? err.message : `Erro ao enviar via ${convRow.channel === 'uazapi' ? 'UAZAPI' : 'Evolution'}.`,
         });
       }
     }

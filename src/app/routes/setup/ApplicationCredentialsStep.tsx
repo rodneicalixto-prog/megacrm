@@ -16,10 +16,15 @@ interface ApplicationCredentialsStepProps {
   evolutionUrlField: CredentialFieldConfig;
   evolutionKeyField: CredentialFieldConfig;
   evolutionInstanceField: CredentialFieldConfig;
+  uazapiUrlField: CredentialFieldConfig;
+  uazapiKeyField: CredentialFieldConfig;
+  uazapiInstanceField: CredentialFieldConfig;
   openaiField: CredentialFieldConfig;
   whatsappOk: boolean;
   evolutionOk: boolean;
   evolutionWebhookUrl: string;
+  webhookProviderLabel: string;
+  allowAutoWebhookRegistration: boolean;
   registeringHook: boolean;
   accountChoices: { id: string; name: string }[] | null;
   selectedAccount: string;
@@ -46,10 +51,15 @@ export function ApplicationCredentialsStep({
   evolutionUrlField,
   evolutionKeyField,
   evolutionInstanceField,
+  uazapiUrlField,
+  uazapiKeyField,
+  uazapiInstanceField,
   openaiField,
   whatsappOk,
   evolutionOk,
   evolutionWebhookUrl,
+  webhookProviderLabel,
+  allowAutoWebhookRegistration,
   registeringHook,
   accountChoices,
   selectedAccount,
@@ -118,14 +128,17 @@ export function ApplicationCredentialsStep({
     <>
       <p className="mb-4 text-[13px] leading-5 text-[#94A3B8]">
         Configure <strong className="text-[#F8FAFC]">pelo menos um</strong> provedor de
-        WhatsApp. Pode preencher as duas — a oficial (Zernio) e a não-oficial (Evolution)
-        coexistem.
+        WhatsApp. Pode preencher mais de uma — Zernio, Evolution e UAZAPI coexistem,
+        e cada conversa responde pelo canal por onde chegou.
       </p>
       <WhatsAppProviderCards
         zernioField={zernioField}
         evolutionUrlField={evolutionUrlField}
         evolutionKeyField={evolutionKeyField}
         evolutionInstanceField={evolutionInstanceField}
+        uazapiUrlField={uazapiUrlField}
+        uazapiKeyField={uazapiKeyField}
+        uazapiInstanceField={uazapiInstanceField}
         onCredentialChange={onCredentialChange}
         onValidationChange={(key, ok) => setAppValidation((prev) => ({ ...prev, [key]: ok }))}
       />
@@ -147,12 +160,12 @@ export function ApplicationCredentialsStep({
       {evolutionOk && evolutionWebhookUrl ? (
         <div className="mt-4 rounded-xl border border-[rgba(245,158,11,0.3)] bg-[rgba(245,158,11,0.06)] p-5">
           <div className="text-sm font-semibold text-[#F8FAFC]">
-            Cadastre este webhook na Evolution
+            Cadastre este webhook na {webhookProviderLabel}
           </div>
           <p className="mt-1 text-[13px] leading-5 text-[#94A3B8]">
             Para as mensagens chegarem ao CRM, registre esta URL como webhook da sua
-            instância Evolution. Clique em <strong className="text-[#F8FAFC]">Cadastrar
-            automaticamente</strong> ou registre manualmente no painel da instância →
+            instância {webhookProviderLabel}. Clique em <strong className="text-[#F8FAFC]">Cadastrar
+            automaticamente</strong> quando for Evolution, ou registre manualmente no painel da instância →
             Webhook, evento “messages”.
           </p>
           <div className="mt-3 flex items-start gap-2">
@@ -173,6 +186,7 @@ export function ApplicationCredentialsStep({
               Copiar
             </button>
           </div>
+          {allowAutoWebhookRegistration ? (
           <div className="mt-3 flex justify-end">
             <button
               type="button"
@@ -183,6 +197,7 @@ export function ApplicationCredentialsStep({
               {registeringHook ? 'Registrando…' : 'Cadastrar automaticamente'}
             </button>
           </div>
+          ) : null}
         </div>
       ) : null}
       <p className="mt-3 text-[13px] text-[#94A3B8]">

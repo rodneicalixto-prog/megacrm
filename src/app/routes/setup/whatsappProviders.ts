@@ -2,11 +2,12 @@
 // As duas coexistem e são individualmente OPCIONAIS, mas o step só avança se
 // PELO MENOS UMA estiver completa.
 //   - Zernio (API Oficial): basta a zernio_api_key.
-//   - Evolution (API Não Oficial): exige server URL + api key + instance.
+//   - Evolution/UAZAPI (API Não Oficial): exige server URL + api key + instance.
 
 export const WHATSAPP_PROVIDER_KEYS = {
   zernio: ['zernio_api_key'] as const,
   evolution: ['evolution_server_url', 'evolution_api_key', 'evolution_instance'] as const,
+  uazapi: ['uazapi_server_url', 'uazapi_api_key', 'uazapi_instance'] as const,
 };
 
 export const NO_WHATSAPP_PROVIDER_MESSAGE =
@@ -38,11 +39,20 @@ export function hasEvolutionProvider(
   return providerComplete(WHATSAPP_PROVIDER_KEYS.evolution, values, validation);
 }
 
+export function hasUazapiProvider(
+  values: Record<string, string | undefined>,
+  validation: Record<string, boolean | undefined>,
+): boolean {
+  return providerComplete(WHATSAPP_PROVIDER_KEYS.uazapi, values, validation);
+}
+
 export function hasAtLeastOneWhatsAppProvider(
   values: Record<string, string | undefined>,
   validation: Record<string, boolean | undefined>,
 ): boolean {
   return (
-    hasZernioProvider(values, validation) || hasEvolutionProvider(values, validation)
+    hasZernioProvider(values, validation) ||
+    hasEvolutionProvider(values, validation) ||
+    hasUazapiProvider(values, validation)
   );
 }

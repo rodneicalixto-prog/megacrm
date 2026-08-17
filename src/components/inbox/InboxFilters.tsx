@@ -130,7 +130,7 @@ export function InboxFilters({ filters, onChange, operators, tags, departments, 
       </div>
 
       <Section label="Canal">
-        {([['all','Todos'],['whatsapp','WhatsApp'],['instagram','Instagram'],['evolution','Evolution']] as const).map(([v, label]) => (
+        {([['all','Todos'],['whatsapp','WhatsApp'],['instagram','Instagram'],['evolution','Evolution'],['uazapi','UAZAPI']] as const).map(([v, label]) => (
           <Chip key={v} active={filters.channel === v} onClick={() => set({ channel: v })}>
             {label}
           </Chip>

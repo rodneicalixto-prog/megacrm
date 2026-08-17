@@ -16,6 +16,9 @@ export interface ProviderCredentials {
   evolution_server_url?: string | null;
   evolution_api_key?: string | null;
   evolution_instance?: string | null;
+  uazapi_server_url?: string | null;
+  uazapi_api_key?: string | null;
+  uazapi_instance?: string | null;
 }
 
 // Constrói o provider pedido a partir das credenciais disponíveis. Retorna null
@@ -41,6 +44,15 @@ export function makeProvider(
       creds.evolution_instance,
     );
   }
+  if (name === 'uazapi') {
+    const serverUrl = creds.uazapi_server_url ?? creds.evolution_server_url;
+    const apiKey = creds.uazapi_api_key ?? creds.evolution_api_key;
+    const instance = creds.uazapi_instance ?? creds.evolution_instance;
+    if (!serverUrl || !apiKey || !instance) {
+      return null;
+    }
+    return new EvolutionProvider(serverUrl, apiKey, instance, 'uazapi');
+  }
   return null;
 }
 
@@ -52,5 +64,5 @@ export function resolveInboundProvider(
   creds: ProviderCredentials,
 ): WhatsAppProvider | null {
   if (hint) return makeProvider(hint, creds);
-  return makeProvider('zernio', creds) ?? makeProvider('evolution', creds);
+  return makeProvider('zernio', creds) ?? makeProvider('uazapi', creds) ?? makeProvider('evolution', creds);
 }
