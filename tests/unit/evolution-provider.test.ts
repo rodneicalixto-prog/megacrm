@@ -153,3 +153,35 @@ test('JID que não é telefone (broadcast/status) é descartado', () => {
 test('Evolution nunca entrega referral CTWA', () => {
   assert.equal(provider.extractReferral({ event: 'messages.upsert', data: {} }), null);
 });
+
+test('áudio usa sendMedia como fallback quando sendWhatsAppAudio falha', async () => {
+  const calls: Array<{ url: string; body: unknown }> = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    calls.push({ url: String(input), body: JSON.parse(String(init?.body ?? '{}')) });
+    if (String(input).includes('/message/sendWhatsAppAudio/')) {
+      return new Response(JSON.stringify({ error: 'rota indisponível' }), { status: 404 });
+    }
+    return new Response(JSON.stringify({ key: { id: 'AUDIO-FALLBACK-1' } }), { status: 200 });
+  }) as typeof fetch;
+
+  try {
+    const got = await provider.sendMessage('+55 11 99999-8888', '', {
+      mediaUrl: 'https://cdn.exemplo.com/audio.ogg',
+      mediaType: 'audio',
+    });
+
+    assert.equal(got.ok, true);
+    assert.equal(got.messageId, 'AUDIO-FALLBACK-1');
+    assert.equal(calls.length, 2);
+    assert.equal(calls[0].url, 'https://evo.example.com/message/sendWhatsAppAudio/minha-instancia');
+    assert.equal(calls[1].url, 'https://evo.example.com/message/sendMedia/minha-instancia');
+    assert.deepEqual(calls[1].body, {
+      number: '5511999998888',
+      mediatype: 'audio',
+      media: 'https://cdn.exemplo.com/audio.ogg',
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
