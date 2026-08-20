@@ -5,7 +5,9 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['dist', 'node_modules'] },
+  // .claude/worktrees: checkouts nested de agentes em background — nunca são
+  // conteúdo do produto, e sem isso caem no catch-all sem plugin registrado.
+  { ignores: ['dist', 'node_modules', '.claude'] },
 
   // Frontend: React + browser.
   {
