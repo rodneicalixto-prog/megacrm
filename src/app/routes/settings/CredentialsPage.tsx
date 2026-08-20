@@ -7,6 +7,7 @@ import { InstagramCard } from './sections/InstagramCard';
 import { EvolutionCard } from './sections/EvolutionCard';
 import { useAppUser } from '@/app/providers/AppUserProvider';
 import { useAuth } from '@/app/providers/AuthProvider';
+import { canSeeAdminNav } from '@/app/layout/nav-config';
 import { setupConfig } from '../../../../setup.config';
 
 type ExistsMap = Record<string, { exists: boolean }>;
@@ -187,7 +188,7 @@ export default function CredentialsPage() {
     );
   }
 
-  if (role !== 'admin') {
+  if (!canSeeAdminNav(role)) {
     return <Navigate to="/dashboard" replace />;
   }
 

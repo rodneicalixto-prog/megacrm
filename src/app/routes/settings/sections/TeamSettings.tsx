@@ -11,6 +11,13 @@ import { Avatar } from '@/components/ui/Avatar';
 
 type Role = 'super_admin' | 'admin' | 'supervisor' | 'operator';
 
+const ROLE_LABEL: Record<Role, string> = {
+  super_admin: 'Owner',
+  admin: 'Admin',
+  supervisor: 'Supervisor',
+  operator: 'Operador',
+};
+
 // supabase.functions.invoke zera `data` em respostas não-2xx (o erro vira
 // FunctionsHttpError com o Response em `.context`). Lê o corpo pra mostrar a
 // mensagem amigável da função (ex.: "Já existe um usuário com esse e-mail")
@@ -237,7 +244,7 @@ export function TeamSettings() {
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
                     <span className="text-xs uppercase tracking-wide font-semibold text-[var(--accent-primary)]">
-                      {m.role === 'admin' ? 'Owner' : 'Operador'}
+                      {ROLE_LABEL[m.role] ?? 'Operador'}
                     </span>
                     {isOwner && m.user_id !== userId && (
                       <button

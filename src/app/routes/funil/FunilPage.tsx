@@ -4,6 +4,7 @@ import { ChevronDown, Clock, SquareKanban, Plus, Settings2, X } from 'lucide-rea
 import { getSupabase } from '@/lib/supabase';
 import { usePipeline } from '@/hooks/usePipeline';
 import { useAppUser } from '@/app/providers/AppUserProvider';
+import { canSeeAdminNav } from '@/app/layout/nav-config';
 import { LoadErrorBanner } from '@/components/LoadErrorBanner';
 import { DealDrawer } from '@/components/funil/DealDrawer';
 import { FunilManager } from '@/components/funil/FunilManager';
@@ -128,7 +129,7 @@ export default function FunilPage() {
               </>
             )}
           </div>
-          {role === 'admin' && (
+          {canSeeAdminNav(role) && (
             <button
               onClick={() => setManageOpen(true)}
               className="inline-flex items-center gap-2 rounded-lg border border-[rgba(59,130,246,0.25)] px-3 py-2 text-sm text-[var(--accent-secondary)] transition hover:border-[var(--accent-primary)]"
@@ -248,7 +249,7 @@ export default function FunilPage() {
           deal={openDeal}
           stages={stages}
           pipelines={pipelines}
-          isAdmin={role === 'admin'}
+          isAdmin={canSeeAdminNav(role)}
           onClose={() => setOpenDealId(null)}
           onStageChange={moveDeal}
           onChanged={reload}

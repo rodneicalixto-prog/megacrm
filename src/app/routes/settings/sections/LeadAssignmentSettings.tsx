@@ -4,6 +4,7 @@ import { GripVertical, Plus, X } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { getSupabase } from '@/lib/supabase';
 import { useAppUser } from '@/app/providers/AppUserProvider';
+import { canSeeAdminNav } from '@/app/layout/nav-config';
 import { useOperators } from '@/hooks/useOperators';
 
 // Fila de distribuição automática de leads no handoff. A ordem (position) define
@@ -11,7 +12,7 @@ import { useOperators } from '@/hooks/useOperators';
 // Persistência direta (padrão de BusinessHoursSettings), gated a admin.
 export function LeadAssignmentSettings() {
   const { userId, role } = useAppUser();
-  const isAdmin = role === 'admin';
+  const isAdmin = canSeeAdminNav(role);
   const { operators } = useOperators();
 
   const [enabled, setEnabled] = useState(false);
