@@ -185,7 +185,21 @@ export interface Deal {
   // Canal de mensageria do contato (whatsapp/instagram/evolution), derivado da
   // conversa. Usado pelo filtro de Canal do funil.
   channel?: string | null;
+  // Soft-archive do card no Kanban: null = ativo (aparece no board por
+  // padrão), preenchido = arquivado (some do board a menos que o filtro
+  // "Mostrar arquivados" esteja ligado). Ver 20260811140000_deal_archive_and_temperature.sql.
+  archived_at: string | null;
 }
+
+// Ordenação do board do funil (FunilFilter). 'recent' é o padrão hoje
+// (usePipeline já ordena por created_at desc na query).
+export type DealSort = 'recent' | 'value' | 'alpha';
+
+export const DEAL_SORT_LABEL: Record<DealSort, string> = {
+  recent: 'Mais recente',
+  value: 'Maior valor',
+  alpha: 'Alfabética',
+};
 
 export interface Project {
   id: string;

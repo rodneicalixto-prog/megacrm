@@ -15,6 +15,11 @@ import { dueBadge } from '@/lib/nextAction';
 const brl = (n: number) =>
   n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
+// Quantos cards mostrar por etapa antes do botão "carregar mais". Etapas com
+// muitos negócios paravam de ser renderizadas inteiras a cada troca de filtro;
+// isso é só paginação de exibição — os dados já estão carregados no client.
+const STAGE_PAGE_SIZE = 20;
+
 export default function FunilPage() {
   const funil = usePipeline();
   const { pipelines, selectedId, select, pipeline, stages, deals, loading, error, reload, moveDeal, createDeal } = funil;
@@ -29,6 +34,11 @@ export default function FunilPage() {
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [productCatalog, setProductCatalog] = useState<Product[]>([]);
   const [filter, setFilter] = useState<DealFilter>(EMPTY_FILTER);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  // Quantos cards exibir por etapa (paginação client-side, "carregar mais").
+  const [visibleByStage, setVisibleByStage] = useState<Record<string, number>>({});
+  const showMore = (stageId: string) =>
+    setVisibleByStage((cur) => ({ ...cur, [stageId]: (cur[stageId] ?? STAGE_PAGE_SIZE) + STAGE_PAGE_SIZE }));
 
   const filteredDeals = useMemo(() => applyDealFilter(deals, filter), [deals, filter]);
 
@@ -126,6 +136,32 @@ export default function FunilPage() {
               <Settings2 className="h-4 w-4" /> Gerenciar funis
             </button>
           )}
+          <div className="relative">
+            <button
+              onClick={() => setQuickAddOpen((v) => !v)}
+              disabled={stages.length === 0}
+              className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-br from-[#1E3A8A] to-[#3B82F6] px-3 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+            >
+              <Plus className="h-4 w-4" /> Negócio
+            </button>
+            {quickAddOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setQuickAddOpen(false)} />
+                <div className="absolute right-0 z-20 mt-1 w-64 rounded-lg border border-[rgba(59,130,246,0.25)] bg-[#0A0A0F] p-3 shadow-[0_0_30px_rgba(59,130,246,0.15)]">
+                  <AddDealForm
+                    contacts={contacts}
+                    stages={stages}
+                    onCancel={() => setQuickAddOpen(false)}
+                    onSubmit={async (input) => {
+                      // stages foi passado, então o form sempre preenche stage_id.
+                      await createDeal({ ...input, stage_id: input.stage_id ?? stages[0].id });
+                      setQuickAddOpen(false);
+                    }}
+                  />
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -142,6 +178,9 @@ export default function FunilPage() {
           {stages.map((stage) => {
             const list = filteredDeals.filter((d) => d.stage_id === stage.id);
             const total = list.reduce((s, d) => s + (Number(d.value) || 0), 0);
+            const visible = visibleByStage[stage.id] ?? STAGE_PAGE_SIZE;
+            const visibleList = list.slice(0, visible);
+            const remaining = list.length - visibleList.length;
             return (
               <div
                 key={stage.id}
@@ -162,7 +201,7 @@ export default function FunilPage() {
                 <div className="px-3 pt-1 text-xs text-[var(--color-text-secondary)]">{brl(total)}</div>
 
                 <div className="flex-1 space-y-2 p-3">
-                  {list.map((deal) => (
+                  {visibleList.map((deal) => (
                     <DealCard
                       key={deal.id}
                       deal={deal}
@@ -170,6 +209,15 @@ export default function FunilPage() {
                       onOpen={() => setOpenDealId(deal.id)}
                     />
                   ))}
+
+                  {remaining > 0 && (
+                    <button
+                      onClick={() => showMore(stage.id)}
+                      className="w-full rounded-lg border border-[rgba(59,130,246,0.15)] py-1.5 text-xs text-[var(--color-text-secondary)] transition hover:border-[var(--accent-primary)] hover:text-[var(--accent-primary)]"
+                    >
+                      Carregar mais ({remaining})
+                    </button>
+                  )}
 
                   {adding === stage.id ? (
                     <AddDealForm
@@ -291,16 +339,22 @@ function DealCard({
 
 function AddDealForm({
   contacts,
+  stages,
   onSubmit,
   onCancel,
 }: {
   contacts: ContactLite[];
-  onSubmit: (input: { title: string; contact_id: string; value?: number }) => Promise<void>;
+  // Presente só no quick-add do topo (fora de uma coluna específica): quando
+  // passado, o form mostra um seletor de etapa; dentro de uma coluna a etapa
+  // já vem fixa (o caller injeta stage_id no onSubmit).
+  stages?: Stage[];
+  onSubmit: (input: { title: string; contact_id: string; value?: number; stage_id?: string }) => Promise<void>;
   onCancel: () => void;
 }) {
   const [title, setTitle] = useState('');
   const [contactId, setContactId] = useState('');
   const [value, setValue] = useState('');
+  const [stageId, setStageId] = useState(stages?.[0]?.id ?? '');
   const [busy, setBusy] = useState(false);
 
   const inputCls =
@@ -310,13 +364,20 @@ function AddDealForm({
     <form
       onSubmit={async (e) => {
         e.preventDefault();
-        if (!title.trim() || !contactId) return;
+        if (!title.trim() || !contactId || (stages && !stageId)) return;
         setBusy(true);
-        await onSubmit({ title: title.trim(), contact_id: contactId, value: Number(value) || 0 });
+        await onSubmit({ title: title.trim(), contact_id: contactId, value: Number(value) || 0, ...(stages ? { stage_id: stageId } : {}) });
         setBusy(false);
       }}
       className="space-y-2 rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] p-2"
     >
+      {stages && (
+        <select value={stageId} onChange={(e) => setStageId(e.target.value)} className={inputCls}>
+          {stages.map((s) => (
+            <option key={s.id} value={s.id}>{s.name}</option>
+          ))}
+        </select>
+      )}
       <select value={contactId} onChange={(e) => setContactId(e.target.value)} className={inputCls}>
         <option value="">Contato (lead)…</option>
         {contacts.map((c) => (

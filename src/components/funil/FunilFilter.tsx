@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ChevronDown, Filter, X } from 'lucide-react';
-import type { CustomField, Deal, LeadType, Temperature } from '@/types/crm';
+import type { CustomField, Deal, DealSort, LeadType, Temperature } from '@/types/crm';
+import { DEAL_SORT_LABEL } from '@/types/crm';
 import { getDealOrigin } from '@/lib/dealOrigin';
 
 // ----------------------------------------------------------------------------
@@ -26,6 +27,11 @@ export interface DealFilter {
   leadTypes: LeadType[];
   // custom_field_id → substring/valor buscado.
   fields: Record<string, string>;
+  // Arquivados ficam fora do board por padrão; este toggle os revela.
+  showArchived: boolean;
+  // Ordenação do board — não afeta quais deals aparecem, só a ordem dentro
+  // de cada etapa.
+  sort: DealSort;
 }
 
 export const EMPTY_FILTER: DealFilter = {
@@ -45,6 +51,8 @@ export const EMPTY_FILTER: DealFilter = {
   temperatures: [],
   leadTypes: [],
   fields: {},
+  showArchived: false,
+  sort: 'recent',
 };
 
 const TEMPS: Temperature[] = ['Frio', 'Morno', 'Quente'];
@@ -81,6 +89,7 @@ export function countActiveFilters(f: DealFilter): number {
   if (f.temperatures.length) n++;
   if (f.leadTypes.length) n++;
   if (Object.values(f.fields).some((v) => v.trim())) n++;
+  if (f.showArchived) n++;
   return n;
 }
 
@@ -93,12 +102,38 @@ function withinRange(value: string | null, from: string, to: string): boolean {
   return true;
 }
 
+// Nome exibido no card (lead) — mesma regra do DealCard, usada na ordenação
+// alfabética para bater com o que o usuário vê.
+function dealDisplayName(d: Deal): string {
+  return d.contact?.name?.trim() || d.contact?.phone || d.title;
+}
+
+function sortDeals(deals: Deal[], sort: DealSort): Deal[] {
+  const sorted = [...deals];
+  switch (sort) {
+    case 'value':
+      sorted.sort((a, b) => (Number(b.value) || 0) - (Number(a.value) || 0));
+      break;
+    case 'alpha':
+      sorted.sort((a, b) => dealDisplayName(a).localeCompare(dealDisplayName(b), 'pt-BR'));
+      break;
+    case 'recent':
+    default:
+      sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      break;
+  }
+  return sorted;
+}
+
 // Filtro puro aplicado ao board. Um deal passa se satisfaz TODOS os critérios.
+// Também ordena o resultado conforme f.sort — mantém filtro e ordenação numa
+// função só, já que é aqui que o board consome os deals carregados.
 export function applyDealFilter(deals: Deal[], f: DealFilter): Deal[] {
   const name = f.name.trim().toLowerCase();
   const email = f.email.trim().toLowerCase();
   const phoneDigits = f.phone.replace(/\D/g, '');
-  return deals.filter((d) => {
+  const filtered = deals.filter((d) => {
+    if (!f.showArchived && d.archived_at) return false;
     const c = d.contact;
     if (name && !(c?.name ?? '').toLowerCase().includes(name)) return false;
     if (phoneDigits && !(c?.phone ?? '').replace(/\D/g, '').includes(phoneDigits)) return false;
@@ -119,6 +154,7 @@ export function applyDealFilter(deals: Deal[], f: DealFilter): Deal[] {
     }
     return true;
   });
+  return sortDeals(filtered, f.sort);
 }
 
 function toggle<T>(arr: T[], v: T): T[] {
@@ -224,6 +260,26 @@ export function FunilFilter({
             </div>
 
             <div className="space-y-4">
+              <FieldBlock label="Ordenar por">
+                <select value={value.sort} onChange={(e) => set('sort', e.target.value as DealSort)} className={inputCls}>
+                  {(Object.entries(DEAL_SORT_LABEL) as [DealSort, string][]).map(([k, label]) => (
+                    <option key={k} value={k}>{label}</option>
+                  ))}
+                </select>
+              </FieldBlock>
+
+              <FieldBlock label="Arquivados">
+                <label className="flex items-center gap-2 text-sm text-[var(--color-text-primary)]">
+                  <input
+                    type="checkbox"
+                    checked={value.showArchived}
+                    onChange={(e) => set('showArchived', e.target.checked)}
+                    className="h-3.5 w-3.5 accent-[var(--accent-primary)]"
+                  />
+                  Mostrar arquivados
+                </label>
+              </FieldBlock>
+
               <FieldBlock label="Nome">
                 <input value={value.name} onChange={(e) => set('name', e.target.value)} placeholder="Buscar por nome…" className={inputCls} />
               </FieldBlock>

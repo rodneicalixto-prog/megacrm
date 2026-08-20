@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Building2, Mail, MessageSquare, Phone, Plus, X } from 'lucide-react';
+import { Archive, ArchiveRestore, Building2, Mail, MessageSquare, Phone, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { getSupabase } from '@/lib/supabase';
 import { useDealDetail } from '@/hooks/useDealDetail';
@@ -99,6 +99,11 @@ export function DealDrawer({ deal, stages, pipelines, isAdmin, onClose, onStageC
     setLostReason('');
     void saveDealField({ status: 'open' }, 'Negócio reaberto.');
   };
+
+  // Arquivar não muda status/etapa — só some do board padrão (FunilFilter
+  // esconde archived_at != null a menos que "Mostrar arquivados" esteja ligado).
+  const archive = () => void saveDealField({ archived_at: new Date().toISOString() }, 'Negócio arquivado.');
+  const restore = () => void saveDealField({ archived_at: null }, 'Negócio restaurado.');
 
   const changePipeline = async (pipelineId: string) => {
     const supabase = getSupabase();
@@ -200,6 +205,28 @@ export function DealDrawer({ deal, stages, pipelines, isAdmin, onClose, onStageC
                   className={dealInputClass}
                 />
               </Field>
+            </section>
+
+            {/* Arquivar / restaurar — some do board padrão, sem afetar status/etapa */}
+            <section>
+              {deal.archived_at ? (
+                <div className="flex items-center justify-between gap-2 rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.02] p-3 text-xs text-[var(--color-text-secondary)]">
+                  <span>Arquivado em {fmtDate(deal.archived_at)}</span>
+                  <button
+                    onClick={restore}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-[rgba(59,130,246,0.25)] px-2.5 py-1 text-xs font-semibold text-[var(--accent-secondary)] transition hover:border-[var(--accent-primary)]"
+                  >
+                    <ArchiveRestore className="h-3.5 w-3.5" /> Restaurar
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={archive}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-[rgba(59,130,246,0.2)] px-2.5 py-1.5 text-xs font-medium text-[var(--color-text-secondary)] transition hover:border-[var(--accent-primary)] hover:text-[var(--color-text-primary)]"
+                >
+                  <Archive className="h-3.5 w-3.5" /> Arquivar
+                </button>
+              )}
             </section>
 
             {/* Status do negócio (ganho / perdido) */}
