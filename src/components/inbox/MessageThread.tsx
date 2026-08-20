@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Bot, Check, CheckCheck, Clock, FileText, StickyNote, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Message } from '@/types/inbox';
@@ -21,6 +21,34 @@ function StatusTicks({ status }: { status: Message['meta_status'] }) {
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+
+// Chave de dia local (não UTC) para agrupar mensagens por data de calendário.
+function dayKey(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+function formatDaySeparator(iso: string): string {
+  const d = new Date(iso);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  if (dayKey(iso) === dayKey(today.toISOString())) return 'Hoje';
+  if (dayKey(iso) === dayKey(yesterday.toISOString())) return 'Ontem';
+
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+}
+
+function DaySeparator({ iso }: { iso: string }) {
+  return (
+    <div className="flex justify-center py-1">
+      <span className="text-label rounded-full bg-[rgba(59,130,246,0.08)] px-3 py-1 text-[var(--text-secondary)]">
+        {formatDaySeparator(iso)}
+      </span>
+    </div>
+  );
 }
 
 function SenderIcon({ sender }: { sender: Message['sender_type'] }) {
@@ -115,6 +143,21 @@ function FailedActions({
 export function MessageThread({ messages, loading, onRetry, onDismiss }: MessageThreadProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  // Marca, por mensagem, se ela é a primeira do seu grupo de dia (local time)
+  // — usado para inserir o separador "Hoje" / "Ontem" / data antes dela.
+  const dayBreaks = useMemo(() => {
+    const breaks = new Set<string>();
+    let lastKey: string | null = null;
+    for (const m of messages) {
+      const key = dayKey(m.created_at);
+      if (key !== lastKey) {
+        breaks.add(m.id);
+        lastKey = key;
+      }
+    }
+    return breaks;
+  }, [messages]);
+
   useEffect(() => {
     // Auto-scroll to newest message. Setting block to 'end' and using a ref
     // target below the last bubble avoids fighting with user scroll-up.
@@ -142,12 +185,14 @@ export function MessageThread({ messages, loading, onRetry, onDismiss }: Message
       {messages.map((m) => {
         const isNote = m.is_private_note;
         const isInbound = m.direction === 'inbound';
+        const showDaySeparator = dayBreaks.has(m.id);
 
         if (isNote) {
           // Internal note — no bubble alignment; full-width yellow-tinted card.
           return (
-            <div
-              key={m.id}
+            <div key={m.id} className="contents">
+              {showDaySeparator && <DaySeparator iso={m.created_at} />}
+              <div
               className={cn(
                 'mx-auto max-w-[85%] rounded-lg border border-[rgba(245,158,11,0.25)] bg-[rgba(245,158,11,0.06)] p-3',
                 m._state === 'pending' && 'opacity-70',
@@ -167,15 +212,15 @@ export function MessageThread({ messages, loading, onRetry, onDismiss }: Message
               {m._state === 'failed' && m._tempId && (
                 <FailedActions tempId={m._tempId} onRetry={onRetry} onDismiss={onDismiss} />
               )}
+              </div>
             </div>
           );
         }
 
         return (
-          <div
-            key={m.id}
-            className={cn('flex', isInbound ? 'justify-start' : 'justify-end')}
-          >
+          <div key={m.id} className="contents">
+            {showDaySeparator && <DaySeparator iso={m.created_at} />}
+            <div className={cn('flex', isInbound ? 'justify-start' : 'justify-end')}>
             <div
               className={cn(
                 'max-w-[70%] rounded-2xl px-4 py-2.5 text-sm shadow-sm transition-opacity',
@@ -224,6 +269,7 @@ export function MessageThread({ messages, loading, onRetry, onDismiss }: Message
               {m._state === 'failed' && m._tempId && (
                 <FailedActions tempId={m._tempId} onRetry={onRetry} onDismiss={onDismiss} inverse />
               )}
+            </div>
             </div>
           </div>
         );
