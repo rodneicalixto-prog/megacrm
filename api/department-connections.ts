@@ -49,7 +49,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   try {
     if (req.method !== 'POST' && req.method !== 'PATCH') return res.status(405).end();
     const auth = await requireAdmin(req.headers?.authorization ?? req.headers?.Authorization);
-    if (!auth.ok) return res.status(auth.status).json({ success: false, message: auth.message });
+    if (auth.ok === false) return res.status(auth.status).json({ success: false, message: auth.message });
 
     const body = (req.body ?? {}) as CreateConnectionBody;
     const departmentId = optionalUuid(body.departmentId);

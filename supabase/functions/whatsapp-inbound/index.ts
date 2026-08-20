@@ -21,7 +21,7 @@ import {
   resolveInboundProvider,
   type ProviderName,
 } from '../_shared/whatsapp/index.ts';
-import { verifyWebhookSignature } from '../_shared/signature.ts';
+import { secretMatches, verifyWebhookSignature } from '../_shared/signature.ts';
 import { connectionForInstance, instanceFromPayload } from '../_shared/whatsapp/department-routing.ts';
 
 // Nome distinto do normalizePhone de _shared/whatsapp/types.ts — o bundler do
@@ -71,6 +71,20 @@ export async function handleInbound(req: Request): Promise<Response> {
   const provider = resolveInboundProvider(hint, creds);
   if (!provider) {
     return jsonResponse({ ok: false, error: 'nenhum provedor configurado' }, { status: 500 });
+  }
+
+  if (provider.name === 'evolution') {
+    const expected = await getCredential('evolution_webhook_secret');
+    const received =
+      req.headers.get('X-MegaCRM-Webhook-Secret') ??
+      url.searchParams.get('token') ??
+      '';
+    if (!expected) {
+      return jsonResponse({ ok: false, error: 'webhook Evolution sem segredo configurado' }, { status: 500 });
+    }
+    if (!secretMatches(received, expected)) {
+      return jsonResponse({ ok: false, error: 'segredo de webhook inválido' }, { status: 401 });
+    }
   }
 
   const inbound = provider.parseInboundWebhook(payload);

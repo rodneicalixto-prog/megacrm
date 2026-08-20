@@ -1,4 +1,5 @@
-import { getCredential } from '../src/lib/credentials.js';
+import { randomBytes } from 'node:crypto';
+import { getCredential, setCredential } from '../src/lib/credentials.js';
 import { requireAdmin } from '../src/lib/admin-auth.js';
 import { isEvolutionConnected, readEvolutionConnectionState } from '../src/lib/evolutionState.js';
 
@@ -22,9 +23,11 @@ type ApiResponse = {
   end: () => void;
 };
 
-function webhookUrl(): string | null {
+function webhookUrl(secret: string): string | null {
   const base = (process.env.SUPABASE_URL ?? '').replace(/\/$/, '');
-  return base ? `${base}/functions/v1/whatsapp-inbound?provider=evolution` : null;
+  return base
+    ? base + '/functions/v1/whatsapp-inbound?provider=evolution&token=' + encodeURIComponent(secret)
+    : null;
 }
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
@@ -32,14 +35,20 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).end();
 
     const auth = await requireAdmin(req.headers?.authorization ?? req.headers?.Authorization);
-    if (!auth.ok) {
+    if (auth.ok === false) {
       return res.status(auth.status).json({ success: false, message: auth.message });
+    }
+
+    let webhookSecret = await getCredential('evolution_webhook_secret');
+    if (!webhookSecret) {
+      webhookSecret = randomBytes(32).toString('hex');
+      await setCredential('evolution_webhook_secret', webhookSecret);
     }
 
     const serverUrl = ((await getCredential('evolution_server_url')) ?? '').replace(/\/$/, '');
     const apiKey = (await getCredential('evolution_api_key')) ?? '';
     const instance = (await getCredential('evolution_instance')) ?? '';
-    const hook = webhookUrl();
+    const hook = webhookUrl(webhookSecret);
 
     if (!serverUrl || !apiKey || !instance) {
       return res.status(200).json({ success: true, configured: false, webhook_url: hook });

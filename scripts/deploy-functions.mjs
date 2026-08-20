@@ -1,9 +1,8 @@
 // ============================================================================
 // Deploy every Edge Function in supabase/functions/ to the linked project.
-// Each is deployed with --no-verify-jwt because we do auth validation
-// inside the function body (some functions are called anonymously — e.g.
-// meta-webhook — and the legacy JWT verifier doesn't understand the
-// project's new ES256 signing keys).
+// JWT verification is configured per function in supabase/config.toml.
+// User-facing functions keep the platform verifier enabled. Only signed
+// webhooks and intentionally public endpoints disable it.
 //
 // Usage:
 //   SUPABASE_ACCESS_TOKEN=sbp_... PROJECT_REF=abc npm run functions:deploy
@@ -39,7 +38,6 @@ function run(fn) {
         fn,
         '--project-ref',
         REF,
-        '--no-verify-jwt',
       ],
       {
         env: { ...process.env, SUPABASE_ACCESS_TOKEN: TOKEN },

@@ -21,7 +21,10 @@ vi.mock('../../supabase/functions/_shared/credentials.ts', () => ({
 
 const { handleInbound } = await import('../../supabase/functions/whatsapp-inbound/index.ts');
 
-const EVOLUTION_URL = 'https://fake.supabase.co/functions/v1/whatsapp-inbound?provider=evolution';
+const EVOLUTION_SECRET = 'segredo-evolution';
+const EVOLUTION_URL =
+  'https://fake.supabase.co/functions/v1/whatsapp-inbound?provider=evolution&token=' +
+  EVOLUTION_SECRET;
 
 function upsert(body: Record<string, unknown>) {
   return { event: 'messages.upsert', instance: 'pricall', data: body };
@@ -58,6 +61,7 @@ beforeEach(() => {
   credentials.evolution_server_url = 'https://evo.example.com';
   credentials.evolution_api_key = 'apikey';
   credentials.evolution_instance = 'pricall';
+  credentials.evolution_webhook_secret = EVOLUTION_SECRET;
 });
 
 // ------------------------------------------------------------- método
@@ -72,6 +76,20 @@ test('JSON inválido é recusado sem tocar no banco', async () => {
     new Request(EVOLUTION_URL, { method: 'POST', body: 'não é json' }),
   );
   expect(res.status).toBe(400);
+  expect(db.rows('contacts')).toHaveLength(0);
+});
+test('Evolution recusa payload sem segredo de webhook', async () => {
+  const url = 'https://fake.supabase.co/functions/v1/whatsapp-inbound?provider=evolution';
+  const res = await handleInbound(post(url, msg()));
+  expect(res.status).toBe(401);
+  expect(db.rows('contacts')).toHaveLength(0);
+});
+
+test('Evolution recusa segredo de webhook incorreto', async () => {
+  const url =
+    'https://fake.supabase.co/functions/v1/whatsapp-inbound?provider=evolution&token=incorreto';
+  const res = await handleInbound(post(url, msg()));
+  expect(res.status).toBe(401);
   expect(db.rows('contacts')).toHaveLength(0);
 });
 
@@ -330,8 +348,7 @@ test('duas linhas no mesmo departamento não se confundem', async () => {
     { id: 'linha-b', department_id: DEPT, position_id: null, instance: 'linha-b' },
   ]);
 
-  const url = 'https://fake.supabase.co/functions/v1/whatsapp-inbound?provider=evolution';
-  await handleInbound(post(url, { ...msg(), instance: 'linha-b' }));
+  await handleInbound(post(EVOLUTION_URL, { ...msg(), instance: 'linha-b' }));
 
   expect(db.rows('conversations')[0]).toMatchObject({ connection_id: 'linha-b' });
 });
