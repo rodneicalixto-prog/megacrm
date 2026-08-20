@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getSupabase } from '@/lib/supabase';
 import { useAppUser } from '@/app/providers/AppUserProvider';
+import { chunkArray } from '@/lib/chunk';
 import type { AudienceFilter, Campaign, VariableSource } from '@/types/campaigns';
 import type { Contact } from '@/types/db';
+
+const IN_FILTER_CHUNK_SIZE = 100;
 
 interface CreateCampaignInput {
   name: string;
@@ -54,12 +57,27 @@ async function resolveAudienceIds(filter: AudienceFilter): Promise<string[]> {
     if (candidateIds.length === 0) return [];
   }
 
-  let query = supabase.schema('whatsapp_hub').from('contacts').select('id, custom_fields');
-  if (candidateIds) query = query.in('id', candidateIds);
-
-  const { data, error } = await query;
-  if (error) throw new Error(error.message);
-  const rows = (data ?? []) as Array<Pick<Contact, 'id' | 'custom_fields'>>;
+  // candidateIds (contatos que batem os filtros de tag) escala com o número
+  // de contatos da instância — fatiamos em lotes de 100 ids para não estourar
+  // limites de URL/parâmetros do PostgREST num único `.in()`.
+  let rows: Array<Pick<Contact, 'id' | 'custom_fields'>>;
+  if (candidateIds) {
+    const idChunks = chunkArray(candidateIds, IN_FILTER_CHUNK_SIZE);
+    const results = await Promise.all(
+      idChunks.map((chunk) =>
+        supabase.schema('whatsapp_hub').from('contacts').select('id, custom_fields').in('id', chunk),
+      ),
+    );
+    rows = [];
+    for (const { data, error } of results) {
+      if (error) throw new Error(error.message);
+      rows.push(...((data ?? []) as Array<Pick<Contact, 'id' | 'custom_fields'>>));
+    }
+  } else {
+    const { data, error } = await supabase.schema('whatsapp_hub').from('contacts').select('id, custom_fields');
+    if (error) throw new Error(error.message);
+    rows = (data ?? []) as Array<Pick<Contact, 'id' | 'custom_fields'>>;
+  }
 
   // Apply custom-field filter in JS (Postgrest JSON filters would work too
   // but stay simple for now — audiences are small).

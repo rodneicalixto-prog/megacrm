@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getSupabase } from '@/lib/supabase';
 import { useAppUser } from '@/app/providers/AppUserProvider';
+import { chunkArray } from '@/lib/chunk';
 import type { Contact, ContactWithTags, Tag } from '@/types/db';
+
+const IN_FILTER_CHUNK_SIZE = 100;
 
 export type ContactSort = 'recent' | 'oldest' | 'name' | 'first_seen';
 
@@ -32,6 +35,30 @@ interface UseContactsResult {
 }
 
 const PAGE_SIZE_DEFAULT = 25;
+
+// Réplica em JS da ordenação aplicada no `.order()` do Supabase — usada
+// somente no ramo de filtro por tag (ver reload), onde a paginação passa a
+// ser feita em memória depois do merge das fatias de `.in()`.
+function compareContacts(a: Contact, b: Contact, sort: ContactSort): number {
+  switch (sort) {
+    case 'oldest':
+      return a.created_at.localeCompare(b.created_at);
+    case 'name': {
+      if (!a.name && !b.name) return 0;
+      if (!a.name) return 1; // nullsFirst: false → nulos por último
+      if (!b.name) return -1;
+      return a.name.localeCompare(b.name);
+    }
+    case 'first_seen': {
+      const av = a.first_seen_at ?? '';
+      const bv = b.first_seen_at ?? '';
+      return bv.localeCompare(av);
+    }
+    case 'recent':
+    default:
+      return b.created_at.localeCompare(a.created_at);
+  }
+}
 
 export function useContacts({
   search = '',
@@ -79,35 +106,65 @@ export function useContacts({
       }
     }
 
-    let query = supabase
-      .from('contacts')
-      .select('*', { count: 'exact' })
-      .range(from, to);
-
-    // Ordenação (coluna "Primeiro registro" e nome também ordenáveis).
-    if (sort === 'oldest') query = query.order('created_at', { ascending: true });
-    else if (sort === 'name') query = query.order('name', { ascending: true, nullsFirst: false });
-    else if (sort === 'first_seen') query = query.order('first_seen_at', { ascending: false });
-    else query = query.order('created_at', { ascending: false });
+    let data: Contact[];
+    let count: number;
 
     if (contactIdsForTag) {
-      query = query.in('id', contactIdsForTag);
-    }
+      // contactIdsForTag pode conter TODOS os contatos com a tag — escala com
+      // o volume da base, então não cabe num único `.in()`. Buscamos em lotes
+      // de 100 ids (filtros de origem/busca aplicados por lote no servidor)
+      // e paginamos em memória depois de ordenar o conjunto combinado.
+      const chunks = chunkArray(contactIdsForTag, IN_FILTER_CHUNK_SIZE);
+      const results = await Promise.all(
+        chunks.map((chunk) => {
+          let chunkQuery = supabase.from('contacts').select('*').in('id', chunk);
+          if (source) chunkQuery = chunkQuery.eq('source', source);
+          if (search.trim()) {
+            const pattern = `%${search.trim()}%`;
+            chunkQuery = chunkQuery.or(`name.ilike.${pattern},phone.ilike.${pattern},email.ilike.${pattern}`);
+          }
+          return chunkQuery;
+        }),
+      );
+      const firstErr = results.find((r) => r.error)?.error;
+      if (firstErr) {
+        setError(firstErr.message);
+        setLoading(false);
+        return;
+      }
+      const merged = results.flatMap((r) => (r.data ?? []) as Contact[]);
+      merged.sort((a, b) => compareContacts(a, b, sort));
+      count = merged.length;
+      data = merged.slice(from, to + 1);
+    } else {
+      let query = supabase
+        .from('contacts')
+        .select('*', { count: 'exact' })
+        .range(from, to);
 
-    if (source) {
-      query = query.eq('source', source);
-    }
+      // Ordenação (coluna "Primeiro registro" e nome também ordenáveis).
+      if (sort === 'oldest') query = query.order('created_at', { ascending: true });
+      else if (sort === 'name') query = query.order('name', { ascending: true, nullsFirst: false });
+      else if (sort === 'first_seen') query = query.order('first_seen_at', { ascending: false });
+      else query = query.order('created_at', { ascending: false });
 
-    if (search.trim()) {
-      const pattern = `%${search.trim()}%`;
-      query = query.or(`name.ilike.${pattern},phone.ilike.${pattern},email.ilike.${pattern}`);
-    }
+      if (source) {
+        query = query.eq('source', source);
+      }
 
-    const { data, error: err, count } = await query;
-    if (err) {
-      setError(err.message);
-      setLoading(false);
-      return;
+      if (search.trim()) {
+        const pattern = `%${search.trim()}%`;
+        query = query.or(`name.ilike.${pattern},phone.ilike.${pattern},email.ilike.${pattern}`);
+      }
+
+      const { data: rows, error: err, count: total } = await query;
+      if (err) {
+        setError(err.message);
+        setLoading(false);
+        return;
+      }
+      data = (rows ?? []) as Contact[];
+      count = total ?? 0;
     }
 
     const ids = (data ?? []).map((c) => c.id as string);

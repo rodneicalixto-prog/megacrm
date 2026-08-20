@@ -1,7 +1,30 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { PostgrestError } from '@supabase/supabase-js';
 import { getSupabase } from '@/lib/supabase';
 import { useAppUser } from '@/app/providers/AppUserProvider';
+import { chunkArray } from '@/lib/chunk';
 import type { Conversation, ConversationStatus, ConversationWithContact } from '@/types/inbox';
+
+const IN_FILTER_CHUNK_SIZE = 100;
+
+// contactIds/conversationIds abaixo vêm de TODAS as conversas da instância
+// (sem paginação — ver comentário em reload()), então escalam com o volume
+// de linhas. Fatiamos em lotes de 100 ids por `.in()` para não estourar
+// limites de URL/parâmetros do PostgREST, disparando as fatias em paralelo e
+// juntando o resultado.
+async function fetchInChunks<T>(
+  ids: string[],
+  runChunk: (chunk: string[]) => PromiseLike<{ data: T[] | null; error: PostgrestError | null }>,
+): Promise<{ data: T[]; error: PostgrestError | null }> {
+  if (ids.length === 0) return { data: [], error: null };
+  const results = await Promise.all(chunkArray(ids, IN_FILTER_CHUNK_SIZE).map(runChunk));
+  const data: T[] = [];
+  for (const r of results) {
+    if (r.error) return { data: [], error: r.error };
+    if (r.data) data.push(...r.data);
+  }
+  return { data, error: null };
+}
 
 interface UseConversationsResult {
   conversations: ConversationWithContact[];
@@ -67,25 +90,30 @@ export function useConversations(): UseConversationsResult {
 
     // Batch: contacts + tags do contato + latest messages + favoritos do usuário.
     const [contactsQ, tagsQ, lastMsgsQ, favsQ] = await Promise.all([
-      contactIds.length === 0
-        ? Promise.resolve({ data: [] as ContactRow[], error: null })
-        : supabase
-            .from('contacts')
-            .select('id, phone, name, email, custom_fields')
-            .in('id', contactIds),
-      contactIds.length === 0
-        ? Promise.resolve({ data: [] as Array<{ contact_id: string; tag_id: string }>, error: null })
-        : supabase
-            .from('contact_tags')
-            .select('contact_id, tag_id')
-            .in('contact_id', contactIds),
-      conversationIds.length === 0
-        ? Promise.resolve({ data: [], error: null })
-        : supabase
-            .from('messages')
-            .select('conversation_id, content, content_type, created_at, is_private_note, direction')
-            .in('conversation_id', conversationIds)
-            .order('created_at', { ascending: false }),
+      fetchInChunks<ContactRow>(contactIds, (chunk) =>
+        supabase.from('contacts').select('id, phone, name, email, custom_fields').in('id', chunk),
+      ),
+      fetchInChunks<{ contact_id: string; tag_id: string }>(contactIds, (chunk) =>
+        supabase.from('contact_tags').select('contact_id, tag_id').in('contact_id', chunk),
+      ),
+      // Cada conversa pertence a exatamente uma fatia de conversationIds, então
+      // ordenar created_at desc por fatia mantém a ordem correta ao consumir
+      // "1ª mensagem por conversation_id" mais abaixo — não precisa reordenar
+      // o array combinado.
+      fetchInChunks<{
+        conversation_id: string;
+        content: string | null;
+        content_type: string;
+        created_at: string;
+        is_private_note: boolean;
+        direction: string;
+      }>(conversationIds, (chunk) =>
+        supabase
+          .from('messages')
+          .select('conversation_id, content, content_type, created_at, is_private_note, direction')
+          .in('conversation_id', chunk)
+          .order('created_at', { ascending: false }),
+      ),
       // RLS já limita a linha ao próprio usuário; o filtro explícito evita
       // depender disso para a correção do que aparece na estrela.
       supabase

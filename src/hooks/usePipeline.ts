@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getSupabase } from '@/lib/supabase';
+import { chunkArray } from '@/lib/chunk';
 import type { ActionType, Pipeline, Stage, Deal, Tag } from '@/types/crm';
+
+const IN_FILTER_CHUNK_SIZE = 100;
 
 const DEAL_SELECT =
   '*, contact:contact_id(id, name, phone, email, conversations(channel)), deal_tags(tag:tag_id(id, name, color)), deal_products(product:product_id(id, name)), custom_field_values(custom_field_id, value)';
@@ -122,15 +125,24 @@ export function usePipeline(): UsePipelineResult {
     // cada negócio. Uma query só, reduzida ao 1º por deal_id (ordem por due_at).
     const dealIds = dealRows.map((d) => d.id);
     if (dealIds.length) {
-      const { data: acts } = await supabase
-        .from('crm_activities')
-        .select('deal_id, due_at, type, id')
-        .in('deal_id', dealIds)
-        .not('due_at', 'is', null)
-        .eq('done', false)
-        .order('due_at', { ascending: true });
+      // dealIds escala com o número de negócios do funil — fatiamos em lotes
+      // de 100 para não estourar o `.in()`. Cada deal_id cai numa única fatia,
+      // então o "1º por deal_id" (mais próximo) continua correto por fatia.
+      const chunks = chunkArray(dealIds, IN_FILTER_CHUNK_SIZE);
+      const results = await Promise.all(
+        chunks.map((chunk) =>
+          supabase
+            .from('crm_activities')
+            .select('deal_id, due_at, type, id')
+            .in('deal_id', chunk)
+            .not('due_at', 'is', null)
+            .eq('done', false)
+            .order('due_at', { ascending: true }),
+        ),
+      );
+      const acts = results.flatMap((r) => r.data ?? []);
       const soonest = new Map<string, { id: string; due_at: string; type: ActionType }>();
-      for (const a of (acts ?? []) as Array<{ deal_id: string; due_at: string; type: string; id: string }>) {
+      for (const a of acts as Array<{ deal_id: string; due_at: string; type: string; id: string }>) {
         if (!soonest.has(a.deal_id)) {
           soonest.set(a.deal_id, { id: a.id, due_at: a.due_at, type: a.type as ActionType });
         }
