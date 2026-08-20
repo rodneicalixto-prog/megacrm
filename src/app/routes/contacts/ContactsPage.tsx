@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
+  Download,
   Plus,
   Search,
   Tag as TagIcon,
@@ -19,8 +20,9 @@ import type { ContactWithTags } from '@/types/db';
 import { CONTACT_SOURCE_LABEL } from '@/types/crm';
 import { TRAFFIC_LABEL } from '@/lib/dashboard';
 import { LoadErrorBanner } from '@/components/LoadErrorBanner';
+import { buildContactsCsv, downloadCsv, fetchContactsForExport } from '@/lib/contactsCsv';
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE_OPTIONS = [25, 50, 100, 1000] as const;
 
 const SOURCE_OPTIONS = ['whatsapp', 'instagram', 'import', 'manual'];
 
@@ -33,6 +35,7 @@ export default function ContactsPage() {
   const [sourceFilter, setSourceFilter] = useState<string | null>(null);
   const [sort, setSort] = useState<ContactSort>('recent');
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number>(PAGE_SIZE_OPTIONS[0]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showTagManager, setShowTagManager] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -46,10 +49,10 @@ export default function ContactsPage() {
     source: sourceFilter,
     sort,
     page,
-    pageSize: PAGE_SIZE,
+    pageSize,
   });
 
-  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
 
   const toggleSelect = (id: string) => {
     setSelected((prev) => {
@@ -108,6 +111,34 @@ export default function ContactsPage() {
     }
   };
 
+  const [exportBusy, setExportBusy] = useState(false);
+
+  const handleExport = async () => {
+    setExportBusy(true);
+    try {
+      const ids = selected.size > 0 ? Array.from(selected) : undefined;
+      const rows = await fetchContactsForExport({
+        ids,
+        search,
+        tagId: tagFilter,
+        source: sourceFilter,
+        sort,
+      });
+      if (rows.length === 0) {
+        toast.error('Nenhum contato para exportar.');
+        return;
+      }
+      const csv = buildContactsCsv(rows);
+      const today = new Date().toISOString().slice(0, 10);
+      downloadCsv(`contatos-${today}.csv`, csv);
+      toast.success(`${rows.length} contato(s) exportado(s).`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Não foi possível exportar os contatos.');
+    } finally {
+      setExportBusy(false);
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       <div className="flex items-start justify-between flex-wrap gap-4">
@@ -132,6 +163,10 @@ export default function ContactsPage() {
           <Button variant="outline" onClick={() => setShowImport(true)}>
             <Upload className="h-4 w-4" />
             Importar
+          </Button>
+          <Button variant="outline" onClick={() => void handleExport()} disabled={exportBusy}>
+            <Download className="h-4 w-4" />
+            {selected.size > 0 ? `Exportar selecionados (${selected.size})` : 'Exportar CSV'}
           </Button>
           <Button
             onClick={() => {
@@ -360,9 +395,26 @@ export default function ContactsPage() {
         </div>
 
         <div className="flex items-center justify-between pt-1">
-          <span className="text-xs text-[var(--color-text-secondary)]">
-            Página {page} de {pageCount}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-[var(--color-text-secondary)]">
+              Página {page} de {pageCount}
+            </span>
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                setPage(1);
+              }}
+              className="h-8 rounded-lg border border-[rgba(59,130,246,0.12)] bg-white/[0.03] px-2 text-xs text-[var(--color-text-primary)]"
+              aria-label="Linhas por página"
+            >
+              {PAGE_SIZE_OPTIONS.map((n) => (
+                <option key={n} value={n}>
+                  {n} por página
+                </option>
+              ))}
+            </select>
+          </div>
           <div className="flex items-center gap-2">
             <Button
               size="sm"
