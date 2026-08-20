@@ -128,6 +128,27 @@ export class EvolutionProvider implements WhatsAppProvider {
         headers: { apikey: this.apiKey, 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
+      if (!res.ok && isAudio) {
+        const fallback = await fetch(`${this.serverUrl}/message/sendMedia/${this.instance}`, {
+          method: 'POST',
+          headers: { apikey: this.apiKey, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            number,
+            mediatype: 'audio',
+            media: opts.mediaUrl,
+            caption: text || undefined,
+          }),
+        });
+        const fallbackRaw = await fallback.json().catch(() => ({}));
+        const fallbackMessageId =
+          str(asObject(asObject(fallbackRaw).key), ['id']) ?? str(asObject(fallbackRaw), ['id']);
+        return {
+          ok: fallback.ok,
+          messageId: fallbackMessageId,
+          raw: fallbackRaw,
+          error: fallback.ok ? undefined : `HTTP ${fallback.status}`,
+        };
+      }
       const raw = await res.json().catch(() => ({}));
       const messageId = str(asObject(asObject(raw).key), ['id']) ?? str(asObject(raw), ['id']);
       return { ok: res.ok, messageId, raw, error: res.ok ? undefined : `HTTP ${res.status}` };
