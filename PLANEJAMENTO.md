@@ -558,3 +558,61 @@ Aguardando · Em atendimento · Aguardando cliente · Encerrados · Prioridade a
 · Não lidos · Favoritos), contadores que batem com a lista, e filtros por
 atendente, equipe, marcador, canal e número. Prioridade e favorito viraram
 colunas — favorito é por usuário (`conversation_favorites`), não da instalação.
+
+---
+
+## 9. Rodada Agosto/2026 — avaliação do pacote de atualização Agentise
+
+Um documento de atualização genérico da Agentise (`ATUALIZACAO-AGOSTO-2026.md`)
+chegou propondo 10 blocos de feature, assumindo que o repo ainda estava perto
+da versão "vanilla" de julho/2026. Não estava — divergiu em pontos estruturais
+(departamentos + Evolution API v2 + multi-LLM, em vez de organizações
+multi-tenant + Zernio/UAZAPI + LLM único). Cada bloco foi classificado antes de
+qualquer código:
+
+### Trazido nesta rodada (ver `CHANGELOG.md` 1.1.0)
+
+Export CSV + seletor de página em Contatos; separadores de data no Inbox;
+sidebar recolhível; avatares de iniciais; banner de credenciais faltantes;
+arquivar/paginar/ordenar no Funil + temperatura por resultado; consultas
+`.in()` fatiadas em lotes de 100; IA entende imagem + fallback de OCR de PDF +
+erros reais na Base de Conhecimento.
+
+### Descartado — conflito de arquitetura
+
+- **Multi-tenancy por organização.** O modelo de departamentos foi construído
+  deliberadamente para **uma** organização com estrutura interna — introduzir
+  `org_id` em ~45 tabelas não é aditivo, é trocar o modelo de isolamento por
+  outro incompatível.
+- **Canal UAZAPI.** O projeto já migrou de UAZAPI para Evolution API v2
+  (ver Fase "Fora do plano — rota Evolution API" acima); reintroduzir UAZAPI
+  seria regressão de uma decisão já tomada.
+- **Seletor de LLM removido (OpenAI-only).** Este projeto já suporta
+  OpenAI/Claude/Gemini — mais completo que o proposto, mantido como está.
+- **Custos de venda / faturamento líquido no Dashboard.** O módulo de Vendas &
+  Recompra está sendo removido do projeto (decisão tomada em paralelo a esta
+  rodada); não faz sentido adicionar métrica financeira a um módulo que sai.
+
+### Decisões de produto adiadas (não implementadas, precisam de resposta antes)
+
+- **Round-robin só entre online**, no auto-assign de handoff
+  (`lead_assignment_queue`). Hoje é deliberadamente "puro, ignora is_online"
+  (decisão registrada em `20260721130000_lead_auto_assignment.sql`) — vale
+  reconsiderar à luz do tamanho atual da equipe, mas não foi trocado sem
+  confirmação.
+- **Variáveis por destinatário em campanhas.** Removidas deliberadamente do
+  editor de templates (`TemplateFormDialog.tsx`: "Variáveis não são
+  suportadas"). Reintroduzir é decisão de produto, não bug fix.
+- **Automações de funil por gatilho** (módulo mais amplo que o
+  auto-move-lead + follow-up rules já existentes) — escopo novo, não
+  avaliado nesta rodada.
+
+### Execução
+
+Implementado por 6 agentes em paralelo, cada um em worktree isolado sem
+sobreposição de arquivos, depois mesclados manualmente com `npm run
+validate:sql` + `npx tsc -b --noEmit` + `npm run build` + `npm run lint` +
+`npx vitest run` rodando limpo no conjunto final. **Sem acesso a projeto
+Supabase real neste ambiente** — as duas migrations novas
+(`20260811140000`, `20260812120000`) foram validadas só por sintaxe, não
+aplicadas nem testadas contra um banco vivo; revisar antes de `db:push`.
