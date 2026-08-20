@@ -1,7 +1,8 @@
 # Plano — Multi-atendimento por departamento
 
-> Atualizado em 2026-08-10. As fases A e B estão **implementadas e aplicadas**
-> no banco de produção (`yshvniyhtnyhnjcecbft`).
+> Documento histórico de implementação, atualizado originalmente em 2026-08-10.
+> O estado operacional oficial e os critérios atuais estão em `PLANEJAMENTO.md`;
+> referências de instalação presentes abaixo não devem ser reutilizadas.
 >
 > ## Estado real da instalação
 >
@@ -10,8 +11,8 @@
 > | Departamentos | 9 (7 da empresa + Geral + Administração Geral) |
 > | Posições | 17 cadastradas, nenhuma com login ainda |
 > | Padrão | **Departamento Pessoal** |
-> | Conexão ativa | `pricall` · +55 19 96712-8359 → Departamento Pessoal |
-> | Dono | `rodnei@calixtosolucoes.com.br` — **super_admin** |
+> | Conexão ativa | dado operacional removido; configurar no ambiente oficial |
+> | Dono | dado pessoal removido; o primeiro usuário válido recebe `super_admin` |
 > | Pendente | registrar o webhook; criar os logins (faltam e-mails) |
 >
 > ## O modelo, corrigido pela realidade
@@ -424,7 +425,7 @@ cresce.
 
 ## 10. Estado aplicado (10/08/2026)
 
-O plano deixou de ser só plano. O que já está no banco `yshvniyhtnyhnjcecbft` e
+O plano deixou de ser só plano. O que foi aplicado na instalação histórica e
 em produção:
 
 - **Fase A e B executadas.** `departments`, `department_positions`,

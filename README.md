@@ -31,16 +31,14 @@ conversa guarda o nome do provider.
 
 ### Webhook da Evolution API
 
-Aponte o webhook da sua instancia para a Edge Function `whatsapp-inbound`,
-marcando o provedor na query string:
-
-```
-https://<PROJECT_REF>.supabase.co/functions/v1/whatsapp-inbound?provider=evolution
-```
+O CRM gera uma URL protegida para a Edge Function `whatsapp-inbound`. Ela inclui
+um token aleatorio associado a instalacao; nao monte nem publique a URL
+manualmente.
 
 Evento necessario: `MESSAGES_UPSERT`. O registro pode ser feito automaticamente
 pelo wizard `/setup` ou por Configuracoes → Credenciais, que chamam
-`POST /webhook/set/{instance}` na sua Evolution.
+`POST /webhook/set/{instance}` na Evolution usando a URL segura retornada pela
+API administrativa.
 
 ## Setup Para Alunos
 
