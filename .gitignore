@@ -66,3 +66,7 @@ tests/.artifacts/
 
 .vercel
 .env.tracking-dev
+
+# Worktrees de agentes em background (Claude Code) — checkouts nested do
+# próprio repo, não são conteúdo do produto.
+.claude/
