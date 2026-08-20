@@ -110,9 +110,17 @@ export default function KnowledgePage() {
                           : '—'}
                       </td>
                       <td className="p-3">
-                        <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_COLORS[it.status]}`}>
+                        <span
+                          className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_COLORS[it.status]}`}
+                          title={it.status === 'error' ? (it.error_message ?? undefined) : undefined}
+                        >
                           {STATUS_LABEL[it.status]}
                         </span>
+                        {it.status === 'error' && it.error_message && (
+                          <div className="mt-1 max-w-[260px] text-[11px] text-[var(--color-error)] opacity-80">
+                            {it.error_message}
+                          </div>
+                        )}
                       </td>
                       <td className="p-3 text-right">
                         <Button size="icon" variant="ghost" onClick={() => handleDelete(it)}>
@@ -137,7 +145,9 @@ export default function KnowledgePage() {
           if (res?.chunks) {
             toast.success(`Processado: ${res.chunks} chunks indexados.`);
           } else if (res) {
-            toast.warning('Entrada criada mas processamento falhou — veja status "Erro" na lista.');
+            toast.warning('Entrada criada mas processamento falhou.', {
+              description: res.error_message,
+            });
           }
         }}
       />

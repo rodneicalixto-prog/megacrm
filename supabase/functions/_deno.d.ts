@@ -32,4 +32,14 @@ declare module 'https://esm.sh/unpdf@0.12.1' {
     opts?: { mergePages?: boolean },
   ): Promise<{ totalPages: number; text: string | string[] }>;
   export function getDocumentProxy(data: Uint8Array): Promise<unknown>;
+  // Rasteriza uma pagina do PDF em PNG — usado no fallback de OCR via OpenAI
+  // Vision quando extractText nao acha texto (PDF escaneado). NAO VERIFICADO
+  // em runtime real: assinatura conforme documentacao do unpdf (depende de um
+  // backend de canvas, que pode nao estar disponivel no Deno Edge Runtime —
+  // ver comentario em process-knowledge/index.ts).
+  export function renderPageAsImage(
+    data: unknown,
+    pageNumber: number,
+    opts?: { scale?: number },
+  ): Promise<ArrayBuffer>;
 }

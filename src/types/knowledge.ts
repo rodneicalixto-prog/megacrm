@@ -9,6 +9,7 @@ export interface KnowledgeBase {
   file_path: string | null;
   file_size_bytes: number;
   status: KnowledgeStatus;
+  error_message: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -12,7 +12,7 @@ interface UseKnowledgeBaseResult {
     name: string;
     source_type: 'text' | 'url' | 'pdf';
     content: string;
-  }) => Promise<{ knowledge_base_id: string; chunks?: number } | null>;
+  }) => Promise<{ knowledge_base_id: string; chunks?: number; error_message?: string } | null>;
   uploadPdf: (file: File) => Promise<string | null>;
   remove: (id: string) => Promise<void>;
 }
@@ -111,11 +111,21 @@ export function useKnowledgeBase(): UseKnowledgeBaseResult {
     });
 
     if (fnErr || !data?.ok) {
-      // Keep the row so the error is visible in the list; the function
-      // itself should have flipped status=error. Surface the message.
-      setError(data?.error ?? fnErr?.message ?? 'Falha ao processar');
+      // Keep the row so the error is visible in the list; a instância do
+      // process-knowledge já deve ter gravado status='error' +
+      // error_message (motivo real: chave inválida, sem saldo, PDF sem
+      // texto extraível...). Prioriza esse motivo classificado sobre a
+      // mensagem crua da invocação — é o que aparece no badge da lista.
+      const { data: refreshed } = await supabase
+        .from('knowledge_base')
+        .select('error_message')
+        .eq('id', created.id)
+        .maybeSingle();
+      const reason = (refreshed as { error_message?: string } | null)?.error_message;
+      const finalReason = reason ?? data?.error ?? fnErr?.message ?? 'Falha ao processar';
+      setError(finalReason);
       await reload();
-      return { knowledge_base_id: created.id };
+      return { knowledge_base_id: created.id, error_message: finalReason };
     }
     await reload();
     return { knowledge_base_id: created.id, chunks: data.chunks as number };

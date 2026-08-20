@@ -17,6 +17,12 @@ export interface LLMCallInput {
   // Modelo escolhido pelo usuário (atualmente só usado no provider OpenAI;
   // claude/gemini mantêm o default da casa).
   model?: string;
+  // URL pública da imagem recebida do contato (messages.media_url), quando a
+  // mensagem que disparou o agente é do tipo 'image'. Buscada e convertida
+  // para base64 uma única vez em callLLM() e repassada a cada provider no
+  // formato que a respectiva API espera — os três (OpenAI, Claude, Gemini)
+  // suportam blocos de imagem inline na chamada de chat.
+  imageUrl?: string;
 }
 
 export interface LLMCallResult {
@@ -24,19 +30,56 @@ export interface LLMCallResult {
   model: string;
 }
 
-export async function callLLM(input: LLMCallInput): Promise<LLMCallResult> {
-  switch (input.provider) {
-    case 'openai':
-      return callOpenAI(input);
-    case 'claude':
-      return callClaude(input);
-    case 'gemini':
-      return callGemini(input);
+interface InlineImage {
+  mimeType: string;
+  base64: string;
+}
+
+// Baixa a imagem do media_url (URL pública do Zernio) e converte para
+// base64. Encoding em chunks de 32KB para não estourar o limite de
+// argumentos de String.fromCharCode em imagens grandes. Retorna null (em
+// vez de lançar) para que uma falha no download não derrube a resposta da
+// IA inteira — ela segue só sem a imagem.
+async function fetchImageAsBase64(url: string): Promise<InlineImage | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const mimeType = res.headers.get('content-type')?.split(';')[0]?.trim() || 'image/jpeg';
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    const CHUNK = 0x8000;
+    let binary = '';
+    for (let i = 0; i < bytes.length; i += CHUNK) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+    }
+    return { mimeType, base64: btoa(binary) };
+  } catch {
+    return null;
   }
 }
 
-async function callOpenAI(input: LLMCallInput): Promise<LLMCallResult> {
+export async function callLLM(input: LLMCallInput): Promise<LLMCallResult> {
+  const image = input.imageUrl ? await fetchImageAsBase64(input.imageUrl) : null;
+  switch (input.provider) {
+    case 'openai':
+      return callOpenAI(input, image);
+    case 'claude':
+      return callClaude(input, image);
+    case 'gemini':
+      return callGemini(input, image);
+  }
+}
+
+async function callOpenAI(input: LLMCallInput, image: InlineImage | null): Promise<LLMCallResult> {
   const model = input.model?.trim() || 'gpt-4.1-mini';
+  // Com imagem, o content do turno 'user' vira um array de blocos (texto +
+  // image_url) — formato Chat Completions para modelos com visão (gpt-4.1*,
+  // gpt-4o*). data: URI evita um segundo fetch da Meta/Zernio pelo lado da OpenAI.
+  const userContent = image
+    ? [
+        { type: 'text', text: input.userPrompt },
+        { type: 'image_url', image_url: { url: `data:${image.mimeType};base64,${image.base64}` } },
+      ]
+    : input.userPrompt;
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -49,7 +92,7 @@ async function callOpenAI(input: LLMCallInput): Promise<LLMCallResult> {
       max_tokens: input.maxTokens ?? 1500,
       messages: [
         { role: 'system', content: input.systemPrompt },
-        { role: 'user', content: input.userPrompt },
+        { role: 'user', content: userContent },
       ],
       ...(input.json ? { response_format: { type: 'json_object' } } : {}),
     }),
@@ -62,9 +105,18 @@ async function callOpenAI(input: LLMCallInput): Promise<LLMCallResult> {
   return { content: body.choices?.[0]?.message?.content ?? '', model };
 }
 
-async function callClaude(input: LLMCallInput): Promise<LLMCallResult> {
+async function callClaude(input: LLMCallInput, image: InlineImage | null): Promise<LLMCallResult> {
   // Defaults to the current best all-rounder per Anthropic's lineup.
   const model = 'claude-sonnet-4-6';
+  // Claude Messages API: blocos de conteúdo no turno 'user', imagem em base64
+  // (source.type='base64') — evita depender do provider conseguir baixar a
+  // URL do Zernio por conta própria.
+  const userContent = image
+    ? [
+        { type: 'image', source: { type: 'base64', media_type: image.mimeType, data: image.base64 } },
+        { type: 'text', text: input.userPrompt },
+      ]
+    : input.userPrompt;
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -77,7 +129,7 @@ async function callClaude(input: LLMCallInput): Promise<LLMCallResult> {
       max_tokens: input.maxTokens ?? 1500,
       temperature: input.temperature ?? 0.7,
       system: input.systemPrompt,
-      messages: [{ role: 'user', content: input.userPrompt }],
+      messages: [{ role: 'user', content: userContent }],
     }),
   });
   if (!res.ok) {
@@ -93,16 +145,21 @@ async function callClaude(input: LLMCallInput): Promise<LLMCallResult> {
   return { content: text, model };
 }
 
-async function callGemini(input: LLMCallInput): Promise<LLMCallResult> {
+async function callGemini(input: LLMCallInput, image: InlineImage | null): Promise<LLMCallResult> {
   const model = 'gemini-1.5-flash-latest';
   const url =
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(input.apiKey)}`;
+  // Gemini aceita imagem inline via inlineData (base64) num part junto do
+  // texto, no mesmo `contents[0].parts`.
+  const parts = image
+    ? [{ text: input.userPrompt }, { inlineData: { mimeType: image.mimeType, data: image.base64 } }]
+    : [{ text: input.userPrompt }];
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: input.systemPrompt }] },
-      contents: [{ role: 'user', parts: [{ text: input.userPrompt }] }],
+      contents: [{ role: 'user', parts }],
       generationConfig: {
         temperature: input.temperature ?? 0.7,
         maxOutputTokens: input.maxTokens ?? 1500,

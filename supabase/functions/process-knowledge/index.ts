@@ -12,14 +12,20 @@
 //   4. Calls OpenAI embeddings in batches of 100 inputs with openai_api_key
 //      from encrypted app settings to produce 1536-dim vectors.
 //   5. Inserts the chunks + vectors into knowledge_chunks and marks the KB
-//      status='ready' (or 'error' on failure).
+//      status='ready' (or 'error' on failure, with error_message populated —
+//      see classifyError() — for the frontend to show a real reason instead
+//      of a mute "Erro" badge).
+//
+// PDF escaneado (sem texto selecionável): extractText() volta vazio, então
+// tentamos um fallback via OpenAI Vision (rasteriza páginas + OCR) antes de
+// desistir — ver extractPdfViaVisionFallback().
 // ============================================================================
 
 import { requireAdmin, AuthError } from '../_shared/auth.ts';
 import { getAdminClient } from '../_shared/supabase-admin.ts';
 import { loadAppCredentials } from '../_shared/tenant-credentials.ts';
 import { jsonResponse, preflight } from '../_shared/cors.ts';
-import { extractText, getDocumentProxy } from 'https://esm.sh/unpdf@0.12.1';
+import { extractText, getDocumentProxy, renderPageAsImage } from 'https://esm.sh/unpdf@0.12.1';
 
 type SourceType = 'text' | 'url' | 'pdf';
 
@@ -85,6 +91,100 @@ async function embedBatch(apiKey: string, inputs: string[]): Promise<number[][]>
   return rows.map((r) => r.embedding);
 }
 
+// Traduz a mensagem crua de erro (geralmente um corpo de resposta HTTP da
+// OpenAI, ou uma exceção do parser de PDF) numa causa acionável para o
+// operador. Ordem importa: checa os sinais mais específicos primeiro.
+function classifyError(raw: string): string {
+  const lower = raw.toLowerCase();
+  if (
+    lower.includes('invalid_api_key') ||
+    lower.includes('incorrect api key') ||
+    lower.includes('unauthorized') ||
+    lower.includes(' 401')
+  ) {
+    return 'Chave de API da OpenAI inválida ou revogada. Verifique em /settings/credentials.';
+  }
+  if (
+    lower.includes('insufficient_quota') ||
+    lower.includes('exceeded your current quota') ||
+    lower.includes('billing') ||
+    lower.includes(' 429')
+  ) {
+    return 'Sem saldo/crédito na conta OpenAI (quota excedida). Verifique o billing da conta OpenAI.';
+  }
+  if (lower.includes('pdf sem texto') || lower.includes('nenhum texto extraído')) {
+    return 'PDF sem texto extraível (provavelmente um scan/imagem) — o fallback via OCR também não conseguiu ler o conteúdo.';
+  }
+  return raw.trim() || 'Erro desconhecido ao processar a fonte.';
+}
+
+function bufferToBase64(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  const CHUNK = 0x8000;
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(binary);
+}
+
+const OCR_MAX_PAGES = 15; // teto pra não explodir custo/tempo em PDFs longos.
+
+// Fallback para PDFs escaneados/baseados em imagem: extractText() não acha
+// texto selecionável (comum em digitalizações). Rasteriza cada página em PNG
+// via unpdf.renderPageAsImage e manda pro OpenAI Vision transcrever.
+//
+// NÃO VERIFICADO em ambiente real: renderPageAsImage depende de um backend
+// de canvas dentro do unpdf/pdfjs-dist. Em Node com @napi-rs/canvas instalado
+// isso funciona; no Deno Edge Runtime (sem esse binding nativo) não há
+// garantia — pode lançar "canvas not available" ou similar. Por isso todo o
+// bloco está isolado num try/catch com mensagem clara em vez de deixar a
+// linha travada em 'processing'. Precisa de teste de integração real antes
+// de confiar nesse caminho em produção.
+async function extractPdfViaVisionFallback(openaiKey: string, buffer: Uint8Array): Promise<string> {
+  const doc = await getDocumentProxy(buffer);
+  const numPages = Math.min((doc as { numPages: number }).numPages ?? 0, OCR_MAX_PAGES);
+  if (numPages === 0) return '';
+
+  const pageTexts: string[] = [];
+  for (let page = 1; page <= numPages; page++) {
+    const png = await renderPageAsImage(doc, page, { scale: 2 });
+    const base64 = bufferToBase64(png);
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${openaiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4.1-mini',
+        temperature: 0,
+        max_tokens: 4000,
+        messages: [
+          {
+            role: 'system',
+            content: 'Você transcreve fielmente todo o texto visível em imagens de páginas de PDF, em português quando aplicável. Responda apenas com o texto transcrito, sem comentários nem markdown.',
+          },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: `Transcreva o texto desta página (${page}/${numPages}).` },
+              { type: 'image_url', image_url: { url: `data:image/png;base64,${base64}` } },
+            ],
+          },
+        ],
+      }),
+    });
+    if (!res.ok) {
+      throw new Error(`OpenAI vision ${res.status}: ${await res.text()}`);
+    }
+    const body = await res.json();
+    const text: string = body.choices?.[0]?.message?.content ?? '';
+    if (text.trim()) pageTexts.push(text.trim());
+  }
+  return pageTexts.join('\n\n');
+}
+
 Deno.serve(async (req) => {
   const pre = preflight(req);
   if (pre) return pre;
@@ -118,10 +218,14 @@ Deno.serve(async (req) => {
       return jsonResponse({ ok: false, error: 'Knowledge base não encontrada.' }, { status: 404 });
     }
 
+    // Grava o motivo real do erro em knowledge_base.error_message (coluna da
+    // migration 20260812120000) pra o operador ver algo acionável no lugar
+    // do badge "Erro" mudo — distingue ao menos chave inválida, sem
+    // saldo/crédito e PDF sem texto extraível.
     const fail = async (msg: string, status = 500) => {
       await admin
         .from('knowledge_base')
-        .update({ status: 'error' })
+        .update({ status: 'error', error_message: classifyError(msg) })
         .eq('id', body.knowledge_base_id);
       return jsonResponse({ ok: false, error: msg }, { status });
     };
@@ -162,6 +266,29 @@ Deno.serve(async (req) => {
         const doc = await getDocumentProxy(buffer);
         const { text } = await extractText(doc, { mergePages: true });
         plaintext = Array.isArray(text) ? text.join('\n') : text;
+
+        // Fallback: PDF escaneado/baseado em imagem não tem texto
+        // selecionável — extractText volta vazio/quase vazio. Tenta OCR via
+        // OpenAI Vision (requer openai_api_key, já validado acima). Ver nota
+        // "NÃO VERIFICADO" em extractPdfViaVisionFallback.
+        if (plaintext.trim().length < 20) {
+          try {
+            const ocrText = await extractPdfViaVisionFallback(creds.openai_api_key, buffer);
+            if (ocrText.trim().length >= 20) {
+              plaintext = ocrText;
+            }
+          } catch (ocrErr) {
+            // Não aborta aqui: cai no check `if (!plaintext)` abaixo, que já
+            // reporta "PDF sem texto extraível" via classifyError. Loga a
+            // causa técnica do fallback pra depuração.
+            console.error('process-knowledge ocr fallback failed', JSON.stringify({
+              event: 'pdf_ocr_fallback_error',
+              knowledge_base_id: body.knowledge_base_id,
+              error: ocrErr instanceof Error ? ocrErr.message : String(ocrErr),
+            }));
+          }
+        }
+
         // Persist file_path on the KB row so the UI can link back to it.
         await admin
           .from('knowledge_base')
@@ -228,6 +355,7 @@ Deno.serve(async (req) => {
       .from('knowledge_base')
       .update({
         status: 'ready',
+        error_message: null,
         file_size_bytes: new TextEncoder().encode(plaintext).length,
       })
       .eq('id', body.knowledge_base_id);

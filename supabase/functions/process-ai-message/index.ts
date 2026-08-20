@@ -6,8 +6,10 @@
 //
 //   1. Load the message + conversation + agent config (singleton).
 //   2. Bail if the AI should not answer (conversation.ai_paused, agent
-//      config inactive, conversation closed, non-text content).
-//   3. Embed the inbound text via OpenAI to get a query vector.
+//      config inactive, conversation closed, content_type not in
+//      {text, image}).
+//   3. Embed the inbound text via OpenAI to get a query vector (skipped for
+//      an image with no caption).
 //   4. RPC to whatsapp_hub.knowledge_search for the top-5 similar chunks.
 //   5. Build a system + user prompt with system_prompt + RAG + chat history.
 //   6. Call the configured LLM (env-supplied).
@@ -40,6 +42,7 @@ interface MessageRow {
   sender_type: 'contact' | 'ai' | 'operator' | 'system';
   content_type: string;
   content: string | null;
+  media_url: string | null;
   is_private_note: boolean;
   created_at: string;
 }
@@ -142,7 +145,7 @@ Deno.serve(async (req) => {
   // 1. Load triggering message.
   const { data: msgRow, error: msgErr } = await admin
     .from('messages')
-    .select('id, conversation_id, direction, sender_type, content_type, content, is_private_note, created_at')
+    .select('id, conversation_id, direction, sender_type, content_type, content, media_url, is_private_note, created_at')
     .eq('id', body.message_id)
     .maybeSingle();
   if (msgErr || !msgRow) {
@@ -150,12 +153,21 @@ Deno.serve(async (req) => {
   }
   const message = msgRow as MessageRow;
 
-  // Guard: this function is only meant to run on inbound text from a contact.
+  // Guard: this function is only meant to run on inbound text/image from a contact.
   if (message.direction !== 'inbound' || message.sender_type !== 'contact') {
     return jsonResponse({ ok: true, skipped: 'not an inbound contact message' });
   }
-  if (message.content_type !== 'text' || !message.content) {
-    // Non-text messages need the transcribe-audio / media pipeline first.
+  // Texto: precisa de content. Imagem: precisa de media_url (legenda em
+  // content é opcional) — o LLM recebe a imagem como bloco de visão, ver
+  // _shared/llm.ts. Áudio já chega com transcrição em content via
+  // transcribe-audio, mas content_type permanece 'audio' (o trigger
+  // on_audio_inbound só roda no INSERT original, sem legenda de texto ainda;
+  // a UPDATE que grava a transcrição não re-dispara o trigger de IA — gap
+  // conhecido, fora do escopo desta mudança). Vídeo/documento seguem sem
+  // suporte.
+  const isText = message.content_type === 'text' && !!message.content;
+  const isImage = message.content_type === 'image' && !!message.media_url;
+  if (!isText && !isImage) {
     return jsonResponse({ ok: true, skipped: `content_type=${message.content_type}` });
   }
 
@@ -216,25 +228,32 @@ Deno.serve(async (req) => {
     return jsonResponse({ ok: false, error: 'Credenciais llm_provider/llm_api_key nao configuradas. Acesse /settings/credentials.' }, { status: 400 });
   }
 
-  // 4. Embed the inbound text.
-  let queryEmbedding: number[];
-  try {
-    queryEmbedding = await embed(creds.openai_api_key, message.content);
-  } catch (err) {
-    return jsonResponse(
-      { ok: false, error: `embed: ${err instanceof Error ? err.message : String(err)}` },
-      { status: 502 },
-    );
+  // 4. Embed the inbound text — para imagem sem legenda não há texto pra
+  //    embedar, então a busca RAG simplesmente fica vazia (a IA ainda
+  //    responde, só sem contexto recuperado).
+  const embedSource = message.content?.trim() || '';
+  let queryEmbedding: number[] = [];
+  if (embedSource) {
+    try {
+      queryEmbedding = await embed(creds.openai_api_key, embedSource);
+    } catch (err) {
+      return jsonResponse(
+        { ok: false, error: `embed: ${err instanceof Error ? err.message : String(err)}` },
+        { status: 502 },
+      );
+    }
   }
 
   // 5. Top-K RAG chunks (cosine similarity). Empty array is fine — the
   //    agent still answers, just without retrieved context.
-  const { data: ragRows } = await admin.rpc('knowledge_search', {
-    p_query_embedding: queryEmbedding,
-    p_top_k: TOP_K,
-  });
-  const ragChunks = ((ragRows ?? []) as Array<{ content: string; similarity: number }>)
-    .map((r) => r.content);
+  let ragChunks: string[] = [];
+  if (queryEmbedding.length) {
+    const { data: ragRows } = await admin.rpc('knowledge_search', {
+      p_query_embedding: queryEmbedding,
+      p_top_k: TOP_K,
+    });
+    ragChunks = ((ragRows ?? []) as Array<{ content: string; similarity: number }>).map((r) => r.content);
+  }
 
   // 6. History — last N messages in this conversation, oldest first.
   const { data: historyRows } = await admin
@@ -293,7 +312,13 @@ Deno.serve(async (req) => {
     agent.system_prompt?.trim() ||
     'Você é um assistente de atendimento via WhatsApp. Responda em português brasileiro, de forma objetiva e educada.';
   const systemPrompt = applyVariables(basePrompt, vars);
-  const userPrompt = buildUserPrompt(history, ragChunks, message.content);
+  // Para imagem, o texto do prompt vira um rótulo + legenda (se houver); a
+  // imagem em si vai anexada via imageUrl (callLLM busca e converte pra
+  // base64 — ver _shared/llm.ts).
+  const inboundLabel = isImage
+    ? `[Imagem enviada pelo cliente]${message.content?.trim() ? ` Legenda: "${message.content.trim()}"` : ''}`
+    : (message.content ?? '');
+  const userPrompt = buildUserPrompt(history, ragChunks, inboundLabel);
 
   let reply: string;
   try {
@@ -305,6 +330,7 @@ Deno.serve(async (req) => {
       userPrompt,
       temperature: agent.temperature ?? 0.7,
       maxTokens: agent.max_tokens ?? 1000,
+      imageUrl: isImage ? (message.media_url ?? undefined) : undefined,
     });
     reply = result.content.trim();
     if (!reply) throw new Error('LLM retornou resposta vazia.');
