@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { getSupabase } from '@/lib/supabase';
 import { operatorLabel, useOperators } from '@/hooks/useOperators';
 import { LoadErrorBanner } from '@/components/LoadErrorBanner';
+import { Avatar } from '@/components/ui/Avatar';
 
 interface Departamento {
   id: string;
@@ -593,10 +594,13 @@ export function DepartmentsSettings() {
                 </section>
 
                 <div className="space-y-3">
-                  {doSetor.map((c) => (
+                  {doSetor.map((c) => {
+                    const pessoa = operators.find((o) => o.user_id === c.user_id);
+                    return (
                     <div key={c.id} className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                      <span className="text-sm font-medium text-[var(--color-text-primary)] sm:w-36 sm:shrink-0">
-                        {c.name}
+                      <span className="flex items-center gap-2 text-sm font-medium text-[var(--color-text-primary)] sm:w-36 sm:shrink-0">
+                        {pessoa && <Avatar name={operatorLabel(pessoa)} size="sm" />}
+                        <span className="truncate">{c.name}</span>
                       </span>
                       <div className="flex min-w-0 flex-1 items-center gap-2">
                         <select
@@ -619,7 +623,8 @@ export function DepartmentsSettings() {
                         </button>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                   {doSetor.length === 0 && (
                     <p className="text-sm text-[var(--color-text-secondary)] opacity-70">
                       Nenhum cargo ainda.

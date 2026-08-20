@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { getSupabase } from '@/lib/supabase';
 import { useAppUser } from '@/app/providers/AppUserProvider';
+import { Avatar } from '@/components/ui/Avatar';
 
 type Role = 'super_admin' | 'admin' | 'supervisor' | 'operator';
 
@@ -216,9 +217,13 @@ export function TeamSettings() {
                   className="flex items-center justify-between p-3 gap-3"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="h-8 w-8 rounded-full bg-white/5 flex items-center justify-center">
-                      <UserRound className="h-4 w-4 text-[var(--color-text-secondary)]" />
-                    </div>
+                    {m.email ? (
+                      <Avatar name={m.email} />
+                    ) : (
+                      <div className="h-8 w-8 rounded-full bg-white/5 flex items-center justify-center">
+                        <UserRound className="h-4 w-4 text-[var(--color-text-secondary)]" />
+                      </div>
+                    )}
                     <div className="text-sm min-w-0">
                       <div className="text-[var(--color-text-primary)] truncate max-w-[280px]">
                         {m.email ?? m.user_id}
