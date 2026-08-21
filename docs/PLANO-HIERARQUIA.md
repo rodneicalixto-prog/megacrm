@@ -343,13 +343,22 @@ falha.
 
 ### Fase C — Visibilidade · ~3 dias 🔴 crítica
 
-10. Reescrever `SELECT` de `conversations`, `messages`, `contacts` e funil.
-11. Restrição do departamento sigiloso — **em toda tabela**. É a regra mais
-    fácil de esquecer numa, e a de pior consequência.
-12. Policy de `app_users`.
-13. Índices.
+> **Parcialmente feita em 21/08/2026** — ver `PLANEJAMENTO.md` seção de
+> pendências pra detalhe. `conversations`/`messages` (itens 10 parcial e 11)
+> saíram do `USING (true)`; `contacts`, funil, a policy de `app_users` (item
+> 12) e o teste multi-papel (item 14) continuam em aberto.
+
+10. ~~Reescrever `SELECT` de `conversations`, `messages`~~, `contacts` e funil
+    (os dois últimos seguem `USING (true)` — nem têm coluna `department_id`
+    hoje, precisa de decisão de modelo antes de RLS).
+11. Restrição do departamento sigiloso — feita em `conversations`/`messages`;
+    falta em `contacts`/funil pelo motivo acima.
+12. Policy de `app_users` escondendo `super_admin` de quem não é `super_admin`
+    — não feita.
+13. Índices — `idx_conversations_department` já existe desde a Fase A.
 14. **Teste com usuário de cada papel.** Segurança não testada é segurança que
     não existe; aqui o modo de falha é vazar conversa entre departamentos.
+    Não feito — só há 1 `app_users` real em produção hoje (o `super_admin`).
 
 ### Fase D — Fila e distribuição · ~3 dias
 

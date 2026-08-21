@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { getSupabase } from '@/lib/supabase';
 import { useAppUser } from '@/app/providers/AppUserProvider';
+import { canSeeAdminNav } from '@/app/layout/nav-config';
 import { Avatar } from '@/components/ui/Avatar';
 
 type Role = 'super_admin' | 'admin' | 'supervisor' | 'operator';
@@ -46,7 +47,12 @@ interface MemberRow {
 
 export function TeamSettings() {
   const { userId, role: callerRole } = useAppUser();
-  const isOwner = callerRole === 'admin';
+  // Backend (invite-team-member/delete-team-member) já aceita super_admin via
+  // requireAdmin (ADMIN_ROLES = [super_admin, admin]); a comparação literal
+  // com 'admin' escondia o form de convite e o botão de remover do próprio
+  // dono da instalação (super_admin) — mesma classe de bug já corrigida em
+  // CredentialsPage/AIAgentPage/FunilPage/LeadAssignmentSettings.
+  const isOwner = canSeeAdminNav(callerRole);
 
   const [members, setMembers] = useState<MemberRow[]>([]);
   const [loading, setLoading] = useState(true);

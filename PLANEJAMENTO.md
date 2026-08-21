@@ -361,6 +361,42 @@ silêncio. Corrigido e travado por teste de regressão.
    e revogou os grants de `anon`/`authenticated`, aplicada em produção
    (`lstbxeaasyysboavdati`). As tabelas continuam sem uso pelo produto atual;
    nenhuma delas foi removida.
+9. ~~**Fase C do `docs/PLANO-HIERARQUIA.md` (visibilidade por departamento) —
+   nunca implementada.**~~ — **parcialmente resolvida em 21/08/2026**:
+   `conversations_select`/`messages_select` estavam `USING (true)` desde a
+   remoção do multi-tenant — qualquer autenticado lia qualquer conversa,
+   inclusive do departamento restrito "Administração Geral". Migration
+   `20260821180000_conversations_department_rls.sql` reescreveu as 4 policies
+   (`conversations_select/write`, `messages_select/write`) usando os helpers
+   que já existiam prontos desde a fase de hierarquia
+   (`current_user_department`, `department_is_restricted`,
+   `sees_all_departments`, `is_super_admin`) — cada um só vê/edita o próprio
+   departamento, e só `super_admin` vê o restrito. De brinde, corrigiu
+   `conversations_write`/`messages_write`, que ainda filtravam
+   `current_user_role() IN ('admin','operator')` — resíduo de antes da
+   hierarquia que bloqueava `supervisor` e `super_admin` de escrever nessas
+   tabelas via RLS (o frontend escreve direto nelas — pausar IA, marcar como
+   lida, atribuir — não passa por Edge Function com service role).
+   **Ainda em aberto, itens 10-12 e 14 do plano original:**
+   - `contacts` e o funil (`deals`) não têm coluna `department_id` — precisa
+     de decisão de modelo (um contato pode falar com mais de um
+     departamento? é dono único ou N:N?) antes de qualquer RLS aí; hoje
+     seguem `USING (true)`.
+   - Policy de `app_users` escondendo a linha do `super_admin` de quem não é
+     `super_admin` (item 12) não foi feita.
+   - **Decisão de produto em aberto, não resolvida sozinho**: o
+     `docs/PLANO-HIERARQUIA.md` original (seção 5) desenha o `operator` vendo
+     só as conversas atribuídas a ele (`assigned_to = auth.uid()`), não o
+     departamento inteiro — mas o `CLAUDE.md` (fonte de verdade corrigida
+     nesta mesma rodada) documenta `operator` como "opera inbox... do dia a
+     dia", sem essa restrição. Implementei o recorte por departamento
+     (equivalente ao que `supervisor` já tinha) pros 4 papéis, **sem**
+     restringir `operator` a só o atribuído a ele — é uma mudança de
+     comportamento real pra equipes de atendimento (perde visão do que os
+     colegas estão atendendo), não um bug óbvio; fica pra decisão explícita.
+   - Teste com usuário de cada papel (item 14) não foi feito — hoje só existe
+     1 `app_users` real em produção (`super_admin`), sem conta de
+     supervisor/operator pra validar o recorte de verdade.
 
 ---
 

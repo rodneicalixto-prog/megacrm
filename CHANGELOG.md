@@ -21,6 +21,24 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ### Fixed
 
+- Scope `conversations`/`messages` reads and writes by department (Fase C of
+  the hierarchy plan, never implemented): both `SELECT` policies had been
+  `USING (true)` since the multi-tenant removal, so any authenticated user
+  could read every conversation and message, including the restricted
+  "Administração Geral" department that's supposed to be `super_admin`-only.
+  The department helpers (`current_user_department`, `department_is_restricted`,
+  `sees_all_departments`, `is_super_admin`) already existed but were never
+  referenced by any policy. Also fixed `conversations_write`/`messages_write`,
+  which still filtered `current_user_role() IN ('admin','operator')` — a
+  residue from before the hierarchy phase that silently blocked `supervisor`
+  and `super_admin` from writing to conversations/messages at all (pause AI,
+  mark as read, assign), since the frontend writes to these tables directly
+  and isn't routed through a service-role Edge Function.
+- Let the instance owner (`super_admin`) actually use Team Settings: `isOwner`
+  compared literally against `'admin'`, so the person the UI itself calls
+  "o owner desta instância" couldn't see the invite form or the remove
+  button — the backend (`invite-team-member`/`delete-team-member`) already
+  accepted `super_admin` via `requireAdmin`, only the frontend gate was wrong.
 - Restore unlimited personal pipeline creation for supervisors and operators:
   the RLS policy (`pipelines_insert`) and the `FunilManager` UI already fully
   supported any operating role creating their own pipeline with no cap
