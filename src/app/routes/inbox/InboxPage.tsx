@@ -47,7 +47,7 @@ export default function InboxPage() {
   const { operators } = useOperators();
   const { tags } = useTags();
   const { departments, lines } = useDepartments();
-  const { userId } = useAppUser();
+  const { userId, role } = useAppUser();
 
   // Persiste os filtros na querystring (namespace f*), preservando ?conversation.
   const updateFilters = (next: InboxFilterState) => {
@@ -488,6 +488,7 @@ export default function InboxPage() {
               conversation={selected}
               withinWindow={withinWindow}
               operators={operators}
+              canReassign={role !== 'operator'}
               onPauseAI={() => setAiPaused(selected.id, true)}
               onResumeAI={() => setAiPaused(selected.id, false)}
               onClose={() => setStatus(selected.id, 'closed')}

@@ -15,6 +15,9 @@ interface ContactPanelProps {
   conversation: ConversationWithContact;
   withinWindow: boolean;
   operators: Operator[];
+  /** operator só opera conversas já atribuídas a ele (RLS); reatribuir para
+   * outra pessoa fica com supervisor/admin — ver 20260821200000. */
+  canReassign: boolean;
   onPauseAI: () => Promise<void>;
   onResumeAI: () => Promise<void>;
   onClose: () => Promise<void>;
@@ -43,7 +46,7 @@ function Badge({ tone, children }: { tone: 'green' | 'amber' | 'gray'; children:
 }
 
 export function ContactPanel({
-  conversation, withinWindow, operators,
+  conversation, withinWindow, operators, canReassign,
   onPauseAI, onResumeAI, onClose, onReopen, onAssign, onSetActiveDeal, onPinNote, onArchive, onSetPriority, onTransfer, onContactRefresh,
 }: ContactPanelProps) {
   const contact = conversation.contact;
@@ -172,6 +175,7 @@ export function ContactPanel({
         <div className="text-label">Atribuído a</div>
         <select
           value={conversation.assigned_to ?? ''}
+          disabled={!canReassign}
           onChange={async (e) => {
             try {
               await onAssign(e.target.value || null);
@@ -180,7 +184,7 @@ export function ContactPanel({
               toast.error('Falha', { description: err instanceof Error ? err.message : String(err) });
             }
           }}
-          className="h-11 w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)]"
+          className="h-11 w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <option value="">Ninguém</option>
           {operators.map((op) => (
@@ -189,6 +193,11 @@ export function ContactPanel({
             </option>
           ))}
         </select>
+        {!canReassign && (
+          <p className="text-xs text-[var(--color-text-secondary)]">
+            Só supervisor ou admin podem reatribuir a conversa.
+          </p>
+        )}
       </div>
 
       {/* Transferir — separado do "Atribuído a" logo acima de propósito: aquele

@@ -385,24 +385,33 @@ silêncio. Corrigido e travado por teste de regressão.
    mundo, `admin` vê todo mundo **exceto** a linha do `super_admin`, e
    `supervisor`/`operator` continuam vendo só a própria linha (não
    ampliado — ver decisão em aberto abaixo).
+   **Item da decisão de produto resolvido em 21/08/2026**: o usuário
+   confirmou explicitamente que `operator` vê só o que foi atribuído a ele
+   (`assigned_to = auth.uid()`), não o departamento inteiro — exatamente o
+   desenho original do `docs/PLANO-HIERARQUIA.md` (seção 5). Migration
+   `20260821200000_operator_assigned_only_visibility.sql` (aplicada em
+   produção) reescreveu as mesmas 4 policies para separar `operator`
+   (assigned-only) de `supervisor` (departamento inteiro, inalterado);
+   `admin`/`super_admin` seguem com bypass total. `CLAUDE.md` já documentava
+   esse recorte por role na seção "Auth & Roles" — o gap era só a policy.
+   De brinde, o dropdown "Atribuído a" no painel de contato do Inbox
+   (`ContactPanel.tsx`) agora fica desabilitado para `operator`: como ele só
+   enxerga conversas já atribuídas a ele mesmo, qualquer tentativa de
+   reatribuir para outra pessoa falharia silenciosamente no `WITH CHECK` da
+   policy — a UI agora deixa isso explícito ("Só supervisor ou admin podem
+   reatribuir a conversa.") em vez de deixar o operador escolher uma opção
+   que sempre vai falhar.
    **Ainda em aberto, itens 10-11 e 14 do plano original:**
    - `contacts` e o funil (`deals`) não têm coluna `department_id` — precisa
      de decisão de modelo (um contato pode falar com mais de um
      departamento? é dono único ou N:N?) antes de qualquer RLS aí; hoje
      seguem `USING (true)`.
-   - **Decisão de produto em aberto, não resolvida sozinho**: o
-     `docs/PLANO-HIERARQUIA.md` original (seção 5) desenha o `operator` vendo
-     só as conversas atribuídas a ele (`assigned_to = auth.uid()`), não o
-     departamento inteiro — mas o `CLAUDE.md` (fonte de verdade corrigida
-     nesta mesma rodada) documenta `operator` como "opera inbox... do dia a
-     dia", sem essa restrição. Implementei o recorte por departamento
-     (equivalente ao que `supervisor` já tinha) pros 4 papéis, **sem**
-     restringir `operator` a só o atribuído a ele — é uma mudança de
-     comportamento real pra equipes de atendimento (perde visão do que os
-     colegas estão atendendo), não um bug óbvio; fica pra decisão explícita.
    - Teste com usuário de cada papel (item 14) não foi feito — hoje só existe
      1 `app_users` real em produção (`super_admin`), sem conta de
      supervisor/operator pra validar o recorte de verdade.
+   - **Vendas & Recompra**: mantido por decisão do usuário (21/08/2026) — "vou
+     usar em outra fase". Não é mais uma pendência a resolver nesta rodada;
+     nenhuma remoção/alteração deve ser feita sem novo pedido explícito.
 
 ---
 
@@ -670,3 +679,28 @@ Migrations desta rodada: `20260821160000_presence_and_assignment_fallback.sql`,
 removidos — checado via `execute_sql`). Validação local: `npm run
 typecheck`, `npx tsc -b --noEmit`, `npm run lint` (0 erros), `npm run build`,
 `npm run test:unit` (184/184), `npm run validate:sql` (99 arquivos).
+
+**Quarta rodada, mesma data (21/08/2026) — decisões de produto do usuário
+sobre os itens deixados em aberto acima:**
+
+1. **Funil ilimitado** — usuário reportou em uso real que "pode criar funis
+   de acordo com a necessidade" tinha parado de funcionar. Era o mesmo bug
+   de gate `adminOnly` no botão "Gerenciar funis" (ver item 9 acima e
+   `CHANGELOG.md`) — RLS e UI já suportavam sem limite, só o botão estava
+   escondido pra `supervisor`/`operator`. Confirmado como necessário agora
+   e já resolvido/deployado.
+2. **Vendas & Recompra** — usuário decidiu explicitamente manter como está:
+   "vou usar em outra fase". Deixa de ser pendência; nenhuma remoção ou
+   alteração deve ser feita sem novo pedido.
+3. **Escopo de visibilidade do operador** — decisão pendente desde a
+   Terceira rodada (item 9 acima), resolvida via pergunta direta ao
+   usuário: `operator` vê só o atribuído a ele. Migration
+   `20260821200000_operator_assigned_only_visibility.sql` aplicada em
+   produção; `ContactPanel.tsx` ganhou gate no dropdown de reatribuição pra
+   `operator` (evita tentar uma ação que a RLS sempre rejeitaria).
+
+Validação local desta rodada: `npm run validate:sql` (102 arquivos),
+`npx tsc -b --noEmit` (0 erros), `npm run lint` (0 erros, mesmos 68 warnings
+pré-existentes), `npm run build`, `npm run test:unit` (184/184). Migration
+aplicada em produção via `apply_migration` e conferida via `execute_sql`
+contra `pg_policy`.

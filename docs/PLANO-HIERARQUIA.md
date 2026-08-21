@@ -343,18 +343,22 @@ falha.
 
 ### Fase C — Visibilidade · ~3 dias 🔴 crítica
 
-> **Parcialmente feita em 21/08/2026** — ver `PLANEJAMENTO.md` seção de
-> pendências pra detalhe. `conversations`/`messages` (itens 10 parcial e 11)
-> saíram do `USING (true)`; `contacts`, funil, a policy de `app_users` (item
-> 12) e o teste multi-papel (item 14) continuam em aberto.
+> **Itens 10-13 feitos em 21/08/2026** — ver `PLANEJAMENTO.md` seção de
+> pendências pra detalhe. `conversations`/`messages` saíram do `USING (true)`
+> e, na mesma data, `operator` foi restrito a `assigned_to = auth.uid()`
+> (exatamente como este documento sempre desenhou — ver item abaixo);
+> `contacts`/funil seguem abertos (precisam de decisão de modelo antes de
+> qualquer RLS). O teste multi-papel (item 14) continua em aberto.
 
 10. ~~Reescrever `SELECT` de `conversations`, `messages`~~, `contacts` e funil
     (os dois últimos seguem `USING (true)` — nem têm coluna `department_id`
     hoje, precisa de decisão de modelo antes de RLS).
-11. Restrição do departamento sigiloso — feita em `conversations`/`messages`;
-    falta em `contacts`/funil pelo motivo acima.
-12. Policy de `app_users` escondendo `super_admin` de quem não é `super_admin`
-    — não feita.
+11. Restrição do departamento sigiloso — feita em `conversations`/`messages`,
+    incluindo o recorte `assigned_to`-only pro `operator` descrito acima;
+    falta em `contacts`/funil pelo motivo do item 10.
+12. ~~Policy de `app_users` escondendo `super_admin` de quem não é
+    `super_admin`~~ — feita em 21/08/2026
+    (`20260821190000_app_users_hide_super_admin.sql`).
 13. Índices — `idx_conversations_department` já existe desde a Fase A.
 14. **Teste com usuário de cada papel.** Segurança não testada é segurança que
     não existe; aqui o modo de falha é vazar conversa entre departamentos.

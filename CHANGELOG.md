@@ -38,6 +38,18 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   and `super_admin` from writing to conversations/messages at all (pause AI,
   mark as read, assign), since the frontend writes to these tables directly
   and isn't routed through a service-role Edge Function.
+- Narrow `operator` visibility on `conversations`/`messages` to only what's
+  assigned to them (`assigned_to = auth.uid()`), per explicit product
+  decision (21/08/2026) and matching what `docs/PLANO-HIERARQUIA.md` always
+  designed for the role — the Fase C fix above had given `operator` the same
+  department-wide scope as `supervisor` because that split hadn't been
+  decided yet at the time. `supervisor`/`admin`/`super_admin` scope is
+  unchanged. Also gated the "Atribuído a" reassignment dropdown in the Inbox
+  contact panel for `operator`s: under the new policy a conversation is only
+  ever visible to them once it's already assigned to them, so picking anyone
+  else there would silently fail the RLS `WITH CHECK` — the control is now
+  disabled for `operator`, with a note that reassignment is a
+  supervisor/admin action.
 - Let the instance owner (`super_admin`) actually use Team Settings: `isOwner`
   compared literally against `'admin'`, so the person the UI itself calls
   "o owner desta instância" couldn't see the invite form or the remove
