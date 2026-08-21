@@ -154,6 +154,37 @@ test('Evolution nunca entrega referral CTWA', () => {
   assert.equal(provider.extractReferral({ event: 'messages.upsert', data: {} }), null);
 });
 
+test('baixa e decodifica mídia inbound pela rota oficial da Evolution', async () => {
+  const originalFetch = globalThis.fetch;
+  let receivedBody: unknown;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    assert.equal(String(input), 'https://evo.example.com/chat/getBase64FromMediaMessage/minha-instancia');
+    receivedBody = JSON.parse(String(init?.body));
+    return new Response(JSON.stringify({
+      base64: btoa('audio-real'),
+      mimetype: 'audio/ogg; codecs=opus',
+      fileName: 'mensagem.ogg',
+    }));
+  }) as typeof fetch;
+
+  const payload = {
+    event: 'messages.upsert',
+    data: {
+      key: { remoteJid: '5511999998888@s.whatsapp.net', fromMe: false, id: 'AUD1' },
+      message: { audioMessage: { directPath: '/encrypted', mediaKey: { 0: 1 } } },
+    },
+  };
+
+  try {
+    const media = await provider.downloadInboundMedia(payload);
+    assert.deepEqual(Array.from(media?.bytes ?? []), Array.from(new TextEncoder().encode('audio-real')));
+    assert.equal(media?.mime, 'audio/ogg; codecs=opus');
+    assert.equal(media?.fileName, 'mensagem.ogg');
+    assert.deepEqual(receivedBody, { message: payload.data });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
 test('áudio usa sendMedia como fallback quando sendWhatsAppAudio falha', async () => {
   const calls: Array<{ url: string; body: unknown }> = [];
   const originalFetch = globalThis.fetch;

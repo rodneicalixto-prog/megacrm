@@ -229,11 +229,23 @@ export default function InboxPage() {
   const changeConversationStatus = async () => {
     if (!selected) return;
     const closing = selected.status !== 'closed';
-    if (closing && !confirm('Finalizar esta conversa?')) return;
+    const conversationId = selected.id;
     try {
-      await setStatus(selected.id, closing ? 'closed' : 'human_active');
-      toast.success(closing ? 'Conversa finalizada.' : 'Conversa reaberta.');
-      await reloadConvs();
+      await setStatus(conversationId, closing ? 'closed' : 'human_active');
+      if (closing) {
+        const next = visibleConversations.find((conversation) => conversation.id !== conversationId);
+        setSelectedId(next?.id ?? null);
+        toast.success('Conversa finalizada', {
+          action: {
+            label: 'Desfazer',
+            onClick: () => {
+              void setStatus(conversationId, 'human_active').then(() => setSelectedId(conversationId));
+            },
+          },
+        });
+      } else {
+        toast.success('Conversa reaberta.');
+      }
     } catch (error) {
       toast.error('Não foi possível alterar a conversa', {
         description: error instanceof Error ? error.message : String(error),

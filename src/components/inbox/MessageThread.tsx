@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Bot, Check, CheckCheck, Clock, FileText, Forward, StickyNote, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getSupabase } from '@/lib/supabase';
 import type { Message } from '@/types/inbox';
 import type { ThreadMessage } from '@/hooks/useMessages';
 
@@ -44,6 +45,64 @@ const MEDIA_RECEIVED: Record<string, string> = {
   document: 'Documento recebido',
 };
 
+function RepairableAudio({ message }: { message: Message }) {
+  const [url, setUrl] = useState(message.media_url ?? '');
+  const [repairState, setRepairState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const attempted = useRef(false);
+  const canRepair = message.direction === 'inbound';
+
+  const repair = useCallback(async () => {
+    if (!canRepair || attempted.current) return;
+    attempted.current = true;
+    setRepairState('loading');
+    try {
+      const { data, error } = await getSupabase().functions.invoke('resolve-inbound-media', {
+        body: { message_id: message.id },
+      });
+      if (error) throw error;
+      const mediaUrl = typeof data?.media_url === 'string' ? data.media_url : '';
+      if (!mediaUrl) throw new Error('URL do áudio não foi devolvida.');
+      setUrl(mediaUrl);
+      setRepairState('idle');
+    } catch {
+      setRepairState('error');
+    }
+  }, [canRepair, message.id]);
+
+  const detectInvalidAudio = (audio: HTMLAudioElement) => {
+    if (!Number.isFinite(audio.duration) || audio.duration <= 0) void repair();
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <audio
+        key={url}
+        controls
+        preload="metadata"
+        src={url}
+        className="max-w-full"
+        onError={() => void repair()}
+        onLoadedMetadata={(event) => detectInvalidAudio(event.currentTarget)}
+      />
+      {repairState === 'loading' && (
+        <div className="text-[10px] opacity-70">Preparando áudio...</div>
+      )}
+      {repairState === 'error' && (
+        <button
+          type="button"
+          className="text-[11px] font-semibold underline"
+          onClick={() => {
+            attempted.current = false;
+            void repair();
+          }}
+        >
+          Tentar carregar áudio
+        </button>
+      )}
+    </div>
+  );
+}
+
 // Renderiza mídia quando `media_url` já é uma URL http(s). No modelo Zernio,
 // tanto a mídia inbound (URL do attachment no webhook) quanto a outbound do
 // operador (URL do /media/upload-direct) chegam já como URL — o placeholder
@@ -64,7 +123,7 @@ function MediaContent({ message }: { message: Message }) {
       );
     }
     if (message.content_type === 'audio') {
-      return <audio controls src={url} className="max-w-full" />;
+      return <RepairableAudio message={message} />;
     }
     if (message.content_type === 'video') {
       return <video controls src={url} className="max-h-64 rounded-lg" />;

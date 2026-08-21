@@ -48,11 +48,18 @@ export interface SendResult {
   error?: string;
 }
 
+export interface DownloadedInboundMedia {
+  bytes: Uint8Array;
+  mime: string;
+  fileName: string;
+}
+
 export interface WhatsAppProvider {
   readonly name: ProviderName;
   sendMessage(to: string, text: string, opts?: SendOptions): Promise<SendResult>;
   parseInboundWebhook(rawPayload: unknown): NormalizedInbound | null;
   extractReferral(rawPayload: unknown): Referral | null;
+  downloadInboundMedia?(rawPayload: unknown): Promise<DownloadedInboundMedia | null>;
 }
 
 // ---- helpers de leitura tolerante (compartilhados pelos adapters) ----------

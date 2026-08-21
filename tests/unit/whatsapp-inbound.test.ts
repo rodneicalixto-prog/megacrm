@@ -53,6 +53,7 @@ const DEPT = 'dept-geral';
 beforeEach(() => {
   db.tables = {};
   db.rpcCalls = [];
+  db.storageFiles = [];
   // O número que recebe define o departamento. Sem departamento padrão a
   // mensagem é recusada de propósito — melhor que aterrissar no lugar errado.
   db.seed('departments', [{ id: DEPT, name: 'Geral', is_default: true }]);
@@ -123,6 +124,29 @@ test('mensagem nova cria contato, conversa e mensagem no inbox', async () => {
   });
 });
 
+test('áudio inbound é materializado no Storage antes de entrar na thread', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => new Response(JSON.stringify({
+    base64: btoa('ogg-real'),
+    mimetype: 'audio/ogg',
+    fileName: 'audio.ogg',
+  }))) as typeof fetch;
+
+  try {
+    const res = await handleInbound(post(EVOLUTION_URL, msg({
+      key: { remoteJid: '5511999998888@s.whatsapp.net', fromMe: false, id: 'AUD2' },
+      message: { audioMessage: { directPath: '/arquivo-criptografado', mediaKey: { 0: 1 } } },
+    })));
+    expect(res.status).toBe(200);
+    expect(db.rows('messages')[0]).toMatchObject({
+      content_type: 'audio',
+      media_url: 'https://fake.supabase.co/storage/v1/object/public/whatsapp-hub-outbound-media/inbound/AUD2/audio.ogg',
+    });
+    expect(db.storageFiles).toContain('whatsapp-hub-outbound-media/inbound/AUD2/audio.ogg');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
 test('contato já existente é reaproveitado em vez de duplicado', async () => {
   db.seed('contacts', [{ id: 'c-existente', phone: '+5511999998888' }]);
   await handleInbound(post(EVOLUTION_URL, msg()));

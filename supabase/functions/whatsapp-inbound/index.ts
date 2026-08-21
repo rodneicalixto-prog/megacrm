@@ -22,13 +22,19 @@ import {
   type ProviderName,
 } from '../_shared/whatsapp/index.ts';
 import { secretMatches, verifyWebhookSignature } from '../_shared/signature.ts';
-import { connectionForInstance, instanceFromPayload } from '../_shared/whatsapp/department-routing.ts';
+import { connectionForInstance, instanceFromPayload, providerFor } from '../_shared/whatsapp/department-routing.ts';
 
 // Nome distinto do normalizePhone de _shared/whatsapp/types.ts — o bundler do
 // bootstrap inlina os _shared no mesmo escopo do módulo.
 function toE164(raw: string): string {
   const t = raw.trim();
   return t.startsWith('+') ? t : `+${t}`;
+}
+
+const INBOUND_MEDIA_BUCKET = 'whatsapp-hub-outbound-media';
+
+function safeFileName(value: string): string {
+  return value.replace(/[^a-zA-Z0-9._-]+/g, '-').slice(-120) || 'media.bin';
 }
 
 // Handler exportado para poder ser exercitado fora do runtime: o `Deno.serve`
@@ -101,6 +107,7 @@ export async function handleInbound(req: Request): Promise<Response> {
   // o supervisor distribui.
   let assignTo: string | null = null;
   let connectionId: string | null = null;
+  let inboundMediaProvider = provider;
   if (provider.name === 'evolution') {
     const instance = instanceFromPayload(payload);
     const conn = instance ? await connectionForInstance(instance) : null;
@@ -114,6 +121,7 @@ export async function handleInbound(req: Request): Promise<Response> {
       );
     }
     if (conn) {
+      inboundMediaProvider = providerFor(conn);
       departmentId = conn.departmentId;
       assignTo = conn.assignToUserId ?? null;
       connectionId = conn.connectionId;
@@ -152,6 +160,36 @@ export async function handleInbound(req: Request): Promise<Response> {
       }
     }
 
+  }
+
+  // Baileys entrega uma URL para bytes criptografados, que o navegador não
+  // consegue tocar. A Evolution possui a chave da mensagem e devolve o arquivo
+  // descriptografado; mantemos uma cópia estável no Storage da Inbox.
+  if (
+    provider.name === 'evolution'
+    && inbound.contentType
+    && inbound.contentType !== 'text'
+    && inboundMediaProvider.downloadInboundMedia
+  ) {
+    try {
+      const media = await inboundMediaProvider.downloadInboundMedia(payload);
+      if (media) {
+        const path = 'inbound/' + inbound.messageId + '/' + safeFileName(media.fileName);
+        const { error: uploadError } = await admin.storage
+          .from(INBOUND_MEDIA_BUCKET)
+          .upload(path, media.bytes, { contentType: media.mime, upsert: true });
+        if (uploadError) throw new Error(uploadError.message);
+        inbound.mediaUrl = admin.storage.from(INBOUND_MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
+      }
+    } catch (error) {
+      console.log(JSON.stringify({
+        event: 'evolution_media_download_failed',
+        message_id: inbound.messageId,
+        message: error instanceof Error ? error.message : String(error),
+      }));
+      // Não perdemos a conversa inteira por indisponibilidade temporária da mídia.
+      inbound.mediaUrl = null;
+    }
   }
 
   // Mensagem enviada pela própria conta. Na rota não-oficial isso quase sempre

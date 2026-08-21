@@ -82,7 +82,6 @@ export function ContactPanel({
   };
 
   const handleClose = async () => {
-    if (!confirm('Fechar esta conversa?')) return;
     try {
       await onClose();
       toast.success('Conversa fechada.');
