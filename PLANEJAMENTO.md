@@ -1,7 +1,7 @@
 # MegaCRM — PRD e Estado Operacional
 
 > Avaliação original: 2026-08-08, sobre o commit `f01d683`.
-> Última atualização: 2026-08-20, branch `main`.
+> Última atualização: 2026-08-21, branch `main`, commit operacional `34e4429`.
 
 ---
 
@@ -11,9 +11,9 @@
 |---|---|
 | **Repositório** | ✅ código versionado e sincronizado com `origin/main` |
 | **CI** | ✅ lint · typecheck · SQL · build · testes |
-| **Deploy Vercel** | ✅ `megacrm`, produção ativa em `megacrm-seven-smoky.vercel.app`, 10 serverless |
-| **Testes** | ✅ 179 unitários (Vitest) + 9 E2E · SQL, build e tipos em toda a base |
-| **Banco Supabase** | ✅ `lstbxeaasyysboavdati` — 91 migrations, 22 Edge Functions |
+| **Deploy Vercel** | ✅ `megacrm`, produção ativa em `megacrm-seven-smoky.vercel.app`, 11 serverless |
+| **Testes** | ✅ 184 unitários (Vitest) + 9 E2E · SQL, build e tipos em toda a base |
+| **Banco Supabase** | ✅ `lstbxeaasyysboavdati` — 93 migrations, 22 Edge Functions |
 | **Rota WhatsApp** | ✅ Evolution API v2 · texto, áudio, vídeo, documentos e roteamento por linha/departamento |
 
 O diagnóstico que abriu este documento — *"o produto é sólido; o repositório
@@ -65,11 +65,11 @@ atribuição de UTM e dashboard.
 
 | Área | Linhas | Arquivos |
 |---|---:|---:|
-| `src/` (frontend) | 22.393 | 139 |
-| `supabase/migrations/` | 7.011 | 91 |
-| `supabase/functions/` | 5.750 | 22 funções |
-| `api/` (serverless Vercel) | 1.413 | 10 |
-| `tests/` | 2.126 | 9 specs E2E + 14 arquivos unitários (179 testes) |
+| `src/` (frontend) | 23.041 | 142 |
+| `supabase/migrations/` | 7.371 | 93 |
+| `supabase/functions/` | 6.118 | 22 funções + módulos compartilhados |
+| `api/` (serverless Vercel) | 1.629 | 11 |
+| `tests/` | 2.300 | 9 specs E2E + 14 arquivos unitários (184 testes) |
 
 ### O que está genuinamente bom
 
@@ -149,7 +149,7 @@ proibidas até a substituição do parser vulnerável.
 code-splitting por rota, mas recharts e xlsx passam de 700 KB juntos. Candidatos
 a import dinâmico.
 
-### 🟡 R6 — 89 migrations lineares
+### 🟡 R6 — 93 migrations lineares
 
 A cadeia inclui `drop_super_admin`, `drop_multitenant`, `drop_onboarding` —
 migrations que desfazem arquitetura antiga. Toda instalação nova cria e depois
@@ -316,8 +316,16 @@ silêncio. Corrigido e travado por teste de regressão.
    conectado/offline é consultado server-side. URL e chave Evolution específicas por linha agora são opcionais,
    validadas por endpoint administrativo e armazenadas com a chave criptografada;
    quando omitidas, a linha continua herdando a credencial global.
-3. ⏳ **Próximas pautas** — API pública e i18n (o v1 permanece PT-BR fixo até
-   essa etapa ser priorizada).
+3. ✅ **Inbox operacional** — área central ampliada, painel de contato sob
+   demanda, tema claro/escuro, cards do dashboard navegáveis, encerramento e
+   reabertura sem diálogo nativo, notificações agregadas por contato, resposta
+   citada, reação, encaminhamento, presença de digitação e nota de voz via
+   Evolution. Mensagens inbound de áudio sem URL pública são resolvidas pela
+   API da instância e persistidas no histórico.
+4. ⏳ **Próximas pautas** — grupos reais da Evolution, API pública e i18n. O
+   v1 permanece PT-BR fixo. Grupos `@g.us` continuam bloqueados até o modelo
+   persistir o `remoteJid` e garantir resposta no grupo, sem desviar mensagem
+   para o telefone privado de um participante.
 
 ---
 
@@ -349,7 +357,7 @@ silêncio. Corrigido e travado por teste de regressão.
 
 ---
 
-## 8. Estado operacional oficial (20/08/2026)
+## 8. Estado operacional oficial (21/08/2026)
 
 Esta seção substitui o retrato operacional de 10/08/2026, que apontava para
 outro projeto Supabase e continha dados identificáveis de uma instalação
@@ -364,7 +372,7 @@ configurar o ambiente oficial.
 | GitHub | branch `main`, sincronizada com `origin/main` |
 | Supabase | `lstbxeaasyysboavdati` |
 | Schema do MegaCRM | `whatsapp_hub`, exposto na Data API |
-| Banco | 91 migrations aplicadas e registradas |
+| Banco | 93 migrations aplicadas e registradas |
 | Edge Functions | 22 `ACTIVE`: 18 com JWT e 4 endpoints externos com controle próprio |
 | Storage | buckets de branding, logos, knowledge, agent media e outbound media |
 | Health check | `/api/health` retorna `200 {"ready":true}` |
@@ -394,6 +402,27 @@ provedor:
 - webhook Evolution protegido por segredo aleatório armazenado cifrado;
 - geração da URL segura pelo endpoint administrativo, sem segredo hardcoded.
 
+### Inbox, atendimento e notificações
+
+- finalizar uma conversa define `status = closed`, `closed_at` e
+  `unread_count = 0`; trigger no banco impede que uma conversa encerrada volte
+  a ficar não lida;
+- notificações pendentes da conversa são resolvidas no encerramento e saem da
+  interface ao serem visualizadas;
+- o sino mostra somente pendências, uma entrada agregada por contato, separada
+  nos grupos visuais **Mensagens** e **Aguardando atendimento**;
+- resposta citada, reação, encaminhamento e presença de digitação usam os
+  endpoints próprios da Evolution;
+- gravação pelo microfone é enviada como nota de voz (`ptt`) e não como anexo
+  genérico;
+- áudio recebido é recuperado pela Evolution quando o webhook não entrega uma
+  URL reproduzível;
+- conversas encerradas são removidas imediatamente do painel ativo, com opção
+  reversível de reabertura;
+- grupos reais de WhatsApp ainda não entram no CRM: payloads `@g.us` são
+  ignorados deliberadamente até existir identidade de grupo e roteamento de
+  saída seguros.
+
 O webhook público não confia apenas em `verify_jwt=false`: ele exige o token
 específico da Evolution antes de processar o payload. Funções internas e ações
 de usuário continuam protegidas pelo verificador JWT da plataforma.
@@ -412,8 +441,8 @@ painel com as policies do papel `super_admin`.
 ### Evidências de validação
 
 - `npm run typecheck`: aprovado;
-- `npm run test:unit`: 14 arquivos, 179 testes aprovados;
-- `npm run validate:sql`: 91 arquivos, 1.027 statements aprovados;
+- `npm run test:unit`: 14 arquivos, 184 testes aprovados;
+- `npm run validate:sql`: 93 arquivos, 1.039 statements aprovados;
 - retry do bootstrap: histórico canônico reconciliado com `_bootstrap_state`,
   comprovado com 89/89 checkpoints sem reaplicar migrations;
 - `npm run build`: aprovado localmente e na Vercel;
@@ -425,6 +454,8 @@ painel com as policies do papel `super_admin`.
   owner;
 - fila por departamento e RPC de distribuição verificadas no banco oficial;
 - verificação de integridade da fila: zero `admin` ou `super_admin` inseridos.
+- verificação pós-migration: zero conversas encerradas com `unread_count > 0`
+  e zero notificações não lidas vinculadas a conversas encerradas.
 
 ### Critério para liberar testes reais
 

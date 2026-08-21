@@ -13,6 +13,11 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   operators.
 - Direct routing for personal WhatsApp lines linked to an occupied department
   position, bypassing department queues.
+- Inbox controls for quoted replies, reactions, forwarding, typing presence,
+  screenshots, emoji selection, and Evolution voice notes.
+- Light/dark theme selection, navigable dashboard cards, and on-demand contact
+  details in the Inbox.
+- Notification grouping by contact and pending-action type.
 
 ### Fixed
 
@@ -28,6 +33,20 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   department during migration while rejecting unknown instance names.
 - Prevent personal lines from being linked to positions without an assigned
   user and keep administrators out of automatic assignment queues.
+- Recover inbound Evolution audio when the webhook does not include a directly
+  playable URL.
+- Clear unread state and pending notifications when a conversation is closed;
+  closed conversations can no longer appear in the unread queue.
+- Remove viewed notifications immediately instead of retaining and stacking
+  historical message rows in the notification tray.
+- Keep the active Inbox panel synchronized when conversations are closed or
+  reopened.
+
+### Security
+
+- Keep Evolution group payloads (`@g.us`) disabled until the data model stores
+  the group remote JID and outbound replies can be guaranteed to target the
+  group instead of a participant's private number.
 
 ## [1.0.0] — 2026-04-30
 
