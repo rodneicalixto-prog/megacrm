@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Inbox as InboxIcon, Info, Pin, Search, X } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Inbox as InboxIcon, Info, Pin, RotateCcw, Search, X } from 'lucide-react';
 import { useConversations } from '@/hooks/useConversations';
 import { useMessages } from '@/hooks/useMessages';
 import { operatorLabel, useOperators } from '@/hooks/useOperators';
@@ -10,6 +11,8 @@ import { useTags } from '@/hooks/useTags';
 import { ConversationList } from '@/components/inbox/ConversationList';
 import { QueueSidebar } from '@/components/inbox/QueueSidebar';
 import { MessageThread } from '@/components/inbox/MessageThread';
+import { ForwardMessageDialog } from '@/components/inbox/ForwardMessageDialog';
+import type { ThreadMessage } from '@/hooks/useMessages';
 import { MessageInput } from '@/components/inbox/MessageInput';
 import { ContactPanel } from '@/components/inbox/ContactPanel';
 import { TransferDialog } from '@/components/inbox/TransferDialog';
@@ -38,6 +41,7 @@ export default function InboxPage() {
   // selecionado, senão a thread. O painel de contato vira um overlay.
   const [showPanelMobile, setShowPanelMobile] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
+  const [forwardMessage, setForwardMessage] = useState<ThreadMessage | null>(null);
   const { operators } = useOperators();
   const { tags } = useTags();
   const { departments, lines } = useDepartments();
@@ -100,8 +104,7 @@ export default function InboxPage() {
       if (!q) return true;
       const name = c.contact?.name?.toLowerCase() ?? '';
       const phone = c.contact?.phone?.toLowerCase() ?? '';
-      const preview = c.lastMessagePreview?.toLowerCase() ?? '';
-      return name.includes(q) || phone.includes(q) || preview.includes(q);
+      return name.includes(q) || phone.includes(q);
     });
   }, [conversations, search, filters, userId]);
 
@@ -223,6 +226,21 @@ export default function InboxPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId, selected?.unread_count]);
 
+  const changeConversationStatus = async () => {
+    if (!selected) return;
+    const closing = selected.status !== 'closed';
+    if (closing && !confirm('Finalizar esta conversa?')) return;
+    try {
+      await setStatus(selected.id, closing ? 'closed' : 'human_active');
+      toast.success(closing ? 'Conversa finalizada.' : 'Conversa reaberta.');
+      await reloadConvs();
+    } catch (error) {
+      toast.error('Não foi possível alterar a conversa', {
+        description: error instanceof Error ? error.message : String(error),
+      });
+    }
+  };
+
   return (
     <div className="h-[calc(100vh-6rem)] flex flex-col">
       <div className="flex items-center justify-between mb-4">
@@ -243,7 +261,7 @@ export default function InboxPage() {
         </div>
       )}
 
-      <div className="flex-1 lg:grid lg:grid-cols-[210px_300px_1fr_320px] gap-3 min-h-0">
+      <div className="flex-1 lg:grid lg:grid-cols-[190px_270px_minmax(0,1fr)] gap-3 min-h-0">
         {/* Filas — no mobile viram um scroller horizontal acima da lista */}
         <div
           className={`glass-card p-0 overflow-y-auto h-full ${
@@ -291,7 +309,7 @@ export default function InboxPage() {
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Buscar nome, telefone ou mensagem…"
+                  placeholder="Buscar nome ou telefone…"
                   className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] pl-8 pr-3 py-2 text-xs text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
                 />
               </div>
@@ -377,9 +395,17 @@ export default function InboxPage() {
                   </div>
                 </div>
                 <button
+                  onClick={() => void changeConversationStatus()}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[var(--color-border-card)] px-3 text-xs font-semibold text-[var(--color-text-primary)] hover:bg-white/5"
+                  title={selected.status === 'closed' ? 'Reabrir conversa' : 'Finalizar conversa'}
+                >
+                  {selected.status === 'closed' ? <RotateCcw className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+                  <span className="hidden sm:inline">{selected.status === 'closed' ? 'Reabrir' : 'Finalizar'}</span>
+                </button>
+                <button
                   onClick={() => setShowPanelMobile(true)}
                   aria-label="Detalhes da conversa"
-                  className="xl:hidden h-9 w-9 shrink-0 flex items-center justify-center rounded-lg text-[var(--color-text-secondary)] hover:bg-white/5 hover:text-[var(--color-text-primary)] transition-all duration-[400ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
+                  className="h-9 w-9 shrink-0 flex items-center justify-center rounded-lg text-[var(--color-text-secondary)] hover:bg-white/5 hover:text-[var(--color-text-primary)] transition-all duration-[400ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
                 >
                   <Info className="h-4.5 w-4.5" />
                 </button>
@@ -395,6 +421,7 @@ export default function InboxPage() {
                 loading={loadingMsgs}
                 onRetry={retry}
                 onDismiss={dismissFailed}
+                onForward={setForwardMessage}
               />
               {selected.status !== 'closed' && (
                 <MessageInput
@@ -413,41 +440,16 @@ export default function InboxPage() {
           )}
         </div>
 
-        {/* Right: contact panel — coluna fixa só em xl; abaixo disso é overlay */}
-        <div className="hidden xl:block glass-card p-0 overflow-hidden h-full">
-          {selected ? (
-            <ContactPanel
-              conversation={selected}
-              withinWindow={withinWindow}
-              operators={operators}
-              onPauseAI={() => setAiPaused(selected.id, true)}
-              onResumeAI={() => setAiPaused(selected.id, false)}
-              onClose={() => setStatus(selected.id, 'closed')}
-              onReopen={() => setStatus(selected.id, 'human_active')}
-              onAssign={(uid) => setAssigned(selected.id, uid)}
-              onSetActiveDeal={(dealId) => setActiveDeal(selected.id, dealId)}
-              onPinNote={(note) => setPinnedNote(selected.id, note)}
-              onArchive={(a) => setArchived(selected.id, a)}
-              onSetPriority={(pr) => setPriority(selected.id, pr)}
-              onTransfer={() => setShowTransfer(true)}
-              onContactRefresh={() => void reloadConvs()}
-            />
-          ) : (
-            <div className="h-full flex items-center justify-center p-6">
-              <div className="text-label opacity-60">Sem conversa selecionada</div>
-            </div>
-          )}
-        </div>
       </div>
 
-      {/* Overlay do painel de contato em telas < xl */}
+      {/* Detalhes sob demanda: libera toda a largura para a conversa. */}
       {selected && showPanelMobile && (
-        <div className="fixed inset-0 z-50 xl:hidden">
+        <div className="fixed inset-0 z-50">
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setShowPanelMobile(false)}
           />
-          <div className="absolute right-0 top-0 h-full w-80 max-w-[85vw] glass-surface border-l border-[rgba(59,130,246,0.15)] overflow-y-auto">
+          <div className="absolute right-0 top-0 h-full w-[360px] max-w-[92vw] glass-surface border-l border-[rgba(59,130,246,0.15)] overflow-y-auto">
             <div className="flex justify-end p-2">
               <button
                 onClick={() => setShowPanelMobile(false)}
@@ -476,6 +478,14 @@ export default function InboxPage() {
           </div>
         </div>
       )}
+      {selected ? (
+        <ForwardMessageDialog
+          message={forwardMessage}
+          conversations={conversations}
+          currentConversationId={selected.id}
+          onClose={() => setForwardMessage(null)}
+        />
+      ) : null}
       {selected ? (
         <TransferDialog
           open={showTransfer}

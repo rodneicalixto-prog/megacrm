@@ -127,9 +127,7 @@ export function ConversationList({
                       {formatTimestamp(c.last_message_at)}
                     </div>
                   </div>
-                  <div className="text-xs text-[var(--color-text-secondary)] truncate mt-0.5">
-                    {c.lastMessagePreview ?? <span className="opacity-40">—</span>}
-                  </div>
+
                   <div className="flex items-center gap-2 mt-1.5">
                     <span className={cn('inline-flex items-center gap-1 text-[10px] uppercase tracking-wide font-semibold', badge.color)}>
                       <Icon className="h-3 w-3" />

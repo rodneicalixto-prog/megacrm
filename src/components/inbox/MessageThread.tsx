@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Bot, Check, CheckCheck, Clock, FileText, StickyNote, User } from 'lucide-react';
+import { Bot, Check, CheckCheck, Clock, FileText, Forward, StickyNote, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Message } from '@/types/inbox';
 import type { ThreadMessage } from '@/hooks/useMessages';
@@ -9,6 +9,7 @@ interface MessageThreadProps {
   loading: boolean;
   onRetry?: (tempId: string) => void;
   onDismiss?: (tempId: string) => void;
+  onForward?: (message: ThreadMessage) => void;
 }
 
 function StatusTicks({ status }: { status: Message['meta_status'] }) {
@@ -112,7 +113,7 @@ function FailedActions({
   );
 }
 
-export function MessageThread({ messages, loading, onRetry, onDismiss }: MessageThreadProps) {
+export function MessageThread({ messages, loading, onRetry, onDismiss, onForward }: MessageThreadProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -174,8 +175,19 @@ export function MessageThread({ messages, loading, onRetry, onDismiss }: Message
         return (
           <div
             key={m.id}
-            className={cn('flex', isInbound ? 'justify-start' : 'justify-end')}
+            className={cn('group/message flex items-end gap-1', isInbound ? 'justify-start' : 'justify-end')}
           >
+            {!isInbound && (
+              <button
+                type="button"
+                onClick={() => onForward?.(m)}
+                className="mb-2 flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-text-secondary)] opacity-0 transition hover:bg-white/5 hover:text-[var(--color-text-primary)] group-hover/message:opacity-100 focus-visible:opacity-100"
+                aria-label="Encaminhar mensagem"
+                title="Encaminhar"
+              >
+                <Forward className="h-3.5 w-3.5" />
+              </button>
+            )}
             <div
               className={cn(
                 'max-w-[70%] rounded-2xl px-4 py-2.5 text-sm shadow-sm transition-opacity',
@@ -225,6 +237,17 @@ export function MessageThread({ messages, loading, onRetry, onDismiss }: Message
                 <FailedActions tempId={m._tempId} onRetry={onRetry} onDismiss={onDismiss} inverse />
               )}
             </div>
+            {isInbound && (
+              <button
+                type="button"
+                onClick={() => onForward?.(m)}
+                className="mb-2 flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-text-secondary)] opacity-0 transition hover:bg-white/5 hover:text-[var(--color-text-primary)] group-hover/message:opacity-100 focus-visible:opacity-100"
+                aria-label="Encaminhar mensagem"
+                title="Encaminhar"
+              >
+                <Forward className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
         );
       })}

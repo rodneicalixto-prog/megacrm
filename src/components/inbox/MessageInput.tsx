@@ -1,6 +1,6 @@
 import { useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from 'react';
 import { toast } from 'sonner';
-import { Clock, FileText, Loader2, Paperclip, Send, StickyNote, X } from 'lucide-react';
+import { Clock, FileText, Loader2, MonitorUp, Paperclip, Send, Smile, StickyNote, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getSupabase } from '@/lib/supabase';
 import type { SendResult } from '@/hooks/useMessages';
@@ -22,6 +22,7 @@ export function MessageInput({ conversationId, disabled, withinWindow = true, on
   const [content, setContent] = useState('');
   const [isPrivate, setIsPrivate] = useState(false);
   const [showTemplate, setShowTemplate] = useState(false);
+  const [showEmoji, setShowEmoji] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false); // só para mídia (upload real bloqueia)
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -35,6 +36,29 @@ export function MessageInput({ conversationId, disabled, withinWindow = true, on
     }
     setFile(f);
     if (f) setIsPrivate(false); // mídia nunca é nota privada
+  };
+
+  const captureScreen = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      await video.play();
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext('2d')?.drawImage(video, 0, 0);
+      stream.getTracks().forEach((track) => track.stop());
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+      if (!blob) throw new Error('Não foi possível gerar a captura.');
+      setFile(new File([blob], 'captura-de-tela.png', { type: 'image/png' }));
+      setIsPrivate(false);
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'NotAllowedError') return;
+      toast.error('Falha ao capturar a tela', {
+        description: error instanceof Error ? error.message : String(error),
+      });
+    }
   };
 
   const sendMedia = async () => {
@@ -179,18 +203,61 @@ export function MessageInput({ conversationId, disabled, withinWindow = true, on
           disabled={disabled || sending}
         />
         {!isPrivate && (
+          <>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={disabled || sending}
+              aria-label="Anexar arquivo"
+              title="Anexar imagem, áudio, vídeo ou documento (máx 25MB)"
+            >
+              <Paperclip className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => void captureScreen()}
+              disabled={disabled || sending}
+              aria-label="Capturar tela"
+              title="Capturar e anexar uma tela ou janela"
+            >
+              <MonitorUp className="h-4 w-4" />
+            </Button>
+          </>
+        )}
+        <div className="relative">
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => setShowEmoji((value) => !value)}
             disabled={disabled || sending}
-            aria-label="Anexar arquivo"
-            title="Anexar imagem, áudio, vídeo ou documento (máx 25MB)"
+            aria-label="Adicionar emoji"
+            title="Emojis"
           >
-            <Paperclip className="h-4 w-4" />
+            <Smile className="h-4 w-4" />
           </Button>
-        )}
+          {showEmoji && (
+            <div className="absolute bottom-12 left-0 z-30 grid w-64 grid-cols-8 gap-1 rounded-lg border border-[var(--color-border-card)] bg-[var(--color-bg-elevated)] p-2 shadow-2xl">
+              {['😀','😃','😄','😁','😂','😊','😍','🥰','😘','😉','😎','🤔','😢','😭','😡','👍','👎','👏','🙏','💪','✅','❌','❤️','🔥','🎉','🚀','📞','📎','💬','💯','👋','🤝'].map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => {
+                    setContent((value) => value + emoji);
+                    setShowEmoji(false);
+                  }}
+                  className="flex h-7 w-7 items-center justify-center rounded text-lg hover:bg-[rgba(59,130,246,0.12)]"
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}

@@ -17,6 +17,10 @@ export default function DashboardPage() {
     departmentId === 'all' ? null : departmentId,
     connectionId === 'all' ? null : connectionId,
   );
+  const inboxScope = new URLSearchParams();
+  if (departmentId !== 'all') inboxScope.set('fdp', departmentId);
+  if (connectionId !== 'all') inboxScope.set('fcn', connectionId);
+
   const visibleLines = departmentId === 'all'
     ? lines
     : lines.filter((line) => line.department_id === departmentId);
@@ -46,7 +50,7 @@ export default function DashboardPage() {
                 setDepartmentId(event.target.value);
                 setConnectionId('all');
               }}
-              className="min-h-11 w-full rounded-lg border border-[rgba(59,130,246,0.25)] bg-[#0F1223] px-3 text-sm text-[var(--color-text-primary)] outline-none transition focus:border-[var(--accent-primary)] disabled:opacity-50"
+              className="min-h-11 w-full rounded-lg border border-[rgba(59,130,246,0.25)] bg-[var(--color-bg-elevated)] px-3 text-sm text-[var(--color-text-primary)] outline-none transition focus:border-[var(--accent-primary)] disabled:opacity-50"
             >
               <option value="all">Todos os setores</option>
               {departments.map((department) => (
@@ -60,7 +64,7 @@ export default function DashboardPage() {
               value={connectionId}
               disabled={loadingDepartments || visibleLines.length === 0}
               onChange={(event) => setConnectionId(event.target.value)}
-              className="min-h-11 w-full rounded-lg border border-[rgba(59,130,246,0.25)] bg-[#0F1223] px-3 text-sm text-[var(--color-text-primary)] outline-none transition focus:border-[var(--accent-primary)] disabled:opacity-50"
+              className="min-h-11 w-full rounded-lg border border-[rgba(59,130,246,0.25)] bg-[var(--color-bg-elevated)] px-3 text-sm text-[var(--color-text-primary)] outline-none transition focus:border-[var(--accent-primary)] disabled:opacity-50"
             >
               <option value="all">Todos os números</option>
               {visibleLines.map((line) => {
@@ -82,7 +86,7 @@ export default function DashboardPage() {
           Carregando atendimento...
         </div>
       ) : (
-        <AttendancePanel metrics={attendance.metrics} operators={operators} />
+        <AttendancePanel metrics={attendance.metrics} operators={operators} inboxScope={inboxScope.toString()} />
       )}
     </div>
   );

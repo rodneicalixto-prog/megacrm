@@ -4,6 +4,7 @@ import { Menu, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NotificationsDropdown } from '@/components/NotificationsDropdown';
 import { useAuth } from '@/app/providers/AuthProvider';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -35,6 +36,7 @@ export function Header({ onMenuClick }: HeaderProps) {
       </div>
 
       <div className="flex items-center gap-3">
+        <ThemeToggle />
         <NotificationsDropdown />
 
         <div className="flex items-center gap-2">
