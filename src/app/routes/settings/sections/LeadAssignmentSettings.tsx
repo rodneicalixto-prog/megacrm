@@ -156,7 +156,7 @@ export function LeadAssignmentSettings() {
           </p>
         </header>
         <p className="text-sm text-[var(--color-text-secondary)]">
-          No recebimento, a linha de fila segue esta ordem. Linhas pessoais s?o atendidas diretamente.
+          No recebimento, a linha de fila segue esta ordem. Linhas pessoais são atendidas diretamente.
         </p>
 
         <div className="space-y-2">
@@ -171,7 +171,7 @@ export function LeadAssignmentSettings() {
             ))}
           </select>
           <p className="text-xs text-[var(--color-text-secondary)]">
-            Admin e super admin n?o participam da fila. Vincule o cargo deles ? linha pessoal em Setores.
+            Admin e super admin não participam da fila. Vincule o cargo deles à linha pessoal em Setores.
           </p>
         </div>
 
