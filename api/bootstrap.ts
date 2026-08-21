@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { reconcileMigrationHistory } from './migration-history.js';
 
 type BootstrapBody = {
   supabase_url?: string;
@@ -151,14 +152,48 @@ function isAlreadyAppliedError(message: string): boolean {
 async function runMigrations(ref: string, pat: string, body: Required<BootstrapBody>, cryptoKey: string) {
   const files = readdirSync('supabase/migrations').filter((file) => file.endsWith('.sql')).sort();
 
-  const rows = await supabaseQuery(
+  const checkpointRows = await supabaseQuery(
     ref,
     pat,
     `SELECT step FROM public._bootstrap_state WHERE step LIKE 'migration:%';`,
   );
-  const applied = new Set(
-    (Array.isArray(rows) ? rows : []).map((row: { step: string }) => row.step),
+  let canonicalRows: unknown = [];
+  try {
+    canonicalRows = await supabaseQuery(
+      ref,
+      pat,
+      `SELECT version FROM supabase_migrations.schema_migrations ORDER BY version;`,
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (!message.includes('42P01') && !message.includes('3F000')) throw err;
+  }
+
+  const { applied, backfill } = reconcileMigrationHistory(
+    files,
+    (Array.isArray(checkpointRows) ? checkpointRows : []).map(
+      (row: { step: string }) => row.step,
+    ),
+    (Array.isArray(canonicalRows) ? canonicalRows : []).map(
+      (row: { version: string }) => row.version,
+    ),
   );
+
+  if (backfill.length > 0) {
+    const values = backfill
+      .map(
+        (step) =>
+          `('${step.replaceAll("'", "''")}', now(), '{"source":"supabase_migrations"}'::jsonb)`,
+      )
+      .join(',\n');
+    await supabaseQuery(
+      ref,
+      pat,
+      `INSERT INTO public._bootstrap_state (step, completed_at, metadata)
+       VALUES ${values}
+       ON CONFLICT (step) DO NOTHING;`,
+    );
+  }
 
   for (const file of files) {
     const step = `migration:${file}`;

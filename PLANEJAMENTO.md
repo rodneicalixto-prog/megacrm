@@ -12,7 +12,7 @@
 | **Repositório** | ✅ código versionado e sincronizado com `origin/main` |
 | **CI** | ✅ lint · typecheck · SQL · build · testes |
 | **Deploy Vercel** | ✅ `megacrm`, produção ativa em `megacrm-seven-smoky.vercel.app`, 9 serverless |
-| **Testes** | ✅ 163 unitários (Vitest) + 9 E2E · SQL, build e tipos em toda a base |
+| **Testes** | ✅ 166 unitários (Vitest) + 9 E2E · SQL, build e tipos em toda a base |
 | **Banco Supabase** | ✅ `lstbxeaasyysboavdati` — 89 migrations, 22 Edge Functions |
 | **Rota WhatsApp** | ✅ Evolution API v2 · texto, áudio, vídeo, documentos e roteamento por linha/departamento |
 
@@ -69,7 +69,7 @@ atribuição de UTM e dashboard.
 | `supabase/migrations/` | 7.011 | 89 |
 | `supabase/functions/` | 5.750 | 22 funções |
 | `api/` (serverless Vercel) | 1.413 | 9 |
-| `tests/` | 2.094 | 9 specs E2E + 11 arquivos unitários (163 testes) |
+| `tests/` | 2.126 | 9 specs E2E + 12 arquivos unitários (166 testes) |
 
 ### O que está genuinamente bom
 
@@ -404,8 +404,10 @@ painel com as policies do papel `super_admin`.
 ### Evidências de validação
 
 - `npm run typecheck`: aprovado;
-- `npm run test:unit`: 11 arquivos, 163 testes aprovados;
+- `npm run test:unit`: 12 arquivos, 166 testes aprovados;
 - `npm run validate:sql`: 89 arquivos, 1.002 statements aprovados;
+- retry do bootstrap: histórico canônico reconciliado com `_bootstrap_state`,
+  comprovado com 89/89 checkpoints sem reaplicar migrations;
 - `npm run build`: aprovado localmente e na Vercel;
 - deploy automático do GitHub: `READY`, sem erro TypeScript;
 - função autenticada sem JWT: `401`;
