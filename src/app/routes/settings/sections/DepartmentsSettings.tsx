@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Building2, ChevronDown, KeyRound, Loader2, Plus, RefreshCw, Smartphone, Trash2, UserPlus, UserRoundPlus } from 'lucide-react';
+import { Building2, ChevronDown, KeyRound, Loader2, Plus, QrCode, RefreshCw, Smartphone, Trash2, UserPlus, UserRoundPlus, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { getSupabase } from '@/lib/supabase';
 import { operatorLabel, useOperators } from '@/hooks/useOperators';
@@ -35,6 +35,15 @@ interface LinhaStatus {
   error?: string;
 }
 
+interface QrDialogState {
+  lineId: string;
+  instance: string;
+  image: string | null;
+  pairingCode: string | null;
+  warning: string | null;
+  error: string | null;
+}
+
 const inputCls =
   'h-10 w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)] [&>option]:bg-[var(--color-bg-primary)] [&>option]:text-[var(--color-text-primary)]';
 
@@ -52,6 +61,8 @@ export function DepartmentsSettings() {
   const [error, setError] = useState<string | null>(null);
   const [novoDepto, setNovoDepto] = useState('');
   const [novoCargo, setNovoCargo] = useState<Record<string, string>>({});
+  const [criandoCargoUsuario, setCriandoCargoUsuario] = useState(false);
+  const [nomeCargoUsuario, setNomeCargoUsuario] = useState('');
   const [novaLinha, setNovaLinha] = useState<Record<string, {
     label: string;
     instance: string;
@@ -64,6 +75,8 @@ export function DepartmentsSettings() {
   const [linhaCredencialAberta, setLinhaCredencialAberta] = useState<string | null>(null);
   const [credencialLinha, setCredencialLinha] = useState({ serverUrl: '', apiKey: '' });
   const [setorAberto, setSetorAberto] = useState<string | null>(null);
+  const [qrDialog, setQrDialog] = useState<QrDialogState | null>(null);
+  const [qrLoading, setQrLoading] = useState(false);
 
   // Cadastro de usuário: nome, e-mail, função e setor. Fica junto de setores e
   // cargos porque é a mesma decisão — criar alguém sem dizer onde ele atende
@@ -89,11 +102,14 @@ export function DepartmentsSettings() {
         statuses?: Array<LinhaStatus & { id: string }>;
       };
       if (!response.ok || !body.success) throw new Error(body.message ?? 'Falha ao consultar linhas.');
-      setStatusLinhas(Object.fromEntries((body.statuses ?? []).map(({ id, ...status }) => [id, status])));
+      const statuses = body.statuses ?? [];
+      setStatusLinhas(Object.fromEntries(statuses.map(({ id, ...status }) => [id, status])));
+      return statuses;
     } catch (statusError) {
       toast.error('Não foi possível atualizar as conexões', {
         description: statusError instanceof Error ? statusError.message : 'Erro interno',
       });
+      return [];
     } finally {
       setLoadingStatus(false);
     }
@@ -162,6 +178,28 @@ export function DepartmentsSettings() {
     void carregar();
   };
 
+  const criarCargoUsuario = async () => {
+    const cargoName = nomeCargoUsuario.trim();
+    if (!setorNovo) return toast.error('Selecione primeiro a equipe / setor.');
+    if (!cargoName) return;
+    setBusy(true);
+    const { data, error } = await getSupabase().schema('whatsapp_hub')
+      .from('department_positions')
+      .insert({ department_id: setorNovo, name: cargoName })
+      .select('id, department_id, name, user_id')
+      .single();
+    setBusy(false);
+    if (error || !data) {
+      return toast.error('Falha ao criar cargo', { description: error?.message ?? 'Erro interno' });
+    }
+    const created = data as Cargo;
+    setCargos((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name)));
+    setCargoNovo(created.id);
+    setNomeCargoUsuario('');
+    setCriandoCargoUsuario(false);
+    toast.success('Cargo criado e selecionado.');
+  };
+
   const vincular = async (cargoId: string, userId: string | null) => {
     const { error } = await getSupabase().schema('whatsapp_hub')
       .from('department_positions').update({ user_id: userId }).eq('id', cargoId);
@@ -190,9 +228,72 @@ export function DepartmentsSettings() {
     });
   };
 
+  const conectarLinha = async (lineId: string, instance: string) => {
+    setQrDialog({ lineId, instance, image: null, pairingCode: null, warning: null, error: null });
+    setQrLoading(true);
+    try {
+      const { data } = await getSupabase().auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) throw new Error('Sessão expirada. Entre novamente.');
+      const response = await fetch('/api/evolution-instance', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ connectionId: lineId }),
+      });
+      const result = await response.json() as {
+        success?: boolean;
+        message?: string;
+        qr_image?: string | null;
+        pairing_code?: string | null;
+        warning?: string;
+      };
+      if (!response.ok || !result.success) throw new Error(result.message ?? 'Falha ao gerar QR Code.');
+      setQrDialog({
+        lineId,
+        instance,
+        image: result.qr_image ?? null,
+        pairingCode: result.pairing_code ?? null,
+        warning: result.warning ?? null,
+        error: result.qr_image || result.pairing_code
+          ? null
+          : 'A Evolution ainda não emitiu um QR Code. Aguarde alguns segundos e gere novamente.',
+      });
+    } catch (connectError) {
+      setQrDialog({
+        lineId,
+        instance,
+        image: null,
+        pairingCode: null,
+        warning: null,
+        error: connectError instanceof Error ? connectError.message : 'Erro interno',
+      });
+    } finally {
+      setQrLoading(false);
+    }
+  };
+
+  const verificarConexaoQr = async () => {
+    if (!qrDialog) return;
+    const statuses = await carregarStatus();
+    const status = statuses.find((item) => item.id === qrDialog.lineId);
+    if (status?.connected) {
+      setQrDialog(null);
+      toast.success('WhatsApp conectado à linha.');
+      void carregar();
+      return;
+    }
+    toast.info('O telefone ainda não está conectado.', {
+      description: status?.error ?? 'Escaneie o QR pelo WhatsApp e tente novamente.',
+    });
+  };
+
   const criarLinha = async (departmentId: string) => {
     const draft = novaLinha[departmentId];
     if (!draft?.instance.trim()) return;
+    let created: { id: string; instance: string } | null = null;
     setBusy(true);
     try {
       const { data } = await getSupabase().auth.getSession();
@@ -212,8 +313,11 @@ export function DepartmentsSettings() {
           apiKey: draft.apiKey,
         }),
       });
-      const result = await response.json() as { success?: boolean; message?: string };
-      if (!response.ok || !result.success) throw new Error(result.message ?? 'Erro interno');
+      const result = await response.json() as { success?: boolean; message?: string; id?: string };
+      if (!response.ok || !result.success || !result.id) {
+        throw new Error(result.message ?? 'Erro interno');
+      }
+      created = { id: result.id, instance: draft.instance.trim() };
     } catch (createError) {
       toast.error('Falha ao adicionar número', {
         description: createError instanceof Error ? createError.message : 'Erro interno',
@@ -226,8 +330,9 @@ export function DepartmentsSettings() {
       ...previous,
       [departmentId]: { label: '', instance: '', phone: '', positionId: '', serverUrl: '', apiKey: '' },
     }));
-    toast.success('Número adicionado ao setor.');
+    toast.success('Linha salva. Gere o QR para conectar o telefone.');
     void carregar();
+    if (created) void conectarLinha(created.id, created.instance);
   };
 
   const excluirLinha = async (linha: Linha) => {
@@ -373,7 +478,7 @@ export function DepartmentsSettings() {
             <div className="text-label">Equipe / setor</div>
             <select
               value={setorNovo}
-              onChange={(e) => { setSetorNovo(e.target.value); setCargoNovo(''); }}
+              onChange={(e) => { setSetorNovo(e.target.value); setCargoNovo(''); setCriandoCargoUsuario(false); setNomeCargoUsuario(''); }}
               className={inputCls}
             >
               <option value="">Selecione…</option>
@@ -384,18 +489,47 @@ export function DepartmentsSettings() {
           </div>
           <div className="space-y-1.5 sm:col-span-2">
             <div className="text-label">Cargo (opcional)</div>
-            <select
-              value={cargoNovo}
-              onChange={(e) => setCargoNovo(e.target.value)}
-              className={inputCls}
-            >
-              <option value="">Sem cargo — entra na fila do setor</option>
-              {cargos
-                .filter((c) => c.department_id === setorNovo && !c.user_id)
-                .map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-            </select>
+            <div className="flex gap-2">
+              <select
+                value={cargoNovo}
+                onChange={(e) => setCargoNovo(e.target.value)}
+                className={inputCls}
+              >
+                <option value="">Sem cargo — entra na fila do setor</option>
+                {cargos
+                  .filter((c) => c.department_id === setorNovo && !c.user_id)
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => setCriandoCargoUsuario((current) => !current)}
+                disabled={!setorNovo}
+                title="Criar cargo neste setor"
+                className="flex h-10 shrink-0 items-center gap-1.5 rounded-lg border border-[rgba(59,130,246,0.25)] px-3 text-sm font-medium text-[var(--color-text-primary)] disabled:opacity-40"
+              >
+                <Plus className="h-4 w-4" /> Criar cargo
+              </button>
+            </div>
+            {criandoCargoUsuario ? (
+              <div className="flex gap-2">
+                <input
+                  value={nomeCargoUsuario}
+                  onChange={(e) => setNomeCargoUsuario(e.target.value)}
+                  placeholder="Nome do novo cargo"
+                  className={inputCls}
+                />
+                <button
+                  type="button"
+                  onClick={() => void criarCargoUsuario()}
+                  disabled={busy || !nomeCargoUsuario.trim()}
+                  className="h-10 shrink-0 rounded-lg bg-[var(--accent-primary)] px-4 text-sm font-semibold text-white disabled:opacity-40"
+                >
+                  Salvar
+                </button>
+              </div>
+            ) : null}
             <p className="text-xs text-[var(--color-text-secondary)]">
               Com cargo, a conversa que chegar na linha desse cargo já nasce no nome
               dessa pessoa. Sem cargo, cai na fila do supervisor.
@@ -534,6 +668,15 @@ export function DepartmentsSettings() {
                           </div>
                           <button
                             type="button"
+                            onClick={() => void conectarLinha(linha.id, linha.instance)}
+                            aria-label={`Gerar QR Code para ${linha.label ?? linha.instance}`}
+                            title="Conectar telefone / gerar QR Code"
+                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[var(--color-text-secondary)] hover:text-[var(--accent-secondary)]"
+                          >
+                            <QrCode className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => {
                               const abrir = linhaCredencialAberta !== linha.id;
                               setLinhaCredencialAberta(abrir ? linha.id : null);
@@ -587,7 +730,7 @@ export function DepartmentsSettings() {
                   </p>
                   <div className="mt-3 flex justify-end">
                     <button type="button" onClick={() => void criarLinha(d.id)} disabled={busy || !draftLinha.instance.trim() || !destinoDisponivel} className="flex h-10 items-center gap-1.5 rounded-lg border border-[rgba(59,130,246,0.25)] px-4 text-sm font-medium text-[var(--color-text-primary)] disabled:opacity-40">
-                      <Plus className="h-4 w-4" /> Adicionar número
+                      <QrCode className="h-4 w-4" /> Criar e conectar número
                     </button>
                   </div>
                 </section>
@@ -648,6 +791,88 @@ export function DepartmentsSettings() {
           </div>
         );
       })}
+      {qrDialog ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="evolution-qr-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={() => setQrDialog(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-lg border border-[rgba(59,130,246,0.25)] bg-[var(--color-bg-primary)] p-5 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start gap-3">
+              <QrCode className="mt-0.5 h-5 w-5 text-[var(--accent-secondary)]" />
+              <div className="min-w-0 flex-1">
+                <h3 id="evolution-qr-title" className="text-lg font-semibold text-[var(--color-text-primary)]">
+                  Conectar {qrDialog.instance}
+                </h3>
+                <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                  No WhatsApp do telefone, abra Aparelhos conectados, escolha Conectar aparelho e leia o QR Code.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setQrDialog(null)}
+                aria-label="Fechar QR Code"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mt-5 flex min-h-64 items-center justify-center">
+              {qrLoading ? (
+                <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+                  <Loader2 className="h-5 w-5 animate-spin" /> Gerando QR Code…
+                </div>
+              ) : qrDialog.image ? (
+                <img
+                  src={qrDialog.image}
+                  alt={`QR Code da instância ${qrDialog.instance}`}
+                  className="h-64 w-64 bg-white p-2"
+                />
+              ) : qrDialog.pairingCode ? (
+                <div className="text-center">
+                  <div className="text-xs uppercase text-[var(--color-text-secondary)]">Código de pareamento</div>
+                  <code className="mt-2 block text-2xl font-semibold tracking-[0.12em] text-[var(--color-text-primary)]">
+                    {qrDialog.pairingCode}
+                  </code>
+                </div>
+              ) : (
+                <p className="max-w-sm text-center text-sm text-[var(--color-error)]">
+                  {qrDialog.error ?? 'QR Code indisponível.'}
+                </p>
+              )}
+            </div>
+
+            {qrDialog.warning ? (
+              <p className="mt-3 text-xs text-[var(--color-warning)]">{qrDialog.warning}</p>
+            ) : null}
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => void conectarLinha(qrDialog.lineId, qrDialog.instance)}
+                disabled={qrLoading}
+                className="h-10 rounded-lg border border-[rgba(59,130,246,0.25)] px-4 text-sm font-medium text-[var(--color-text-primary)] disabled:opacity-40"
+              >
+                Gerar novo QR
+              </button>
+              <button
+                type="button"
+                onClick={() => void verificarConexaoQr()}
+                disabled={loadingStatus}
+                className="flex h-10 items-center gap-2 rounded-lg bg-[var(--accent-primary)] px-4 text-sm font-semibold text-white disabled:opacity-40"
+              >
+                {loadingStatus ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                Já escaneei, verificar
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

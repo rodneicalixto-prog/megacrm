@@ -11,8 +11,8 @@
 |---|---|
 | **Repositório** | ✅ código versionado e sincronizado com `origin/main` |
 | **CI** | ✅ lint · typecheck · SQL · build · testes |
-| **Deploy Vercel** | ✅ `megacrm`, produção ativa em `megacrm-seven-smoky.vercel.app`, 9 serverless |
-| **Testes** | ✅ 166 unitários (Vitest) + 9 E2E · SQL, build e tipos em toda a base |
+| **Deploy Vercel** | ✅ `megacrm`, produção ativa em `megacrm-seven-smoky.vercel.app`, 10 serverless |
+| **Testes** | ✅ 170 unitários (Vitest) + 9 E2E · SQL, build e tipos em toda a base |
 | **Banco Supabase** | ✅ `lstbxeaasyysboavdati` — 89 migrations, 22 Edge Functions |
 | **Rota WhatsApp** | ✅ Evolution API v2 · texto, áudio, vídeo, documentos e roteamento por linha/departamento |
 
@@ -68,8 +68,8 @@ atribuição de UTM e dashboard.
 | `src/` (frontend) | 22.393 | 139 |
 | `supabase/migrations/` | 7.011 | 89 |
 | `supabase/functions/` | 5.750 | 22 funções |
-| `api/` (serverless Vercel) | 1.413 | 9 |
-| `tests/` | 2.126 | 9 specs E2E + 12 arquivos unitários (166 testes) |
+| `api/` (serverless Vercel) | 1.413 | 10 |
+| `tests/` | 2.126 | 9 specs E2E + 13 arquivos unitários (170 testes) |
 
 ### O que está genuinamente bom
 
@@ -311,8 +311,9 @@ silêncio. Corrigido e travado por teste de regressão.
    `connection_id`; o dashboard operacional agora também filtra por número e
    exporta o CSV desse recorte. A tela de Setores permite cadastrar e remover
    instâncias Evolution, vinculando cada linha à fila do setor ou a um cargo.
-   O status conectado/offline é consultado server-side, sem expor chaves no
-   navegador. URL e chave Evolution específicas por linha agora são opcionais,
+   O CRM agora cria/reconecta a instância, mostra o QR Code ou código de
+   pareamento e registra o webhook sem expor a API key no navegador. O status
+   conectado/offline é consultado server-side. URL e chave Evolution específicas por linha agora são opcionais,
    validadas por endpoint administrativo e armazenadas com a chave criptografada;
    quando omitidas, a linha continua herdando a credencial global.
 3. ⏳ **Próximas pautas** — API pública e i18n (o v1 permanece PT-BR fixo até
@@ -334,8 +335,8 @@ silêncio. Corrigido e travado por teste de regressão.
 
 1. **Validar o primeiro login no navegador.** A conta existe como `super_admin`,
    o e-mail está confirmado e o `site_url` aponta para a produção correta.
-2. **Configurar a Evolution** no CRM: URL do servidor, API key, instância e o
-   webhook protegido retornado pelo endpoint administrativo.
+2. **Configurar a Evolution** no CRM: salvar URL e API key, criar a linha em
+   Setores e escanear o QR Code exibido pelo próprio painel.
 3. **Executar o teste real ponta a ponta** com uma linha controlada: entrada,
    roteamento, texto, áudio, vídeo, documento e resposta pela mesma instância.
 4. **Configurar credenciais de IA/transcrição** somente quando esses recursos
@@ -404,7 +405,7 @@ painel com as policies do papel `super_admin`.
 ### Evidências de validação
 
 - `npm run typecheck`: aprovado;
-- `npm run test:unit`: 12 arquivos, 166 testes aprovados;
+- `npm run test:unit`: 13 arquivos, 170 testes aprovados;
 - `npm run validate:sql`: 89 arquivos, 1.002 statements aprovados;
 - retry do bootstrap: histórico canônico reconciliado com `_bootstrap_state`,
   comprovado com 89/89 checkpoints sem reaplicar migrations;
@@ -423,7 +424,7 @@ a ponta** quando todos os itens abaixo forem concluídos:
 
 1. owner entra no painel com o e-mail já confirmado;
 2. credenciais da Evolution são salvas pelo painel;
-3. webhook seguro é registrado na instância;
+3. linha é criada, QR Code é escaneado e o webhook seguro é registrado automaticamente;
 4. uma mensagem controlada percorre entrada, roteamento e resposta;
 5. áudio, vídeo e documento são verificados sem dados pessoais reais;
 6. logs e registros sintéticos do teste são revisados e removidos.
