@@ -9,6 +9,21 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ### Fixed
 
+- **Security**: 5 `whatsapp_hub` SECURITY DEFINER functions had never had
+  `EXECUTE` revoked from `anon`, so any unauthenticated request (the
+  public `anon` key baked into the frontend build) could call them
+  directly via PostgREST. `list_operators()` leaked every team member's
+  e-mail, role, and department to anyone; `bump_campaign_counter`,
+  `claim_campaign_contacts`, and `increment_unread_count` (service-role
+  internals with no frontend caller at all) let anon corrupt campaign
+  metrics, steal a campaign's dispatch queue, or spam a conversation's
+  unread count. `import_won_deals_to_sales()` had an admin/operator role
+  check, but PL/pgSQL treats `IF NULL THEN` as false, so an anon caller
+  (whose `current_user_role()` is NULL) skipped the check entirely and
+  could run the import. Found via `mcp__Supabase__get_advisors`, not
+  previously documented anywhere. Revoked `anon` (and `authenticated`
+  where nothing legitimate calls it) from all 5, and fixed the NULL-logic
+  gap explicitly rather than relying on the REVOKE alone.
 - The invite form (`TeamSettings.tsx`) only offered Admin/Operador, with no
   Supervisor option and no way to pick the invitee's department — likely
   the actual cause behind a report of "invited user gets super_admin-level

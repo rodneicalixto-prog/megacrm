@@ -840,3 +840,60 @@ mesmos 68 warnings pré-existentes), `npm run build`, `npm run test:unit`
 (184/184). Sem migration nesta rodada — só frontend (`TeamSettings.tsx`,
 `DepartmentsSettings.tsx`, `Header.tsx`) e a API route
 `api/evolution-instance.ts`.
+
+**Sétima rodada, mesma data (21/08/2026) — auditoria de segurança via
+`mcp__Supabase__get_advisors`**, disparada pela pergunta do usuário "como
+estamos de segurança e implementação". Achado real e não documentado antes:
+5 funções `SECURITY DEFINER` em `whatsapp_hub` nunca tiveram `EXECUTE`
+revogado de `anon` — diferente do padrão usado em toda função nova desta
+sessão (`module_enabled`, `_assert_module`, `create_user`, etc., que sempre
+fazem `REVOKE ... FROM PUBLIC, anon`). Sem o REVOKE explícito, Postgres
+concede `EXECUTE` a `PUBLIC` na criação da função, e `PUBLIC` inclui `anon`
+— ou seja, qualquer requisição não autenticada (a anon key, pública,
+embarcada no build do frontend) conseguia chamar essas RPCs direto via
+PostgREST:
+
+- `list_operators()` — vazava e-mail + role + setor de **toda a equipe**
+  pra qualquer request não autenticada. O mais grave dos cinco.
+- `bump_campaign_counter` / `claim_campaign_contacts` /
+  `increment_unread_count` — só são chamadas pelas Edge Functions (service
+  role; confirmado por grep, zero uso no frontend). `anon` conseguia
+  corromper contadores de campanha, "roubar" a fila de disparo de qualquer
+  campanha (nega serviço no `dispatch-campaign`), ou inflar
+  `unread_count`/`last_message_at` de conversas arbitrárias.
+- `import_won_deals_to_sales()` — tinha checagem de papel interna
+  (`current_user_role() NOT IN ('admin','operator')`), mas pra um chamador
+  `anon` a função retorna NULL, e PL/pgSQL trata `IF NULL THEN` como falso
+  — a exceção nunca disparava e `anon` conseguia rodar a importação
+  inteira.
+
+Corrigido via `20260821220000_revoke_anon_function_execute.sql`: revogado
+`EXECUTE` de `anon` (e de `authenticated` nas 3 que não têm nenhum chamador
+legítimo fora de Edge Function) nas 5 funções, e a checagem de
+`import_won_deals_to_sales` reescrita pra tratar NULL como não autorizado
+explicitamente, não só como efeito colateral do REVOKE. Aplicada em
+produção e conferida via `execute_sql` (`has_function_privilege` pros três
+papéis, anon agora `false` nas 5).
+
+**Achados do advisor sem ação — ruído confirmado, não é MegaCRM:** todos os
+18 achados `ERROR` (9 `security_definer_view` + 9 `rls_disabled_in_public`)
+são em tabelas/views do `public` schema com nomes do TomikCRM/n8n
+(`crm_funnel`, `patients`, `professionals`, `tomikcrm_schema_migrations`,
+etc.) — o mesmo conjunto de ~54 tabelas não relacionadas já documentado na
+Terceira rodada, sem FK pro schema `whatsapp_hub`. Os 10 achados
+`rls_enabled_no_policy` batem exatamente com o padrão intencional (RLS
+ligada, zero policies, só service role) usado em `public.app_settings`,
+`public._bootstrap_state`, `public.instance_plan` e nas tabelas legado
+`whatsapp_hub.tenant_*`/`tenants` — mais três tabelas internas
+(`department_assignment_state`, `rate_limit_hits`, `webhook_events`) que só
+Edge Functions tocam (grep confirma zero uso no frontend). Os 119+96+83+68
+achados `WARN` restantes (`function_search_path_mutable`,
+`pg_graphql_*_table_exposed`, `*_security_definer_function_executable`) são,
+em sua maioria, ruído do schema `public` compartilhado com o TomikCRM — não
+foram auditados um a um função por função além dos 5 já corrigidos acima
+(auditoria completa do restante fica como item de cauda longa, não
+bloqueante).
+
+Validação local (esta rodada): `npm run validate:sql` (104 arquivos),
+`npx tsc -b --noEmit` (0 erros), `npm run lint` (0 erros), `npm run
+test:unit` (184/184) — só SQL, sem mudança de frontend/Edge Function.
