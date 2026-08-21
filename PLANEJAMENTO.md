@@ -12,8 +12,8 @@
 | **Repositório** | ✅ código versionado e sincronizado com `origin/main` |
 | **CI** | ✅ lint · typecheck · SQL · build · testes |
 | **Deploy Vercel** | ✅ `megacrm`, produção ativa em `megacrm-seven-smoky.vercel.app`, 10 serverless |
-| **Testes** | ✅ 170 unitários (Vitest) + 9 E2E · SQL, build e tipos em toda a base |
-| **Banco Supabase** | ✅ `lstbxeaasyysboavdati` — 89 migrations, 22 Edge Functions |
+| **Testes** | ✅ 177 unitários (Vitest) + 9 E2E · SQL, build e tipos em toda a base |
+| **Banco Supabase** | ✅ `lstbxeaasyysboavdati` — 90 migrations, 22 Edge Functions |
 | **Rota WhatsApp** | ✅ Evolution API v2 · texto, áudio, vídeo, documentos e roteamento por linha/departamento |
 
 O diagnóstico que abriu este documento — *"o produto é sólido; o repositório
@@ -66,10 +66,10 @@ atribuição de UTM e dashboard.
 | Área | Linhas | Arquivos |
 |---|---:|---:|
 | `src/` (frontend) | 22.393 | 139 |
-| `supabase/migrations/` | 7.011 | 89 |
+| `supabase/migrations/` | 7.011 | 90 |
 | `supabase/functions/` | 5.750 | 22 funções |
 | `api/` (serverless Vercel) | 1.413 | 10 |
-| `tests/` | 2.126 | 9 specs E2E + 13 arquivos unitários (170 testes) |
+| `tests/` | 2.126 | 9 specs E2E + 14 arquivos unitários (177 testes) |
 
 ### O que está genuinamente bom
 
@@ -364,7 +364,7 @@ configurar o ambiente oficial.
 | GitHub | branch `main`, sincronizada com `origin/main` |
 | Supabase | `lstbxeaasyysboavdati` |
 | Schema do MegaCRM | `whatsapp_hub`, exposto na Data API |
-| Banco | 89 migrations aplicadas e registradas |
+| Banco | 90 migrations aplicadas e registradas |
 | Edge Functions | 22 `ACTIVE`: 18 com JWT e 4 endpoints externos com controle próprio |
 | Storage | buckets de branding, logos, knowledge, agent media e outbound media |
 | Health check | `/api/health` retorna `200 {"ready":true}` |
@@ -384,6 +384,10 @@ provedor:
 - imagem, vídeo e documentos via bucket de mídia de saída;
 - roteamento por instância, departamento, fila e cargo;
 - resposta pela mesma conexão que recebeu a conversa;
+- fila ordenada e circular por departamento, restrita a `supervisor` e `operator`;
+- linhas pessoais ligadas a cargo ocupado são atribuídas diretamente e não entram na fila;
+- `super_admin` e `admin` podem responder diretamente, mas nunca são inseridos na fila;
+- erros devolvidos pela Evolution aparecem no Inbox em vez de serem ignorados;
 - webhook Evolution protegido por segredo aleatório armazenado cifrado;
 - geração da URL segura pelo endpoint administrativo, sem segredo hardcoded.
 
@@ -405,8 +409,8 @@ painel com as policies do papel `super_admin`.
 ### Evidências de validação
 
 - `npm run typecheck`: aprovado;
-- `npm run test:unit`: 13 arquivos, 170 testes aprovados;
-- `npm run validate:sql`: 89 arquivos, 1.002 statements aprovados;
+- `npm run test:unit`: 14 arquivos, 177 testes aprovados;
+- `npm run validate:sql`: 90 arquivos, 1.020 statements aprovados;
 - retry do bootstrap: histórico canônico reconciliado com `_bootstrap_state`,
   comprovado com 89/89 checkpoints sem reaplicar migrations;
 - `npm run build`: aprovado localmente e na Vercel;
@@ -415,7 +419,9 @@ painel com as policies do papel `super_admin`.
 - Data API com service role e schema `whatsapp_hub`: `200`;
 - acesso anônimo direto a `contacts`: bloqueado por permissão/RLS;
 - RPC pública `signup_status`: `first_user_pending=true` antes da criação do
-  owner.
+  owner;
+- fila por departamento e RPC de distribuição verificadas no banco oficial;
+- verificação de integridade da fila: zero `admin` ou `super_admin` inseridos.
 
 ### Critério para liberar testes reais
 

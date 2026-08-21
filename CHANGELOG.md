@@ -5,6 +5,24 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Ordered round-robin assignment queues per department for supervisors and
+  operators.
+- Direct routing for personal WhatsApp lines linked to an occupied department
+  position, bypassing department queues.
+
+### Fixed
+
+- Allow `super_admin`, `admin`, `supervisor`, and `operator` to reply from the
+  Inbox.
+- Surface Evolution API delivery errors in the Inbox instead of silently
+  treating them as successful sends.
+- Prevent personal lines from being linked to positions without an assigned
+  user and keep administrators out of automatic assignment queues.
+
 ## [1.0.0] — 2026-04-30
 
 First open-source self-hosted release. Migration from the SaaS multi-tenant

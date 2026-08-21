@@ -13,6 +13,7 @@
 // ============================================================================
 
 import { requireCaller, AuthError } from '../_shared/auth.ts';
+import { canOperate } from '../_shared/roles.ts';
 import { getAdminClient } from '../_shared/supabase-admin.ts';
 import { jsonResponse, preflight } from '../_shared/cors.ts';
 import { createInboxConversation, loadZernioContext, sendInboxMessage } from '../_shared/zernio.ts';
@@ -30,7 +31,7 @@ Deno.serve(async (req) => {
 
   try {
     const caller = await requireCaller(req);
-    if (caller.role !== 'admin' && caller.role !== 'operator') {
+    if (!canOperate(caller.role)) {
       return jsonResponse({ ok: false, error: 'Sem permissão para enviar mensagens.' }, { status: 403 });
     }
 

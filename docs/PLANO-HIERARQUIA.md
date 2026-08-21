@@ -353,10 +353,12 @@ falha.
 
 ### Fase D — Fila e distribuição · ~3 dias
 
-15. Fila do departamento = conversas sem `assigned_to`.
+15. ✅ Fila do departamento = conversas sem `assigned_to`, com ordem circular
+    configurável por departamento.
 16. Ação de distribuir (supervisor → atendente) e transferir (entre
     departamentos), com histórico em `conversation_transfers`.
-17. Super_admin fora da lista de destinos.
+17. ✅ `super_admin` e `admin` fora da fila automática. Linhas pessoais ligadas
+    a cargos ocupados atendem diretamente e ignoram a fila.
 
 ### Fase E — Interface · ~4–5 dias
 
@@ -448,6 +450,12 @@ em produção:
   Humanos (1 número por pessoa).
 
 Fora de escopo confirmado nesta fase: agente de IA e rota oficial (Zernio).
+
+- **Ordem de atendimento por departamento ativa.** Somente `supervisor` e
+  `operator` participam da distribuição circular. `super_admin` e `admin`
+  respondem diretamente e suas linhas pessoais nunca entram na fila.
+- **Falhas de envio visíveis.** Erros devolvidos pela Evolution são propagados
+  até o Inbox para impedir que uma resposta com falha pareça enviada.
 
 O inventário de departamentos, cargos e linhas, mais o bloqueio atual e a ordem
 dos próximos passos, ficam na seção 8 do `PLANEJAMENTO.md` — fonte única, para

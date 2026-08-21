@@ -551,7 +551,8 @@ export function DepartmentsSettings() {
         const doSetor = cargos.filter((c) => c.department_id === d.id);
         const linhasDoSetor = linhas.filter((linha) => linha.department_id === d.id);
         const cargosSemNumero = doSetor.filter(
-          (cargo) => !linhasDoSetor.some((linha) => linha.position_id === cargo.id),
+          (cargo) => Boolean(cargo.user_id)
+            && !linhasDoSetor.some((linha) => linha.position_id === cargo.id),
         );
         const draftLinha = novaLinha[d.id] ?? {
           label: '', instance: '', phone: '', positionId: '', serverUrl: '', apiKey: '',

@@ -114,6 +114,22 @@ export async function handleInbound(req: Request): Promise<Response> {
     departmentId = conn.departmentId;
     assignTo = conn.assignToUserId ?? null;
     connectionId = conn.connectionId;
+    if (!assignTo) {
+      const { data: queuedUser, error: queueError } = await getAdminClient().rpc(
+        'next_department_assignee',
+        { p_department_id: departmentId },
+      );
+      if (queueError) {
+        console.log(JSON.stringify({
+          event: 'department_assignment_failed',
+          department_id: departmentId,
+          message: queueError.message,
+        }));
+      } else {
+        assignTo = typeof queuedUser === 'string' ? queuedUser : null;
+      }
+    }
+
   }
 
   // Mensagem enviada pela própria conta. Na rota não-oficial isso quase sempre

@@ -352,3 +352,41 @@ test('duas linhas no mesmo departamento não se confundem', async () => {
 
   expect(db.rows('conversations')[0]).toMatchObject({ connection_id: 'linha-b' });
 });
+
+test('linha de fila segue a ordem do setor quando a distribui??o est? ativa', async () => {
+  db.seed('departments', [{ id: DEPT, name: 'Departamento Pessoal', is_default: true }]);
+  db.seed('department_connections', [
+    { id: 'conn1', department_id: DEPT, position_id: null, instance: 'pricall' },
+  ]);
+  db.rpcResults.next_department_assignee = { data: 'user-atendente-2', error: null };
+
+  await handleInbound(post(EVOLUTION_URL, msg()));
+
+  expect(db.rows('conversations')[0]).toMatchObject({
+    department_id: DEPT,
+    assigned_to: 'user-atendente-2',
+  });
+  expect(db.rpcCalls).toContainEqual({
+    name: 'next_department_assignee',
+    args: { p_department_id: DEPT },
+  });
+});
+
+test('linha pessoal de admin atende direto e nunca consulta a fila', async () => {
+  db.seed('departments', [{ id: DEPT, name: 'Administra??o', is_default: true }]);
+  db.seed('department_positions', [
+    { id: 'pos-admin', department_id: DEPT, name: 'Admin', user_id: 'user-admin' },
+  ]);
+  db.seed('department_connections', [
+    { id: 'conn-admin', department_id: DEPT, position_id: 'pos-admin', instance: 'pricall' },
+  ]);
+  db.rpcResults.next_department_assignee = { data: 'user-atendente-2', error: null };
+
+  await handleInbound(post(EVOLUTION_URL, msg()));
+
+  expect(db.rows('conversations')[0]).toMatchObject({
+    department_id: DEPT,
+    assigned_to: 'user-admin',
+  });
+  expect(db.rpcCalls.some((call) => call.name === 'next_department_assignee')).toBe(false);
+});

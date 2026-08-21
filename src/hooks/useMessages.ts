@@ -165,7 +165,13 @@ export function useMessages(conversationId: string | null): UseMessagesResult {
             : o,
         ),
       );
-      return { ok: true, zernioError: (data.zernio_error as string | undefined) ?? null };
+      return {
+        ok: true,
+        zernioError:
+          (data.evolution_error as string | undefined) ??
+          (data.zernio_error as string | undefined) ??
+          null,
+      };
     },
     [conversationId],
   );

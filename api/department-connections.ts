@@ -101,13 +101,19 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     if (positionId) {
       const { data: position, error: positionError } = await admin
         .from('department_positions')
-        .select('id')
+        .select('id, user_id')
         .eq('id', positionId)
         .eq('department_id', departmentId)
         .maybeSingle();
       if (positionError) throw positionError;
       if (!position) {
         return res.status(400).json({ success: false, message: 'O cargo não pertence ao setor selecionado.' });
+      }
+      if (!(position as { user_id: string | null }).user_id) {
+        return res.status(400).json({
+          success: false,
+          message: 'Vincule uma pessoa ao cargo antes de conectar um n?mero de atendimento direto.',
+        });
       }
     }
 
