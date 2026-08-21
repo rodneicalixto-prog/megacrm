@@ -4,6 +4,7 @@ import { Bot, BookOpen, Clock, Image, Loader2, Timer } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppUser } from '@/app/providers/AppUserProvider';
+import { canSeeAdminNav } from '@/app/layout/nav-config';
 import { AIAgentSettings } from '../settings/sections/AIAgentSettings';
 import { AgentMediaSettings } from '../settings/sections/AgentMediaSettings';
 import { BusinessHoursSettings } from '../settings/sections/BusinessHoursSettings';
@@ -40,7 +41,7 @@ export default function AIAgentPage() {
     );
   }
   // Tela admin-only: configuração do agente, mídias, base, follow-ups e horário.
-  if (role !== 'admin') return <Navigate to="/dashboard" replace />;
+  if (!canSeeAdminNav(role)) return <Navigate to="/dashboard" replace />;
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
