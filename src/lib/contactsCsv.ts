@@ -3,6 +3,9 @@
 import { getSupabase } from '@/lib/supabase';
 import type { ContactWithTags, Tag } from '@/types/db';
 import type { ContactSort } from '@/hooks/useContacts';
+import { chunkArray } from '@/lib/chunk';
+
+const IN_CHUNK_SIZE = 100;
 
 const CSV_HEADERS = ['nome', 'telefone', 'email', 'tags', 'origem'];
 
@@ -58,6 +61,29 @@ export interface FetchContactsForExportInput {
   sort?: ContactSort;
 }
 
+/** Compara duas linhas de `contacts` seguindo o mesmo critério do `.order()` que substitui, para reordenar client-side depois de mesclar os lotes. */
+function compareContactRows(
+  a: Record<string, unknown>,
+  b: Record<string, unknown>,
+  sort: ContactSort,
+): number {
+  if (sort === 'oldest') {
+    return String(a.created_at ?? '').localeCompare(String(b.created_at ?? ''));
+  }
+  if (sort === 'name') {
+    const an = a.name as string | null;
+    const bn = b.name as string | null;
+    if (an == null && bn == null) return 0;
+    if (an == null) return 1; // nullsFirst: false
+    if (bn == null) return -1;
+    return an.localeCompare(bn);
+  }
+  if (sort === 'first_seen') {
+    return String(b.first_seen_at ?? '').localeCompare(String(a.first_seen_at ?? ''));
+  }
+  return String(b.created_at ?? '').localeCompare(String(a.created_at ?? ''));
+}
+
 /**
  * Busca os contatos para exportação: por ids (seleção da tabela) ou pelo
  * mesmo filtro da listagem (busca/tag/canal/ordenação), sem paginação —
@@ -84,37 +110,67 @@ export async function fetchContactsForExport({
     if (contactIdsForTag.length === 0) return [];
   }
 
-  let query = supabase.schema('whatsapp_hub').from('contacts').select('*');
+  let rows: Record<string, unknown>[];
 
   if (ids && ids.length > 0) {
-    query = query.in('id', ids);
+    // Seleção explícita da tabela — cada lote é independente, sem filtro extra.
+    const chunks = chunkArray(ids, IN_CHUNK_SIZE);
+    const results = await Promise.all(
+      chunks.map(async (chunk) => {
+        const { data, error: err } = await supabase
+          .schema('whatsapp_hub')
+          .from('contacts')
+          .select('*')
+          .in('id', chunk);
+        if (err) throw new Error(err.message);
+        return data ?? [];
+      }),
+    );
+    rows = results.flat();
   } else {
-    if (sort === 'oldest') query = query.order('created_at', { ascending: true });
-    else if (sort === 'name') query = query.order('name', { ascending: true, nullsFirst: false });
-    else if (sort === 'first_seen') query = query.order('first_seen_at', { ascending: false });
-    else query = query.order('created_at', { ascending: false });
+    // Mesmo filtro da listagem (busca/tag/canal), sem paginação. Quando há tag,
+    // fatia contactIdsForTag em lotes — os demais filtros (source/search) vão
+    // junto em cada lote, e a ordenação final é refeita client-side depois do
+    // merge, já que ela não é preservada por múltiplas queries em paralelo.
+    const runQuery = async (idChunk: string[] | null) => {
+      let query = supabase.schema('whatsapp_hub').from('contacts').select('*');
+      if (idChunk) query = query.in('id', idChunk);
+      if (source) query = query.eq('source', source);
+      if (search.trim()) {
+        const pattern = `%${search.trim()}%`;
+        query = query.or(`name.ilike.${pattern},phone.ilike.${pattern},email.ilike.${pattern}`);
+      }
+      const { data, error: err } = await query;
+      if (err) throw new Error(err.message);
+      return data ?? [];
+    };
 
-    if (contactIdsForTag) query = query.in('id', contactIdsForTag);
-    if (source) query = query.eq('source', source);
-    if (search.trim()) {
-      const pattern = `%${search.trim()}%`;
-      query = query.or(`name.ilike.${pattern},phone.ilike.${pattern},email.ilike.${pattern}`);
+    if (contactIdsForTag) {
+      const chunks = chunkArray(contactIdsForTag, IN_CHUNK_SIZE);
+      const results = await Promise.all(chunks.map((chunk) => runQuery(chunk)));
+      rows = results.flat();
+    } else {
+      rows = await runQuery(null);
     }
+    rows.sort((a, b) => compareContactRows(a, b, sort));
   }
 
-  const { data, error: err } = await query;
-  if (err) throw new Error(err.message);
+  if (rows.length === 0) return [];
 
-  const rows = data ?? [];
   const rowIds = rows.map((c) => c.id as string);
-  if (rowIds.length === 0) return [];
-
-  const { data: linkRows, error: linkErr } = await supabase
-    .schema('whatsapp_hub')
-    .from('contact_tags')
-    .select('contact_id, tag:tag_id(id, name, color, created_at, updated_at)')
-    .in('contact_id', rowIds);
-  if (linkErr) throw new Error(linkErr.message);
+  const idChunks = chunkArray(rowIds, IN_CHUNK_SIZE);
+  const linkResults = await Promise.all(
+    idChunks.map(async (chunk) => {
+      const { data, error: linkErr } = await supabase
+        .schema('whatsapp_hub')
+        .from('contact_tags')
+        .select('contact_id, tag:tag_id(id, name, color, created_at, updated_at)')
+        .in('contact_id', chunk);
+      if (linkErr) throw new Error(linkErr.message);
+      return data ?? [];
+    }),
+  );
+  const linkRows = linkResults.flat();
 
   const byContact = new Map<string, Tag[]>();
   for (const row of linkRows ?? []) {
@@ -127,7 +183,7 @@ export async function fetchContactsForExport({
   }
 
   return rows.map((c) => ({
-    ...(c as ContactWithTags),
+    ...(c as unknown as ContactWithTags),
     tags: byContact.get(c.id as string) ?? [],
   }));
 }
