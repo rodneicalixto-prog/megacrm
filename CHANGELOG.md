@@ -65,10 +65,13 @@ LLM foram deliberadamente deixados de fora; ver `PLANEJAMENTO.md` seção
   OCR (`unpdf`) não foi testado dentro do runtime Deno das Edge
   Functions — precisa de teste de integração real com um PDF
   escaneado antes de confiar nele em produção.
-- Migrations desta rodada (`20260811140000`, `20260812120000`) foram
-  validadas só por `npm run validate:sql` (sintaxe) — não há acesso a
-  banco Supabase real neste ambiente para aplicar/testar via
-  `db:push`. Revisar antes de aplicar em produção.
+- ~~Migrations desta rodada (`20260811140000`, `20260812120000`)~~ —
+  **aplicadas em produção (`lstbxeaasyysboavdati`) em 2026-08-21**, via
+  MCP do Supabase, depois de confirmar ausência de conflito (colunas,
+  função, trigger, índice). `process-ai-message` e `process-knowledge`
+  também foram redeployados com o código desta rodada. Ver
+  `PLANEJAMENTO.md` seção 9 para o project ref correto — o documentado
+  antes (`yshvniyhtnyhnjcecbft`) estava errado.
 
 ## [1.0.0] — 2026-04-30
 

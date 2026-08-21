@@ -653,7 +653,17 @@ erros reais na Base de Conhecimento.
 Implementado por 6 agentes em paralelo, cada um em worktree isolado sem
 sobreposição de arquivos, depois mesclados manualmente com `npm run
 validate:sql` + `npx tsc -b --noEmit` + `npm run build` + `npm run lint` +
-`npx vitest run` rodando limpo no conjunto final. **Sem acesso a projeto
-Supabase real neste ambiente** — as duas migrations novas
-(`20260811140000`, `20260812120000`) foram validadas só por sintaxe, não
-aplicadas nem testadas contra um banco vivo; revisar antes de `db:push`.
+`npx vitest run` rodando limpo no conjunto final.
+
+**Migrations e Edge Functions aplicadas em produção em 2026-08-21**, depois
+que o MCP do Supabase foi reconectado na conta certa. As duas novas
+(`20260811140000_deal_archive_and_temperature.sql`,
+`20260812120000_knowledge_error_message.sql`) foram checadas contra o
+schema real antes de aplicar (sem coluna/função/trigger/índice
+conflitante) e aplicadas via `apply_migration`. `process-ai-message` e
+`process-knowledge` foram redeployados com o código desta rodada,
+incluindo toda a árvore de dependências `_shared/*`; conteúdo publicado
+conferido de volta contra o repo.
+
+Merge para `main` ainda pendente — falta você confirmar quando quer que eu
+faça, já que aciona o deploy automático de produção no Vercel.
