@@ -377,13 +377,19 @@ silêncio. Corrigido e travado por teste de regressão.
    hierarquia que bloqueava `supervisor` e `super_admin` de escrever nessas
    tabelas via RLS (o frontend escreve direto nelas — pausar IA, marcar como
    lida, atribuir — não passa por Edge Function com service role).
-   **Ainda em aberto, itens 10-12 e 14 do plano original:**
+   **Item 12 resolvido também em 21/08/2026** — migration
+   `20260821190000_app_users_hide_super_admin.sql`: `app_users_self_select`
+   comparava `current_user_role() = 'admin'` (literal), então nem o próprio
+   `super_admin` via a lista de membros, só a própria linha — mesma classe de
+   bug já corrigida várias vezes nesta rodada. Agora `super_admin` vê todo
+   mundo, `admin` vê todo mundo **exceto** a linha do `super_admin`, e
+   `supervisor`/`operator` continuam vendo só a própria linha (não
+   ampliado — ver decisão em aberto abaixo).
+   **Ainda em aberto, itens 10-11 e 14 do plano original:**
    - `contacts` e o funil (`deals`) não têm coluna `department_id` — precisa
      de decisão de modelo (um contato pode falar com mais de um
      departamento? é dono único ou N:N?) antes de qualquer RLS aí; hoje
      seguem `USING (true)`.
-   - Policy de `app_users` escondendo a linha do `super_admin` de quem não é
-     `super_admin` (item 12) não foi feita.
    - **Decisão de produto em aberto, não resolvida sozinho**: o
      `docs/PLANO-HIERARQUIA.md` original (seção 5) desenha o `operator` vendo
      só as conversas atribuídas a ele (`assigned_to = auth.uid()`), não o

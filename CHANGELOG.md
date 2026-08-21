@@ -21,6 +21,10 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ### Fixed
 
+- Hide the `super_admin` row in `app_users` from everyone except `super_admin`
+  itself (Fase C item 12), and let `super_admin` actually see the team list:
+  `app_users_self_select` compared literally against `'admin'`, so even the
+  instance owner could only see their own row.
 - Scope `conversations`/`messages` reads and writes by department (Fase C of
   the hierarchy plan, never implemented): both `SELECT` policies had been
   `USING (true)` since the multi-tenant removal, so any authenticated user
