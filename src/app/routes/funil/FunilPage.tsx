@@ -112,7 +112,7 @@ export default function FunilPage() {
             {pickerOpen && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setPickerOpen(false)} />
-                <div className="absolute right-0 z-20 mt-1 w-56 rounded-lg border border-[rgba(59,130,246,0.25)] bg-[#0A0A0F] p-1 shadow-[0_0_30px_rgba(59,130,246,0.15)]">
+                <div className="absolute right-0 z-20 mt-1 w-56 rounded-lg border border-[var(--color-border-card)] bg-[var(--color-bg-elevated)] p-1 shadow-[0_0_30px_rgba(59,130,246,0.15)]">
                   {pipelines.map((p) => (
                     <button
                       key={p.id}
@@ -152,7 +152,7 @@ export default function FunilPage() {
             {quickAddOpen && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setQuickAddOpen(false)} />
-                <div className="absolute right-0 z-20 mt-1 w-64 rounded-lg border border-[rgba(59,130,246,0.25)] bg-[#0A0A0F] p-3 shadow-[0_0_30px_rgba(59,130,246,0.15)]">
+                <div className="absolute right-0 z-20 mt-1 w-64 rounded-lg border border-[var(--color-border-card)] bg-[var(--color-bg-elevated)] p-3 shadow-[0_0_30px_rgba(59,130,246,0.15)]">
                   <AddDealForm
                     contacts={contacts}
                     stages={stages}

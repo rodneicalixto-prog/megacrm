@@ -241,7 +241,7 @@ export function FunilFilter({
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 z-20 mt-1 max-h-[75vh] w-[22rem] overflow-y-auto rounded-lg border border-[rgba(59,130,246,0.25)] bg-[#0A0A0F] p-4 shadow-[0_0_30px_rgba(59,130,246,0.15)]">
+          <div className="absolute right-0 z-20 mt-1 max-h-[75vh] w-[22rem] overflow-y-auto rounded-lg border border-[var(--color-border-card)] bg-[var(--color-bg-elevated)] p-4 shadow-[0_0_30px_rgba(59,130,246,0.15)]">
             <div className="mb-3 flex items-center justify-between">
               <span className="text-sm font-semibold text-[var(--color-text-primary)]">Filtros</span>
               <div className="flex items-center gap-2">

@@ -897,3 +897,108 @@ bloqueante).
 Validação local (esta rodada): `npm run validate:sql` (104 arquivos),
 `npx tsc -b --noEmit` (0 erros), `npm run lint` (0 erros), `npm run
 test:unit` (184/184) — só SQL, sem mudança de frontend/Edge Function.
+
+**Oitava rodada, mesma data (21/08/2026) — tema claro/escuro nos cards do
+funil + tipo de funil configurável.** Disparada por print do usuário
+mostrando um popup escuro flutuando sobre o board do Funil já no tema claro
+("cards acompanham o efeito 'dia ou noite'"), mais o pedido de que a criação
+de funis deixe escolher entre financeiro/comercial e atendimento.
+
+1. **Bug de tema (dark-mode hardcoded)** — `bg-[#0A0A0F]` (o hex fixo do
+   tema escuro, não a variável `var(--color-bg-elevated)` que já existe e
+   troca sozinha com o `ThemeToggle`) estava espalhado em 15 arquivos:
+   `AddToPipelineDialog.tsx`, `DealDrawer.tsx`, `FunilManager.tsx`,
+   `DealDrawerEditors.tsx`, `FunilFilter.tsx`, `ImportContactsDialog.tsx`,
+   `ConversationList.tsx`, `dashboard/widgets.tsx`,
+   `UtmChannelMapEditor.tsx`, `VendasPage.tsx`, `FunilPage.tsx`,
+   `ContactDetailPage.tsx`, `ProductsSettings.tsx`, `CredentialsPage.tsx`,
+   `InboxPage.tsx` — todo popup/dropdown/drawer nesses arquivos ficava
+   escuro mesmo no tema claro. Trocado por `var(--color-bg-elevated)`
+   (`#111525` escuro / `#FFFFFF` claro) em todos. Achado um segundo caso
+   fora do padrão `bg-` na mesma varredura: `ring-offset-[#0A0A0F]` nos
+   swatches de cor de estágio em `FunilManager.tsx:212`, mesmo bug, prefixo
+   Tailwind diferente (`ring-offset-` em vez de `bg-`) — corrigido junto.
+   `SetupPage.tsx` (wizard pré-login, sem `ThemeToggle`, deliberadamente
+   fixo no tema escuro) ficou de fora de propósito.
+2. **Tipo de funil configurável** — `whatsapp_hub.pipelines.kind` já tinha
+   um quarto valor `'atendimento'` no enum (adicionado numa migration
+   anterior desta sessão, `20260821230000_pipeline_kind_atendimento.sql`),
+   mas nada na UI deixava escolher: `usePipeline.ts`'s `createPipeline`
+   hardcodeava `kind: 'comercial'` em todo funil novo. Agora:
+   - `createPipeline(name, scope, kind)` aceita um terceiro parâmetro
+     opcional (default `'comercial'`, preservando o comportamento antigo
+     pra quem não passar nada).
+   - `FunilManager.tsx` ganhou um segundo par de botões "Financeiro" /
+     "Atendimento" no formulário "Novo funil…", ao lado do já existente "Só
+     meu"/"Da empresa", e passa a escolha pro `createPipeline`. Funis
+     `atendimento` existentes ganham um selo "Atendimento" ao lado do nome
+     na lista de gerenciamento, pra diferenciar visualmente dos comerciais.
+   - Estágios padrão semeados mudam por tipo: `comercial` continua com o
+     fluxo de vendas (Novo lead 10% / Em andamento 50% / Ganho `is_won`
+     100% / Perdido `is_lost` 0%); `atendimento` ganha um fluxo de suporte
+     de 3 estágios sem noção de "perdido" (Aberto 0% / Em atendimento 50% /
+     Resolvido `is_won` 100%).
+   - Como "Resolvido" nasce marcado `is_won` (reaproveitando o mesmo booleano
+     que fecha negócio no funil comercial), os triggers de receita
+     (`_deal_won_to_sales`, `_deal_unwon_cleanup`,
+     `import_won_deals_to_sales()`) já tinham sido reforçados numa migration
+     anterior desta sessão (`20260821240000_scope_revenue_triggers_to_comercial.sql`)
+     com um guard `pipelines.kind = 'comercial'` — sem ele, fechar um card de
+     atendimento como "Resolvido" teria gerado uma venda fantasma em
+     `sales_records`. Confirmado que o guard já está em produção antes de
+     expor a opção na UI.
+
+Sem migration nova nesta rodada — só frontend
+(`src/types/crm.ts`, `src/hooks/usePipeline.ts`,
+`src/components/funil/FunilManager.tsx` + os 15 arquivos do bug de tema).
+Validação local: `npx tsc -b --noEmit` (0 erros), `npm run lint` (0 erros,
+mesmos 68 warnings pré-existentes), `npm run build`, `npm run test:unit`
+(184/184), `npm run validate:sql` (106 arquivos, sem novidade).
+
+### Plano — itens ainda em aberto (consolidado, pedido explícito do usuário)
+
+Nenhum destes foi iniciado nesta sessão. Ordem sugerida por
+esforço×impacto, não por urgência (não há mais nenhum item 🔴 de segurança
+em aberto no momento):
+
+1. **Painel de central de atendimento por departamento** (item 9 do
+   feedback do usuário) — hoje `business_hours`/`out_of_hours_message`
+   vivem em `whatsapp_hub.app_settings`, um singleton único pra toda a
+   instância. Pedido é um painel de configuração individualizado por setor
+   (cada `department` com seu próprio horário/mensagem de fora do horário,
+   possivelmente também sua própria fila de round-robin visível). Precisa
+   de: nova coluna/tabela (`departments.business_hours jsonb` ou uma tabela
+   `department_business_hours` 1:1), migration de dado (copiar o singleton
+   atual como default de todo departamento existente), tela nova em
+   `settings/sections/DepartmentsSettings.tsx` (ou uma aba dedicada), e
+   decidir onde a IA/fluxo de resposta automática lê o horário de qual
+   setor quando uma conversa ainda não tem departamento resolvido.
+2. **Horário de atendimento por usuário** (item 10, metade que ainda falta
+   depois do item acima resolver a metade "por setor") — provavelmente uma
+   tabela `app_users_business_hours` opcional que sobrescreve o horário do
+   departamento quando presente; decisão de produto pendente: se ausência
+   de override individual cai no horário do setor ou direto no singleton
+   global.
+3. **Especificação completa do canal de disparos em massa estilo
+   sosapp.sosbot.online** — o item mais grande do backlog. Campos: nome da
+   campanha, lista de contatos (de lista pré-definida), lista de tags
+   (puxar contatos via tag), conexão (linha WhatsApp do operador
+   responsável), agendamento (dias/horários específicos), até 5 modelos de
+   mensagem com timing randômico entre envios (anti-banimento, sem lógica
+   fixa), anexo de arquivos, confirmação de agendamento/disparo, painel de
+   acompanhamento com gráficos e relatórios de qualidade, mais uma aba
+   separada de gerenciamento/reaproveitamento de listas de arquivos de
+   campanha. Isso é maior que uma issue pontual — parece ou (a) uma extensão
+   do módulo `campaigns`/`templates` existente (reaproveitando
+   `campaign_contacts`, tags, e o `dispatch-campaign` já rodando via
+   pg_cron) ou (b) um módulo paralelo novo, dependendo de quanto o operador
+   quer misturar isso com o fluxo de Templates aprovados pela Meta que
+   `campaigns` já assume hoje. Merece seu próprio planejamento de
+   schema/Edge Functions antes de qualquer linha de código — não
+   comprometido nesta sessão.
+4. **Item "1-" ambíguo do feedback** ("janela de opções deveria ser visível,
+   não oculta aguardando o mouse") — segue sem confirmação de qual
+   tela/dropdown específico do MegaCRM está sendo descrito; os prints do
+   usuário mostravam majoritariamente o sosapp.sosbot.online como
+   referência. Precisa de uma captura de tela do MegaCRM apontando o menu
+   específico antes de virar tarefa.

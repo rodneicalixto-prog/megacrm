@@ -30,7 +30,7 @@ const TYPE_LABEL: Record<ProductType, string> = {
 };
 
 const selectCls =
-  'rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-2 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)] [&>option]:bg-[#0A0A0F]';
+  'rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-2 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)] [&>option]:bg-[var(--color-bg-elevated)]';
 
 export function ProductsSettings() {
   const [products, setProducts] = useState<Product[]>([]);

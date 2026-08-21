@@ -47,6 +47,12 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   having authority over an instance that already exists on the Evolution
   server (not something MegaCRM's code can fix) — the message now says so
   explicitly instead of just relaying the two raw HTTP errors.
+- Floating cards/popups (pipeline dialogs, dropdowns, drawers, dialogs) had
+  the dark-mode background hardcoded as the literal `#0A0A0F`, so they stayed
+  dark even on the light theme. Replaced with the theme-aware
+  `var(--color-bg-elevated)` token across 16 files (15 `bg-[#0A0A0F]`
+  occurrences plus one `ring-offset-[#0A0A0F]` in `FunilManager.tsx` that the
+  first pass missed).
 
 ### Added
 
@@ -76,6 +82,18 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - Light/dark theme selection, navigable dashboard cards, and on-demand contact
   details in the Inbox.
 - Notification grouping by contact and pending-action type.
+- Pipeline "kind" is now user-chosen at creation time instead of hardcoded to
+  `comercial`: `FunilManager.tsx`'s "Novo funil" form gained a
+  Financeiro/Atendimento toggle next to the existing Só meu/Da empresa scope
+  toggle. `comercial` still seeds the sales-shaped stages (Novo lead / Em
+  andamento / Ganho / Perdido) that feed Vendas & Recompra on `is_won`;
+  `atendimento` seeds a 3-stage support flow (Aberto / Em atendimento /
+  Resolvido) with no "perdido" concept. Existing `pipelines.kind` enum
+  already had an unused `'atendimento'` value added in a prior migration;
+  proactively guarded `_deal_won_to_sales`, `_deal_unwon_cleanup`, and
+  `import_won_deals_to_sales()` with a `pipelines.kind = 'comercial'` check
+  first, so marking an atendimento card's stage as `is_won` (e.g. "Resolvido")
+  can never insert a phantom sale into `sales_records`/`repurchase_predictions`.
 
 ### Fixed
 

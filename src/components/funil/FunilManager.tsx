@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Check, GripVertical, Plus, Star, Trash2, X } from 'lucide-react';
 import type { FunilController } from '@/app/routes/funil/FunilPage';
-import type { Stage } from '@/types/crm';
+import type { PipelineKind, Stage } from '@/types/crm';
 
 const STAGE_COLORS = ['#3B82F6', '#60A5FA', '#10B981', '#FBBF24', '#F87171', '#A78BFA', '#94A3B8'];
 
@@ -15,6 +15,7 @@ export function FunilManager({ funil, onClose }: { funil: FunilController; onClo
 
   const [newFunil, setNewFunil] = useState('');
   const [novoEscopo, setNovoEscopo] = useState<'pessoal' | 'empresa'>('pessoal');
+  const [novoTipo, setNovoTipo] = useState<PipelineKind>('comercial');
   const [newStage, setNewStage] = useState('');
   const [busy, setBusy] = useState(false);
   const dragIdx = useRef<number | null>(null);
@@ -25,7 +26,7 @@ export function FunilManager({ funil, onClose }: { funil: FunilController; onClo
   const handleCreateFunil = async () => {
     if (!newFunil.trim()) return;
     setBusy(true);
-    const criado = await createPipeline(newFunil, novoEscopo);
+    const criado = await createPipeline(newFunil, novoEscopo, novoTipo);
     if (!criado) {
       // A RLS recusa 'empresa' para quem não é admin; sem esta mensagem o
       // clique simplesmente não fazia nada.
@@ -59,7 +60,7 @@ export function FunilManager({ funil, onClose }: { funil: FunilController; onClo
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={onClose}>
       <div
         onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[rgba(59,130,246,0.25)] bg-[#0A0A0F] shadow-[0_0_40px_rgba(59,130,246,0.15)]"
+        className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[var(--color-border-card)] bg-[var(--color-bg-elevated)] shadow-[0_0_40px_rgba(59,130,246,0.15)]"
       >
         <div className="flex items-center justify-between border-b border-[rgba(59,130,246,0.12)] px-5 py-4">
           <h3 className="text-base font-bold text-display">Gerenciar funis</h3>
@@ -82,6 +83,11 @@ export function FunilManager({ funil, onClose }: { funil: FunilController; onClo
                     <button onClick={() => select(p.id)} className="flex-1 text-left text-sm text-[var(--color-text-primary)]">
                       {p.name}
                     </button>
+                    {p.kind === 'atendimento' && (
+                      <span className="rounded bg-[rgba(59,130,246,0.12)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--color-text-secondary)]">
+                        Atendimento
+                      </span>
+                    )}
                     <button
                       title="Definir como padrão"
                       onClick={() => void setDefaultPipeline(p.id)}
@@ -115,6 +121,28 @@ export function FunilManager({ funil, onClose }: { funil: FunilController; onClo
                   ].join(' ')}
                 >
                   {e === 'pessoal' ? 'Só meu' : 'Da empresa'}
+                </button>
+              ))}
+            </div>
+            {/* Tipo do funil: comercial (financeiro, alimenta Vendas & Recompra) ou
+                atendimento (fluxo de status, sem noção de "perdido"/receita). */}
+            <div className="flex gap-1.5">
+              {([
+                { kind: 'comercial', label: 'Financeiro' },
+                { kind: 'atendimento', label: 'Atendimento' },
+              ] as const).map(({ kind, label }) => (
+                <button
+                  key={kind}
+                  type="button"
+                  onClick={() => setNovoTipo(kind)}
+                  className={[
+                    'flex-1 rounded-lg border px-2 py-1 text-[11px] font-semibold transition-colors',
+                    novoTipo === kind
+                      ? 'border-[var(--accent-primary)] bg-[rgba(59,130,246,0.15)] text-[var(--color-text-primary)]'
+                      : 'border-[rgba(59,130,246,0.15)] text-[var(--color-text-secondary)]',
+                  ].join(' ')}
+                >
+                  {label}
                 </button>
               ))}
             </div>
@@ -209,7 +237,7 @@ function StageRow({
             <button
               key={c}
               onClick={() => onColor(stage.color === c ? null : c)}
-              className={`h-3.5 w-3.5 rounded-full ring-offset-1 ring-offset-[#0A0A0F] ${stage.color === c ? 'ring-2 ring-white' : ''}`}
+              className={`h-3.5 w-3.5 rounded-full ring-offset-1 ring-offset-[var(--color-bg-elevated)] ${stage.color === c ? 'ring-2 ring-white' : ''}`}
               style={{ background: c }}
               aria-label={`Cor ${c}`}
             />

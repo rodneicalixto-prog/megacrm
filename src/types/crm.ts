@@ -3,7 +3,7 @@
 // O CRM ancora no `contacts` existente: a mesma pessoa atravessa as 3 fases.
 // ----------------------------------------------------------------------------
 
-export type PipelineKind = 'comercial' | 'projeto' | 'educacao';
+export type PipelineKind = 'comercial' | 'projeto' | 'educacao' | 'atendimento';
 export type DealStatus = 'open' | 'won' | 'lost';
 export type ProjectStatus = 'active' | 'on_hold' | 'done' | 'cancelled';
 export type TaskStatus = 'todo' | 'doing' | 'done';

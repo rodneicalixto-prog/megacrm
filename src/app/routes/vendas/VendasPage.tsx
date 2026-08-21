@@ -49,7 +49,7 @@ const STATUS_OPTIONS = ['pending', 'sent', 'converted', 'snoozed'];
 
 const inputCls =
   'w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)]';
-const selectCls = `${inputCls} [&>option]:bg-[#0A0A0F]`;
+const selectCls = `${inputCls} [&>option]:bg-[var(--color-bg-elevated)]`;
 
 export default function VendasPage() {
   const { role } = useAppUser();
@@ -445,7 +445,7 @@ export default function VendasPage() {
                             <div className="fixed inset-0 z-10" onClick={() => setMenuFor(null)} />
                             <div
                               style={{ position: 'fixed', top: menuFor.top, left: menuFor.left }}
-                              className="z-20 w-52 rounded-lg border border-[rgba(59,130,246,0.25)] bg-[#0A0A0F] p-1 text-left shadow-[0_0_30px_rgba(59,130,246,0.15)]"
+                              className="z-20 w-52 rounded-lg border border-[var(--color-border-card)] bg-[var(--color-bg-elevated)] p-1 text-left shadow-[0_0_30px_rgba(59,130,246,0.15)]"
                             >
                               <button onClick={() => void dispatchNow(p)} className="block w-full rounded-md px-3 py-2 text-left text-xs text-[var(--color-text-primary)] transition hover:bg-white/5">
                                 Disparar mensagem agora

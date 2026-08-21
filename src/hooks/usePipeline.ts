@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getSupabase } from '@/lib/supabase';
 import { chunkArray } from '@/lib/chunk';
-import type { ActionType, Pipeline, Stage, Deal, Tag } from '@/types/crm';
+import type { ActionType, Pipeline, PipelineKind, Stage, Deal, Tag } from '@/types/crm';
 
 const IN_FILTER_CHUNK_SIZE = 100;
 
@@ -53,8 +53,10 @@ interface UsePipelineResult {
   createDeal: (input: CreateDealInput) => Promise<void>;
   // Gestão de funis
   // scope 'pessoal' = só do usuário; 'empresa' = compartilhado (owner_id nulo),
-  // que a RLS reserva a admin.
-  createPipeline: (name: string, scope?: 'pessoal' | 'empresa') => Promise<Pipeline | null>;
+  // que a RLS reserva a admin. kind decide o propósito do funil e os
+  // estágios padrão semeados (comercial = ganho/perdido tocam Vendas &
+  // Recompra; atendimento = fluxo de status sem relação com receita).
+  createPipeline: (name: string, scope?: 'pessoal' | 'empresa', kind?: PipelineKind) => Promise<Pipeline | null>;
   renamePipeline: (id: string, name: string) => Promise<void>;
   deletePipeline: (id: string) => Promise<{ ok: boolean; error?: string }>;
   setDefaultPipeline: (id: string) => Promise<void>;
@@ -257,7 +259,7 @@ export function usePipeline(): UsePipelineResult {
   );
 
   // ---- Gestão de funis ------------------------------------------------------
-  const createPipeline = useCallback<UsePipelineResult['createPipeline']>(async (name, scope = 'pessoal') => {
+  const createPipeline = useCallback<UsePipelineResult['createPipeline']>(async (name, scope = 'pessoal', kind = 'comercial') => {
     const supabase = getSupabase();
     const nextPos = pipelines.reduce((m, p) => Math.max(m, p.position), -1) + 1;
     const { data: auth } = await supabase.auth.getUser();
@@ -270,7 +272,7 @@ export function usePipeline(): UsePipelineResult {
       .from('pipelines')
       .insert({
         name: name.trim(),
-        kind: 'comercial',
+        kind,
         position: nextPos,
         is_default: false,
         // owner_id nulo é o funil da empresa; a RLS só deixa admin criar assim.
@@ -283,13 +285,22 @@ export function usePipeline(): UsePipelineResult {
       return null;
     }
     const pipe = data as Pipeline;
-    // Semeia estágios padrão para o funil não nascer vazio.
-    await supabase.from('stages').insert([
-      { pipeline_id: pipe.id, name: 'Novo lead', position: 0, is_won: false, is_lost: false, probability: 10 },
-      { pipeline_id: pipe.id, name: 'Em andamento', position: 1, is_won: false, is_lost: false, probability: 50 },
-      { pipeline_id: pipe.id, name: 'Ganho', position: 2, is_won: true, is_lost: false, probability: 100 },
-      { pipeline_id: pipe.id, name: 'Perdido', position: 3, is_won: false, is_lost: true, probability: 0 },
-    ]);
+    // Semeia estágios padrão para o funil não nascer vazio. Comercial ganha o
+    // fluxo de vendas (ganho/perdido tocam Vendas & Recompra); atendimento
+    // ganha um fluxo de status sem noção de "perdido".
+    const defaultStages = kind === 'atendimento'
+      ? [
+          { pipeline_id: pipe.id, name: 'Aberto', position: 0, is_won: false, is_lost: false, probability: 0 },
+          { pipeline_id: pipe.id, name: 'Em atendimento', position: 1, is_won: false, is_lost: false, probability: 50 },
+          { pipeline_id: pipe.id, name: 'Resolvido', position: 2, is_won: true, is_lost: false, probability: 100 },
+        ]
+      : [
+          { pipeline_id: pipe.id, name: 'Novo lead', position: 0, is_won: false, is_lost: false, probability: 10 },
+          { pipeline_id: pipe.id, name: 'Em andamento', position: 1, is_won: false, is_lost: false, probability: 50 },
+          { pipeline_id: pipe.id, name: 'Ganho', position: 2, is_won: true, is_lost: false, probability: 100 },
+          { pipeline_id: pipe.id, name: 'Perdido', position: 3, is_won: false, is_lost: true, probability: 0 },
+        ];
+    await supabase.from('stages').insert(defaultStages);
     await loadPipelines();
     setSelectedId(pipe.id);
     return pipe;

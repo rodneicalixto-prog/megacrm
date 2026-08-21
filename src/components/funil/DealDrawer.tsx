@@ -132,10 +132,10 @@ export function DealDrawer({ deal, stages, pipelines, isAdmin, onClose, onStageC
     <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-label="Detalhe do lead">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <aside
-        className="relative z-10 flex h-full w-full max-w-full flex-col overflow-y-auto border-l border-[rgba(59,130,246,0.25)] bg-[#0A0A0F] shadow-[0_0_60px_rgba(59,130,246,0.12)] transition-transform duration-[400ms] ease-[cubic-bezier(0.4,0,0.2,1)] sm:w-[460px]"
+        className="relative z-10 flex h-full w-full max-w-full flex-col overflow-y-auto border-l border-[var(--color-border-card)] bg-[var(--color-bg-elevated)] shadow-[0_0_60px_rgba(59,130,246,0.12)] transition-transform duration-[400ms] ease-[cubic-bezier(0.4,0,0.2,1)] sm:w-[460px]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-[rgba(59,130,246,0.12)] bg-[#0A0A0F]/95 px-5 py-4 backdrop-blur">
+        <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-[rgba(59,130,246,0.12)] bg-[var(--color-bg-elevated)]/95 px-5 py-4 backdrop-blur">
           <div className="min-w-0 flex-1">
             <div className="text-label">Lead</div>
             {/* Título = nome do lead (contato), editável */}
