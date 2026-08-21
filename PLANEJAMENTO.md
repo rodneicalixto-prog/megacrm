@@ -521,12 +521,25 @@ erros reais na Base de Conhecimento.
 ### Decisões de produto adiadas (não implementadas, precisam de resposta antes)
 
 - ~~**Round-robin só entre online**, no auto-assign de handoff
-  (`lead_assignment_queue`).~~ — **resolvido em 21/08/2026**: confirmado pelo
-  usuário e implementado. `whatsapp_hub.next_department_assignee()` agora
-  filtra `au.is_online = true` nas duas buscas (próximo na sequência e
-  wrap-around); se ninguém do setor estiver online, não atribui (mesmo
-  comportamento de fila vazia). Migration
-  `20260821151000_assignment_queue_online_only.sql`, aplicada em produção.
+  (`lead_assignment_queue`).~~ — **resolvido em 21/08/2026, em duas
+  passadas**. A primeira (`20260821151000_assignment_queue_online_only.sql`)
+  filtrou `au.is_online = true`, mas nada no sistema jamais gravava esse
+  valor como `true` — achado do code review completo do mesmo dia, que
+  descobriu a regressão em produção poucas horas depois de aplicada: o
+  round-robin nunca atribuía ninguém, nem com a equipe inteira logada. A
+  segunda passada (`20260821160000_presence_and_assignment_fallback.sql`)
+  corrigiu de verdade: RPC `set_own_presence()` + heartbeat de 45s em
+  `AppUserProvider.tsx` gravam presença real; "online" passou a exigir
+  `is_online = true` **e** `last_seen_at` recente (2min), pra uma aba
+  fechada sem aviso expirar sozinha; e, se ninguém do setor estiver
+  recentemente online, a função cai pro round-robin puro em vez de retornar
+  `NULL` — uma conversa nunca fica sem responsável só por falta de presença.
+  De brinde, fechou um vetor de auto-promoção de privilégio que a policy de
+  presença já expunha em produção antes desta rodada: `app_users_self_presence_update`
+  permitia `UPDATE` na própria linha sem checar qual coluna mudava, então
+  qualquer usuário autenticado já podia gravar `role = 'admin'` direto pela
+  tabela, client-side. Um trigger de guarda agora restringe o self-update a
+  `is_online`/`last_seen_at`.
 - **Variáveis por destinatário em campanhas.** Removidas deliberadamente do
   editor de templates (`TemplateFormDialog.tsx`: "Variáveis não são
   suportadas"). Reintroduzir é decisão de produto, não bug fix.
@@ -577,3 +590,41 @@ contra o repo. Validação local antes do deploy: `npm run typecheck`,
 `npm run validate:sql`, `npm run lint` (0 erros, só os warnings
 pré-existentes de `react-hooks/set-state-in-effect`), `npm run build` e
 `npm run test:unit` (184/184).
+
+**Terceira rodada, mesma data (21/08/2026) — code review completo do
+projeto** (3 revisores em paralelo, só leitura: backend/Supabase, frontend,
+docs/deps/testes), relatório publicado como Artifact pro usuário decidir o
+que entrava antes de qualquer execução. Aprovado com "prossiga com todas as
+ações necessárias"; itens executados:
+
+1. **Regressão crítica do round-robin** — ver correção acima nesta seção.
+2. `useContacts.ts`: fatiadas as duas buscas de tags/deals da página e o
+   delete em massa que tinham escapado da rodada anterior de chunking.
+3. `useMessages.ts`: guarda contra race condition ao trocar de conversa
+   rápido (resposta antiga podia sobrescrever a conversa nova).
+4. `ImportContactsDialog.tsx`: lotes de leitura `.in()` reduzidos de 500
+   para 100 (upsert continua em 500 — é body de POST, não filtro de URL).
+5. `CLAUDE.md`/`AGENTS.md`: corrigido o drift que o code review encontrou
+   (enum de roles, lista de Edge Functions, jobs `pg_cron`, estrutura de
+   pastas, `templates.category`, claim de "dark mode only" que não é mais
+   verdade). `AGENTS.md` parou de duplicar conteúdo — hoje aponta pra
+   `CLAUDE.md` como fonte única, já que a duplicação foi a causa raiz do
+   drift.
+6. Desagendados 3 jobs `pg_cron` órfãos/indevidos: `wh-check-template-status`
+   (mirava função removida, gerando 404 a cada 5min havia meses) e os dois
+   crons diários de recompra (módulo saindo do produto, mas ainda podendo
+   disparar mensagens reais).
+
+Achados do relatório **não** executados nesta rodada, por exigirem decisão
+de produto em vez de correção mecânica: `UtmChannelMapEditor.tsx` sem rota
+que o monte (parece wiring esquecido, não dead code); zero cobertura de
+teste em Funil e Base de Conhecimento; `useDashboardPrefs.ts`/
+`useForecast.ts` prontos mas nunca ligados na UI. Ficam registrados aqui
+para retomar quando houver decisão sobre cada um.
+
+Migrations desta rodada: `20260821160000_presence_and_assignment_fallback.sql`,
+`20260821170000_unschedule_stale_crons.sql`, ambas aplicadas em produção via
+`apply_migration` e confirmadas (funções/triggers criados, cron jobs
+removidos — checado via `execute_sql`). Validação local: `npm run
+typecheck`, `npx tsc -b --noEmit`, `npm run lint` (0 erros), `npm run build`,
+`npm run test:unit` (184/184), `npm run validate:sql` (99 arquivos).

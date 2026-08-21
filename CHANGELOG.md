@@ -26,9 +26,34 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   `UPDATE` on `messages.content` doesn't re-fire the `AFTER INSERT` trigger
   that normally drives the reply), and `process-ai-message` treats a
   transcribed audio message like text.
-- Lead round-robin auto-assignment (`next_department_assignee`) now only
-  considers supervisors/operators with `is_online = true`, instead of
-  assigning to whoever is next in sequence regardless of presence.
+- Lead round-robin auto-assignment (`next_department_assignee`) now prefers
+  supervisors/operators with recent presence (`is_online = true` and
+  `last_seen_at` within 2 minutes) but falls back to plain round-robin when
+  nobody qualifies — a same-day regression had this always assigning nobody,
+  because nothing in the app ever wrote `is_online = true`. Added a
+  `set_own_presence` RPC and a 45s heartbeat in `AppUserProvider` so presence
+  is now actually tracked, and closed a privilege-escalation gap in the
+  process: the RLS policy that let a user update their own `app_users` row
+  for presence purposes had no column-level check, so any authenticated user
+  could already set their own `role` directly from the client. A guard
+  trigger now restricts self-updates to `is_online`/`last_seen_at`.
+- Chunk the two unbounded `.in()` reads left in `useContacts.ts` (tags/deals
+  for the current page, and bulk delete) into batches of 100 — they were
+  missed when the rest of the file was fixed for the same issue, and became
+  reachable once the 1000-row page size option shipped.
+- Chunk the CSV/XLSX contact-import `.in()` reads (tag assignment, lead
+  dedup) from 500 to 100, matching the limit used everywhere else in the
+  project; the 500-row upsert body is unaffected.
+- Guard against a stale-response race in the Inbox: switching conversations
+  fast enough could let an old conversation's message fetch resolve after
+  the new one's and overwrite it with the wrong messages.
+- Unschedule three stale `pg_cron` jobs found live in production:
+  `wh-check-template-status` (targeted an Edge Function removed months ago,
+  producing a 404 every 5 minutes) and the two daily repurchase jobs
+  (`repurchase-predictions-daily`, `repurchase-dispatch-daily`), which kept
+  running — and could still send real repurchase messages — after the
+  Vendas & Recompra module was already decided as being removed from the
+  product.
 - Re-enabled Row Level Security (zero policies, service-role-only — same
   pattern as `public.app_settings`) on the legacy `whatsapp_hub.tenants`,
   `tenant_settings`, `tenant_credentials`, and `tenant_members` tables, which
@@ -54,6 +79,18 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   historical message rows in the notification tray.
 - Keep the active Inbox panel synchronized when conversations are closed or
   reopened.
+
+### Docs
+
+- Corrected `CLAUDE.md` drift found by the 21/08/2026 code review: role enum
+  (4 values, not 2), Edge Functions list (23 functions, not 14), `pg_cron`
+  jobs table, frontend route/folder structure, `templates.category` (4
+  values — `'service'` was never actually dropped), and the design-system
+  claim that light mode doesn't exist (it does, via `ThemeToggle.tsx`).
+  `AGENTS.md` stopped duplicating this content — it now points to
+  `CLAUDE.md` as the single source of truth, since the duplication is what
+  let it go stale (it still described plain Meta Cloud API, 2 roles, and
+  Edge Functions renamed/removed months ago).
 
 ### Security
 

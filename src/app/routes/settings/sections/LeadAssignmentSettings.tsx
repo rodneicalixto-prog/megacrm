@@ -154,12 +154,13 @@ export function LeadAssignmentSettings() {
           <p className="text-sm text-[var(--color-text-secondary)]">
             No handoff (IA pausada), o próximo da fila <strong>que estiver online</strong> vira
             responsável pela conversa — em sequência. Só atribui quando a conversa está sem
-            responsável e quando existe alguém online na fila.
+            responsável. Se ninguém da fila estiver online no momento, atribui pela sequência
+            normal mesmo assim — a conversa nunca fica sem responsável por falta de presença.
           </p>
         </header>
         <p className="text-sm text-[var(--color-text-secondary)]">
-          No recebimento, a linha de fila segue esta ordem pulando quem está offline. Linhas
-          pessoais são atendidas diretamente.
+          No recebimento, a linha de fila prioriza quem está online, pulando quem não está.
+          Linhas pessoais são atendidas diretamente.
         </p>
 
         <div className="space-y-2">
