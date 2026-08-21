@@ -20,6 +20,12 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   Inbox.
 - Surface Evolution API delivery errors in the Inbox instead of silently
   treating them as successful sends.
+- Repair residual multi-tenant inbound and handoff triggers that rejected new
+  messages after the `tenant_id` column was removed.
+- Release webhook deduplication reservations on persistence failures so
+  Evolution can retry instead of silently losing messages.
+- Keep the configured global Evolution instance routed to the default
+  department during migration while rejecting unknown instance names.
 - Prevent personal lines from being linked to positions without an assigned
   user and keep administrators out of automatic assignment queues.
 

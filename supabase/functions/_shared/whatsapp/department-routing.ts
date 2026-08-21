@@ -107,7 +107,7 @@ export async function connectionForInstance(instance: string): Promise<Departmen
   // de aterrissar no lugar errado.
   const global = await globalConnection();
   const fallback = await defaultDepartmentId();
-  if (!global || !fallback) return null;
+  if (!global || instance !== global.instance || !fallback) return null;
   return { connectionId: null, departmentId: fallback, instance, serverUrl: global.serverUrl, apiKey: global.apiKey };
 }
 

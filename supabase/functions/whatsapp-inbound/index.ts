@@ -104,16 +104,38 @@ export async function handleInbound(req: Request): Promise<Response> {
   if (provider.name === 'evolution') {
     const instance = instanceFromPayload(payload);
     const conn = instance ? await connectionForInstance(instance) : null;
-    if (!conn) {
+    const usesConfiguredGlobalInstance =
+      instance != null && instance === creds.evolution_instance;
+    if (!conn && !usesConfiguredGlobalInstance) {
       console.log(JSON.stringify({ event: 'instance_sem_departamento', instance }));
       return jsonResponse(
         { ok: false, error: 'instância não associada a departamento' },
         { status: 500 },
       );
     }
-    departmentId = conn.departmentId;
-    assignTo = conn.assignToUserId ?? null;
-    connectionId = conn.connectionId;
+    if (conn) {
+      departmentId = conn.departmentId;
+      assignTo = conn.assignToUserId ?? null;
+      connectionId = conn.connectionId;
+    } else {
+      const { data: defaultDepartment } = await admin
+        .from('departments')
+        .select('id')
+        .eq('is_default', true)
+        .maybeSingle();
+      departmentId = (defaultDepartment as { id: string } | null)?.id ?? null;
+      if (!departmentId) {
+        return jsonResponse(
+          { ok: false, error: 'instância global sem departamento padrão' },
+          { status: 500 },
+        );
+      }
+      console.log(JSON.stringify({
+        event: 'global_instance_default_department',
+        instance,
+        department_id: departmentId,
+      }));
+    }
     if (!assignTo) {
       const { data: queuedUser, error: queueError } = await getAdminClient().rpc(
         'next_department_assignee',
@@ -192,6 +214,11 @@ export async function handleInbound(req: Request): Promise<Response> {
     }
     console.log(JSON.stringify({ event: 'webhook_event_insert_failed', message: dupErr.message }));
   }
+  const releaseDedup = async () => {
+    if (!dupErr) {
+      await admin.from('webhook_events').delete().eq('zernio_event_id', dedupKey);
+    }
+  };
 
   // Resolve/cria contato por telefone.
   const phone = toE164(inbound.from);
@@ -206,6 +233,7 @@ export async function handleInbound(req: Request): Promise<Response> {
         .insert({ phone, name: inbound.senderName ?? null, source: 'whatsapp' })
         .select('id').single();
       if (error) {
+        await releaseDedup();
         return jsonResponse({ ok: false, error: `contato: ${error.message}` }, { status: 500 });
       }
       contactId = (created as { id: string }).id;
@@ -225,7 +253,7 @@ export async function handleInbound(req: Request): Promise<Response> {
       .maybeSingle();
     if (existingConv) conversationId = (existingConv as { id: string }).id;
     else {
-      const { data: createdConv } = await admin
+      const { data: createdConv, error: conversationError } = await admin
         .from('conversations')
         .insert({
           contact_id: contactId,
@@ -238,6 +266,13 @@ export async function handleInbound(req: Request): Promise<Response> {
           last_message_at: new Date().toISOString(),
         })
         .select('id').single();
+      if (conversationError) {
+        await releaseDedup();
+        return jsonResponse(
+          { ok: false, error: `conversa: ${conversationError.message}` },
+          { status: 500 },
+        );
+      }
       conversationId = (createdConv as { id: string } | null)?.id ?? null;
     }
     if (conversationId) {
@@ -258,7 +293,9 @@ export async function handleInbound(req: Request): Promise<Response> {
           .eq('id', conversationId);
         await admin.rpc('increment_unread_count', { p_conversation_id: conversationId });
       } else if ((msgErr as { code?: string }).code !== '23505') {
+        await releaseDedup();
         console.log(JSON.stringify({ event: 'inbound_message_insert_failed', provider: provider.name, message: msgErr.message }));
+        return jsonResponse({ ok: false, error: `mensagem: ${msgErr.message}` }, { status: 500 });
       }
     }
   }
@@ -272,6 +309,7 @@ export async function handleInbound(req: Request): Promise<Response> {
     p_provider: provider.name,
   });
   if (rpcErr) {
+    await releaseDedup();
     return jsonResponse({ ok: false, error: `atribuição: ${rpcErr.message}` }, { status: 500 });
   }
 

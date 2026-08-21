@@ -155,6 +155,21 @@ test('sem departamento padrão a mensagem é recusada, não chutada', async () =
   expect(db.rows('contacts')).toHaveLength(0);
 });
 
+test('instância global configurada usa o departamento padrão durante a transição', async () => {
+  const res = await handleInbound(post(EVOLUTION_URL, msg()));
+
+  expect(res.status).toBe(200);
+  expect(db.rows('conversations')[0]).toMatchObject({ department_id: DEPT });
+});
+
+test('instância desconhecida continua bloqueada mesmo com departamento padrão', async () => {
+  const res = await handleInbound(post(EVOLUTION_URL, { ...msg(), instance: 'desconhecida' }));
+
+  expect(res.status).toBe(500);
+  expect(await res.json()).toMatchObject({ error: 'instância não associada a departamento' });
+  expect(db.rows('contacts')).toHaveLength(0);
+});
+
 test('a instância cadastrada manda a conversa para o departamento dela', async () => {
   db.seed('departments', [
     { id: DEPT, name: 'Geral', is_default: true },
