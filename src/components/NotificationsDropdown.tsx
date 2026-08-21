@@ -32,6 +32,10 @@ export function NotificationsDropdown() {
     return [...map.values()];
   }, [notifications]);
   const unreadContacts = grouped.filter((item) => item.unread > 0).length;
+  const sections = [
+    { id: 'messages', label: 'Mensagens', items: grouped.filter((item) => item.latest.type !== 'handoff') },
+    { id: 'handoff', label: 'Aguardando atendimento', items: grouped.filter((item) => item.latest.type === 'handoff') },
+  ].filter((section) => section.items.length > 0);
 
   useEffect(() => {
     if (!open) return;
@@ -59,13 +63,16 @@ export function NotificationsDropdown() {
         {unreadContacts > 0 && <Button size="sm" variant="ghost" onClick={() => void markAllRead()}><CheckCheck className="h-3.5 w-3.5" />Marcar todas</Button>}
       </div>
       <div className="flex-1 overflow-y-auto">
-        {grouped.length === 0 ? <div className="p-8 text-center text-xs text-[var(--color-text-secondary)]">Sem notificações.</div> : <ul className="divide-y divide-white/5">
-          {grouped.map((item) => { const n=item.latest; const Icon=n.type === 'handoff' ? UserRoundCog : MessageSquare; return <li key={n.conversation_id ?? n.id}><button type="button" onClick={() => void openConversation(item)} className={cn('flex w-full items-center gap-3 p-3 text-left transition hover:bg-white/[0.04]', item.unread && 'bg-[rgba(59,130,246,0.04)]')}>
-            <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-full', n.type === 'handoff' ? 'bg-amber-500/15 text-amber-300' : 'bg-blue-500/15 text-[var(--accent-primary)]')}><Icon className="h-4 w-4" /></span>
-            <span className="min-w-0 flex-1"><span className="flex items-center gap-2"><strong className="truncate text-sm text-[var(--color-text-primary)]">{contactName(n.title)}</strong><span className="ml-auto shrink-0 text-[10px] text-[var(--color-text-secondary)]">{relativeTime(n.created_at)}</span></span><span className="block truncate text-xs text-[var(--color-text-secondary)]">{n.type === 'handoff' ? 'Aguardando atendimento humano' : (n.body || 'Nova mensagem')}</span></span>
-            {item.unread > 0 && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--accent-primary)] px-1 text-[10px] font-bold text-white">{item.unread}</span>}
-          </button></li>; })}
-        </ul>}
+        {sections.length === 0 ? <div className="p-8 text-center text-xs text-[var(--color-text-secondary)]">Sem notificações pendentes.</div> : sections.map((section) => <section key={section.id}>
+          <h3 className="border-y border-white/5 bg-white/[0.02] px-3 py-2 text-[10px] font-semibold uppercase text-[var(--color-text-secondary)]">{section.label}</h3>
+          <ul className="divide-y divide-white/5">
+            {section.items.map((item) => { const n=item.latest; const Icon=n.type === 'handoff' ? UserRoundCog : MessageSquare; return <li key={n.conversation_id ?? n.id}><button type="button" onClick={() => void openConversation(item)} className={cn('flex w-full items-center gap-3 p-3 text-left transition hover:bg-white/[0.04]', item.unread && 'bg-[rgba(59,130,246,0.04)]')}>
+              <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-full', n.type === 'handoff' ? 'bg-amber-500/15 text-amber-300' : 'bg-blue-500/15 text-[var(--accent-primary)]')}><Icon className="h-4 w-4" /></span>
+              <span className="min-w-0 flex-1"><span className="flex items-center gap-2"><strong className="truncate text-sm text-[var(--color-text-primary)]">{contactName(n.title)}</strong><span className="ml-auto shrink-0 text-[10px] text-[var(--color-text-secondary)]">{relativeTime(n.created_at)}</span></span><span className="block truncate text-xs text-[var(--color-text-secondary)]">{n.type === 'handoff' ? 'Aguardando atendimento humano' : (n.body || 'Nova mensagem')}</span></span>
+              {item.unread > 0 && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--accent-primary)] px-1 text-[10px] font-bold text-white">{item.unread}</span>}
+            </button></li>; })}
+          </ul>
+        </section>)}
       </div>
     </div>}
   </div>;

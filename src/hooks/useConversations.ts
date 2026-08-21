@@ -209,6 +209,7 @@ export function useConversations(): UseConversationsResult {
     const patch: Record<string, unknown> = {
       status: next,
       closed_at: next === 'closed' ? new Date().toISOString() : null,
+      ...(next === 'closed' ? { unread_count: 0 } : {}),
     };
     const previous = conversations.find((conversation) => conversation.id === id);
     setConversations((current) =>
@@ -327,6 +328,11 @@ export function useConversations(): UseConversationsResult {
 
   const markRead: UseConversationsResult['markRead'] = async (id) => {
     const supabase = getSupabase();
+    setConversations((current) =>
+      current.map((conversation) =>
+        conversation.id === id ? { ...conversation, unread_count: 0 } : conversation,
+      ),
+    );
     const { error } = await supabase.schema('whatsapp_hub').from('conversations').update({ unread_count: 0 }).eq('id', id);
     if (error) throw new Error(translateDbError(error.message));
   };

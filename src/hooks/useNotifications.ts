@@ -76,6 +76,7 @@ export function useNotifications(): UseNotificationsResult {
       .from('notifications')
       .select('*')
       .eq('user_id', userId)
+      .eq('is_read', false)
       .order('created_at', { ascending: false })
       .limit(50);
     setNotifications((data ?? []) as NotificationRow[]);
@@ -122,7 +123,9 @@ export function useNotifications(): UseNotificationsResult {
         },
         (payload) => {
           const row = payload.new as NotificationRow;
-          setNotifications((prev) => prev.map((n) => (n.id === row.id ? row : n)));
+          setNotifications((prev) => row.is_read
+            ? prev.filter((n) => n.id !== row.id)
+            : prev.map((n) => (n.id === row.id ? row : n)));
         },
       )
       .subscribe();
@@ -133,40 +136,35 @@ export function useNotifications(): UseNotificationsResult {
 
   const markRead = useCallback(async (id: string) => {
     const supabase = getSupabase();
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
     const { error } = await supabase
       .schema('whatsapp_hub')
       .from('notifications')
       .update({ is_read: true })
       .eq('id', id);
-    if (!error) {
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)),
-      );
-    }
-  }, []);
+    if (error) await reload();
+  }, [reload]);
 
   const markConversationRead = useCallback(async (conversationId: string) => {
     const supabase = getSupabase();
+    setNotifications((prev) => prev.filter((n) => n.conversation_id !== conversationId));
     const { error } = await supabase.schema('whatsapp_hub').from('notifications')
       .update({ is_read: true }).eq('conversation_id', conversationId).eq('is_read', false);
-    if (!error) setNotifications((prev) => prev.map((n) =>
-      n.conversation_id === conversationId ? { ...n, is_read: true } : n,
-    ));
-  }, []);
+    if (error) await reload();
+  }, [reload]);
+
   const markAllRead = useCallback(async () => {
     if (!userId) return;
     const supabase = getSupabase();
+    setNotifications([]);
     const { error } = await supabase
       .schema('whatsapp_hub')
       .from('notifications')
       .update({ is_read: true })
       .eq('user_id', userId)
       .eq('is_read', false);
-    if (!error) {
-      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
-    }
-  }, [userId]);
-
+    if (error) await reload();
+  }, [userId, reload]);
   const unreadCount = notifications.reduce((acc, n) => acc + (n.is_read ? 0 : 1), 0);
 
   // Aviso na aba do navegador: prefixa o título com (N) enquanto houver não
