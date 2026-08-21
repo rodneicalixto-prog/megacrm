@@ -14,6 +14,9 @@ function timingSafeEqualStr(a: string, b: string): boolean {
   for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return diff === 0;
 }
+export function secretMatches(received: string, expected: string): boolean {
+  return timingSafeEqualStr(received.trim(), expected.trim());
+}
 
 export async function hmacSha256(secret: string, payload: string): Promise<Uint8Array> {
   const key = await crypto.subtle.importKey(

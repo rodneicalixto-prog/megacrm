@@ -2,7 +2,7 @@
 
 /* =============================================================================
    WhatsApp Hub · Design System (Dark Mode Glassmorphism, per CLAUDE.md)
-   DARK MODE ONLY. No light mode. No theme toggle.
+   Dark is the default; light is selected with data-theme on <html>.
    ============================================================================= */
 
 @theme {
@@ -43,6 +43,27 @@
 :root {
   --accent-primary: #3B82F6;
   --accent-secondary: #60A5FA;
+  --color-bg-primary: #0A0A0F;
+  --color-bg-elevated: #111525;
+  --color-text-primary: #F8FAFC;
+  --color-text-secondary: #94A3B8;
+  --color-border-card: rgba(59, 130, 246, 0.25);
+  --glass-start: rgba(59, 130, 246, 0.08);
+  --glass-end: rgba(59, 130, 246, 0.02);
+  --surface: rgba(15, 18, 35, 0.92);
+}
+
+:root[data-theme='light'] {
+  --accent-primary: #2563EB;
+  --accent-secondary: #1D4ED8;
+  --color-bg-primary: #F4F7FB;
+  --color-bg-elevated: #FFFFFF;
+  --color-text-primary: #172033;
+  --color-text-secondary: #5B6880;
+  --color-border-card: rgba(37, 99, 235, 0.2);
+  --glass-start: rgba(255, 255, 255, 0.98);
+  --glass-end: rgba(239, 246, 255, 0.94);
+  --surface: rgba(255, 255, 255, 0.96);
 }
 
 /* -----------------------------------------------------------------------------
@@ -89,14 +110,10 @@ body {
    ----------------------------------------------------------------------------- */
 @layer components {
   .glass-card {
-    background: linear-gradient(
-      135deg,
-      rgba(59, 130, 246, 0.08),
-      rgba(59, 130, 246, 0.02)
-    );
+    background: linear-gradient(135deg, var(--glass-start), var(--glass-end));
     backdrop-filter: blur(40px);
     -webkit-backdrop-filter: blur(40px);
-    border: 1px solid rgba(59, 130, 246, 0.25);
+    border: 1px solid var(--color-border-card);
     border-radius: var(--radius-card);
     box-shadow:
       0 0 20px rgba(59, 130, 246, 0.06),
@@ -114,7 +131,7 @@ body {
   }
 
   .glass-surface {
-    background: rgba(15, 18, 35, 0.6);
+    background: var(--surface);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
     border: 1px solid rgba(59, 130, 246, 0.12);

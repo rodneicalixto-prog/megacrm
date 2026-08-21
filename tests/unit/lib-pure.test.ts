@@ -216,6 +216,7 @@ test('conversa encerrada sai das filas de trabalho', () => {
   assert.equal(matchesQueue(fechada, 'encerrados', null), true);
   assert.equal(matchesQueue(fechada, 'nao_atribuidos', null), false);
   assert.equal(matchesQueue(fechada, 'aguardando', null), false);
+  assert.equal(matchesQueue(conv({ status: 'closed', unread_count: 3 }), 'nao_lidos', null), false);
 });
 
 test('meus atendimentos exige um usuario — sem sessao nao cai tudo na fila', () => {

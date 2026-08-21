@@ -53,6 +53,9 @@ export interface Message {
   meta_status: MetaMessageStatus | null;
   is_private_note: boolean;
   created_at: string;
+  reply_to_message_id: string | null;
+  reply_preview: string | null;
+  reactions: Array<{ emoji: string; user_id: string; created_at: string }>;
 }
 
 export interface ConversationWithContact extends Conversation {

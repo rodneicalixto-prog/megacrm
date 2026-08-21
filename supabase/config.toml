@@ -404,3 +404,17 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 # declarative_schema_path = "./database"
 # JSON string passed through to pg-delta SQL formatting.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
+
+# Public endpoints and externally signed webhooks. Every other function keeps
+# the platform JWT verifier enabled by default.
+[functions.ingest-lead]
+verify_jwt = false
+
+[functions.redirect-tracker]
+verify_jwt = false
+
+[functions.whatsapp-inbound]
+verify_jwt = false
+
+[functions.zernio-webhook]
+verify_jwt = false

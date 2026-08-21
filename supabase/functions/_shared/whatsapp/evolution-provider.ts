@@ -20,6 +20,7 @@ import {
   str,
   toIso,
   type NormalizedInbound,
+  type DownloadedInboundMedia,
   type Referral,
   type SendOptions,
   type SendResult,
@@ -101,6 +102,56 @@ export class EvolutionProvider implements WhatsAppProvider {
     return null;
   }
 
+  async downloadInboundMedia(rawPayload: unknown): Promise<DownloadedInboundMedia | null> {
+    const root = asObject(rawPayload);
+    const data = Array.isArray(root.data)
+      ? asObject(root.data[0])
+      : Object.keys(asObject(root.data)).length
+        ? asObject(root.data)
+        : root;
+    const message = asObject(data.message);
+    const key = asObject(data.key);
+    if (!Object.keys(message).length && !str(key, ['id'])) return null;
+
+    const res = await fetch(this.serverUrl + '/chat/getBase64FromMediaMessage/' + this.instance, {
+      method: 'POST',
+      headers: { apikey: this.apiKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: data }),
+    });
+    if (!res.ok) throw new Error('Evolution media HTTP ' + res.status);
+
+    const body = asObject(await res.json().catch(() => ({})));
+    const base64 = str(body, ['base64']);
+    if (!base64) throw new Error('Evolution não devolveu a mídia em base64');
+    const binary = atob(base64.replace(/^data:[^;]+;base64,/, ''));
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+    const mime = str(body, ['mimetype']) ?? 'application/octet-stream';
+    const extension = mime.split('/')[1]?.split(';')[0] || 'bin';
+    const fileName = str(body, ['fileName']) ?? ('media.' + extension);
+    return { bytes, mime, fileName };
+  }
+  async sendPresence(to: string, presence: 'composing' | 'paused'): Promise<void> {
+    const number = to.replace(/\D/g, '');
+    const res = await fetch(`${this.serverUrl}/chat/sendPresence/${this.instance}`, {
+      method: 'POST',
+      headers: { apikey: this.apiKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ number, presence, delay: 1200 }),
+    });
+    if (!res.ok) throw new Error(`Evolution presence HTTP ${res.status}`);
+  }
+
+  async react(to: string, messageId: string, emoji: string, fromMe: boolean): Promise<void> {
+    const number = to.replace(/\D/g, '');
+    const res = await fetch(`${this.serverUrl}/message/sendReaction/${this.instance}`, {
+      method: 'POST',
+      headers: { apikey: this.apiKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        key: { remoteJid: `${number}@s.whatsapp.net`, fromMe, id: messageId },
+        reaction: emoji,
+      }),
+    });
+    if (!res.ok) throw new Error(`Evolution reaction HTTP ${res.status}`);
+  }
   async sendMessage(to: string, text: string, opts: SendOptions = {}): Promise<SendResult> {
     const number = to.replace(/\D/g, '');
     try {
@@ -113,7 +164,13 @@ export class EvolutionProvider implements WhatsAppProvider {
         : `/message/sendText/${this.instance}`;
 
       const body = !opts.mediaUrl
-        ? { number, text }
+        ? {
+            number,
+            text,
+            quoted: opts.quotedMessageId
+              ? { key: { remoteJid: opts.quotedRemoteJid, fromMe: opts.quotedFromMe ?? false, id: opts.quotedMessageId } }
+              : undefined,
+          }
         : isAudio
           ? { number, audio: opts.mediaUrl }
           : {
@@ -128,6 +185,27 @@ export class EvolutionProvider implements WhatsAppProvider {
         headers: { apikey: this.apiKey, 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
+      if (!res.ok && isAudio && !opts.voiceNote) {
+        const fallback = await fetch(`${this.serverUrl}/message/sendMedia/${this.instance}`, {
+          method: 'POST',
+          headers: { apikey: this.apiKey, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            number,
+            mediatype: 'audio',
+            media: opts.mediaUrl,
+            caption: text || undefined,
+          }),
+        });
+        const fallbackRaw = await fallback.json().catch(() => ({}));
+        const fallbackMessageId =
+          str(asObject(asObject(fallbackRaw).key), ['id']) ?? str(asObject(fallbackRaw), ['id']);
+        return {
+          ok: fallback.ok,
+          messageId: fallbackMessageId,
+          raw: fallbackRaw,
+          error: fallback.ok ? undefined : `HTTP ${fallback.status}`,
+        };
+      }
       const raw = await res.json().catch(() => ({}));
       const messageId = str(asObject(asObject(raw).key), ['id']) ?? str(asObject(raw), ['id']);
       return { ok: res.ok, messageId, raw, error: res.ok ? undefined : `HTTP ${res.status}` };

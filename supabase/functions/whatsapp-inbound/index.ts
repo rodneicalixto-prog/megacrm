@@ -21,14 +21,20 @@ import {
   resolveInboundProvider,
   type ProviderName,
 } from '../_shared/whatsapp/index.ts';
-import { verifyWebhookSignature } from '../_shared/signature.ts';
-import { connectionForInstance, instanceFromPayload } from '../_shared/whatsapp/department-routing.ts';
+import { secretMatches, verifyWebhookSignature } from '../_shared/signature.ts';
+import { connectionForInstance, instanceFromPayload, providerFor } from '../_shared/whatsapp/department-routing.ts';
 
 // Nome distinto do normalizePhone de _shared/whatsapp/types.ts — o bundler do
 // bootstrap inlina os _shared no mesmo escopo do módulo.
 function toE164(raw: string): string {
   const t = raw.trim();
   return t.startsWith('+') ? t : `+${t}`;
+}
+
+const INBOUND_MEDIA_BUCKET = 'whatsapp-hub-outbound-media';
+
+function safeFileName(value: string): string {
+  return value.replace(/[^a-zA-Z0-9._-]+/g, '-').slice(-120) || 'media.bin';
 }
 
 // Handler exportado para poder ser exercitado fora do runtime: o `Deno.serve`
@@ -73,6 +79,20 @@ export async function handleInbound(req: Request): Promise<Response> {
     return jsonResponse({ ok: false, error: 'nenhum provedor configurado' }, { status: 500 });
   }
 
+  if (provider.name === 'evolution') {
+    const expected = await getCredential('evolution_webhook_secret');
+    const received =
+      req.headers.get('X-MegaCRM-Webhook-Secret') ??
+      url.searchParams.get('token') ??
+      '';
+    if (!expected) {
+      return jsonResponse({ ok: false, error: 'webhook Evolution sem segredo configurado' }, { status: 500 });
+    }
+    if (!secretMatches(received, expected)) {
+      return jsonResponse({ ok: false, error: 'segredo de webhook inválido' }, { status: 401 });
+    }
+  }
+
   const inbound = provider.parseInboundWebhook(payload);
   if (!inbound) {
     return jsonResponse({ ok: true, skipped: 'não-inbound' });
@@ -87,19 +107,89 @@ export async function handleInbound(req: Request): Promise<Response> {
   // o supervisor distribui.
   let assignTo: string | null = null;
   let connectionId: string | null = null;
+  let inboundMediaProvider = provider;
   if (provider.name === 'evolution') {
     const instance = instanceFromPayload(payload);
     const conn = instance ? await connectionForInstance(instance) : null;
-    if (!conn) {
+    const usesConfiguredGlobalInstance =
+      instance != null && instance === creds.evolution_instance;
+    if (!conn && !usesConfiguredGlobalInstance) {
       console.log(JSON.stringify({ event: 'instance_sem_departamento', instance }));
       return jsonResponse(
         { ok: false, error: 'instância não associada a departamento' },
         { status: 500 },
       );
     }
-    departmentId = conn.departmentId;
-    assignTo = conn.assignToUserId ?? null;
-    connectionId = conn.connectionId;
+    if (conn) {
+      inboundMediaProvider = providerFor(conn);
+      departmentId = conn.departmentId;
+      assignTo = conn.assignToUserId ?? null;
+      connectionId = conn.connectionId;
+    } else {
+      const { data: defaultDepartment } = await admin
+        .from('departments')
+        .select('id')
+        .eq('is_default', true)
+        .maybeSingle();
+      departmentId = (defaultDepartment as { id: string } | null)?.id ?? null;
+      if (!departmentId) {
+        return jsonResponse(
+          { ok: false, error: 'instância global sem departamento padrão' },
+          { status: 500 },
+        );
+      }
+      console.log(JSON.stringify({
+        event: 'global_instance_default_department',
+        instance,
+        department_id: departmentId,
+      }));
+    }
+    if (!assignTo) {
+      const { data: queuedUser, error: queueError } = await getAdminClient().rpc(
+        'next_department_assignee',
+        { p_department_id: departmentId },
+      );
+      if (queueError) {
+        console.log(JSON.stringify({
+          event: 'department_assignment_failed',
+          department_id: departmentId,
+          message: queueError.message,
+        }));
+      } else {
+        assignTo = typeof queuedUser === 'string' ? queuedUser : null;
+      }
+    }
+
+  }
+
+  // Baileys entrega uma URL para bytes criptografados, que o navegador não
+  // consegue tocar. A Evolution possui a chave da mensagem e devolve o arquivo
+  // descriptografado; mantemos uma cópia estável no Storage da Inbox.
+  if (
+    provider.name === 'evolution'
+    && inbound.contentType
+    && inbound.contentType !== 'text'
+    && inboundMediaProvider.downloadInboundMedia
+  ) {
+    try {
+      const media = await inboundMediaProvider.downloadInboundMedia(payload);
+      if (media) {
+        const path = 'inbound/' + inbound.messageId + '/' + safeFileName(media.fileName);
+        const { error: uploadError } = await admin.storage
+          .from(INBOUND_MEDIA_BUCKET)
+          .upload(path, media.bytes, { contentType: media.mime, upsert: true });
+        if (uploadError) throw new Error(uploadError.message);
+        inbound.mediaUrl = admin.storage.from(INBOUND_MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
+      }
+    } catch (error) {
+      console.log(JSON.stringify({
+        event: 'evolution_media_download_failed',
+        message_id: inbound.messageId,
+        message: error instanceof Error ? error.message : String(error),
+      }));
+      // Não perdemos a conversa inteira por indisponibilidade temporária da mídia.
+      inbound.mediaUrl = null;
+    }
   }
 
   // Mensagem enviada pela própria conta. Na rota não-oficial isso quase sempre
@@ -162,6 +252,11 @@ export async function handleInbound(req: Request): Promise<Response> {
     }
     console.log(JSON.stringify({ event: 'webhook_event_insert_failed', message: dupErr.message }));
   }
+  const releaseDedup = async () => {
+    if (!dupErr) {
+      await admin.from('webhook_events').delete().eq('zernio_event_id', dedupKey);
+    }
+  };
 
   // Resolve/cria contato por telefone.
   const phone = toE164(inbound.from);
@@ -176,6 +271,7 @@ export async function handleInbound(req: Request): Promise<Response> {
         .insert({ phone, name: inbound.senderName ?? null, source: 'whatsapp' })
         .select('id').single();
       if (error) {
+        await releaseDedup();
         return jsonResponse({ ok: false, error: `contato: ${error.message}` }, { status: 500 });
       }
       contactId = (created as { id: string }).id;
@@ -195,7 +291,7 @@ export async function handleInbound(req: Request): Promise<Response> {
       .maybeSingle();
     if (existingConv) conversationId = (existingConv as { id: string }).id;
     else {
-      const { data: createdConv } = await admin
+      const { data: createdConv, error: conversationError } = await admin
         .from('conversations')
         .insert({
           contact_id: contactId,
@@ -208,6 +304,13 @@ export async function handleInbound(req: Request): Promise<Response> {
           last_message_at: new Date().toISOString(),
         })
         .select('id').single();
+      if (conversationError) {
+        await releaseDedup();
+        return jsonResponse(
+          { ok: false, error: `conversa: ${conversationError.message}` },
+          { status: 500 },
+        );
+      }
       conversationId = (createdConv as { id: string } | null)?.id ?? null;
     }
     if (conversationId) {
@@ -228,7 +331,9 @@ export async function handleInbound(req: Request): Promise<Response> {
           .eq('id', conversationId);
         await admin.rpc('increment_unread_count', { p_conversation_id: conversationId });
       } else if ((msgErr as { code?: string }).code !== '23505') {
+        await releaseDedup();
         console.log(JSON.stringify({ event: 'inbound_message_insert_failed', provider: provider.name, message: msgErr.message }));
+        return jsonResponse({ ok: false, error: `mensagem: ${msgErr.message}` }, { status: 500 });
       }
     }
   }
@@ -242,6 +347,7 @@ export async function handleInbound(req: Request): Promise<Response> {
     p_provider: provider.name,
   });
   if (rpcErr) {
+    await releaseDedup();
     return jsonResponse({ ok: false, error: `atribuição: ${rpcErr.message}` }, { status: 500 });
   }
 

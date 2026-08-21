@@ -17,6 +17,7 @@
 // ============================================================================
 
 import { requireCaller, AuthError } from '../_shared/auth.ts';
+import { canOperate } from '../_shared/roles.ts';
 import { getAdminClient } from '../_shared/supabase-admin.ts';
 import { jsonResponse, preflight } from '../_shared/cors.ts';
 import {
@@ -47,7 +48,7 @@ export async function handleOperatorMedia(req: Request): Promise<Response> {
 
   try {
     const caller = await requireCaller(req);
-    if (caller.role !== 'admin' && caller.role !== 'operator') {
+    if (!canOperate(caller.role)) {
       return jsonResponse({ ok: false, error: 'Sem permissão para enviar mensagens.' }, { status: 403 });
     }
 
@@ -116,7 +117,7 @@ export async function handleOperatorMedia(req: Request): Promise<Response> {
 
       let evolutionMessageId: string | null = null;
       try {
-        const sent = await sendEvolutionMessage(phone, caption, publicUrl, contentType, convRow.connection_id);
+        const sent = await sendEvolutionMessage(phone, caption, publicUrl, contentType, convRow.connection_id, null, false, voiceNote);
         evolutionMessageId = sent.messageId;
       } catch (err) {
         // O arquivo já está no bucket; sem o envio ele viraria lixo silencioso.

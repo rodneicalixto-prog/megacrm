@@ -8,17 +8,14 @@
 
 import { getAdminClient, getAuthAdminClient } from './supabase-admin.ts';
 
-export type CallerRole = 'super_admin' | 'admin' | 'supervisor' | 'operator';
-
+import { ADMIN_ROLES, type CallerRole } from './roles.ts';
+export { ADMIN_ROLES, type CallerRole } from './roles.ts';
 export interface Caller {
   userId: string;
   email: string | null;
   role: CallerRole | null;
 }
 
-// Papeis que administram a instalacao. super_admin e o topo; admin tem o mesmo
-// alcance operacional, menos o que for do departamento restrito.
-export const ADMIN_ROLES: CallerRole[] = ['super_admin', 'admin'];
 
 export class AuthError extends Error {
   status: number;

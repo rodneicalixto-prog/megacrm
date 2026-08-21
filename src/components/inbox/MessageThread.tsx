@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef } from 'react';
-import { Bot, Check, CheckCheck, Clock, FileText, StickyNote, User } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Bot, Check, CheckCheck, Clock, FileText, Forward, Reply, SmilePlus, StickyNote, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getSupabase } from '@/lib/supabase';
 import type { Message } from '@/types/inbox';
 import type { ThreadMessage } from '@/hooks/useMessages';
 
@@ -9,6 +10,9 @@ interface MessageThreadProps {
   loading: boolean;
   onRetry?: (tempId: string) => void;
   onDismiss?: (tempId: string) => void;
+  onForward?: (message: ThreadMessage) => void;
+  onReply?: (message: ThreadMessage) => void;
+  onReact?: (message: ThreadMessage, emoji: string) => void;
 }
 
 function StatusTicks({ status }: { status: Message['meta_status'] }) {
@@ -71,6 +75,64 @@ const MEDIA_RECEIVED: Record<string, string> = {
   document: 'Documento recebido',
 };
 
+function RepairableAudio({ message }: { message: Message }) {
+  const [url, setUrl] = useState(message.media_url ?? '');
+  const [repairState, setRepairState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const attempted = useRef(false);
+  const canRepair = message.direction === 'inbound';
+
+  const repair = useCallback(async () => {
+    if (!canRepair || attempted.current) return;
+    attempted.current = true;
+    setRepairState('loading');
+    try {
+      const { data, error } = await getSupabase().functions.invoke('resolve-inbound-media', {
+        body: { message_id: message.id },
+      });
+      if (error) throw error;
+      const mediaUrl = typeof data?.media_url === 'string' ? data.media_url : '';
+      if (!mediaUrl) throw new Error('URL do áudio não foi devolvida.');
+      setUrl(mediaUrl);
+      setRepairState('idle');
+    } catch {
+      setRepairState('error');
+    }
+  }, [canRepair, message.id]);
+
+  const detectInvalidAudio = (audio: HTMLAudioElement) => {
+    if (!Number.isFinite(audio.duration) || audio.duration <= 0) void repair();
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <audio
+        key={url}
+        controls
+        preload="metadata"
+        src={url}
+        className="max-w-full"
+        onError={() => void repair()}
+        onLoadedMetadata={(event) => detectInvalidAudio(event.currentTarget)}
+      />
+      {repairState === 'loading' && (
+        <div className="text-[10px] opacity-70">Preparando áudio...</div>
+      )}
+      {repairState === 'error' && (
+        <button
+          type="button"
+          className="text-[11px] font-semibold underline"
+          onClick={() => {
+            attempted.current = false;
+            void repair();
+          }}
+        >
+          Tentar carregar áudio
+        </button>
+      )}
+    </div>
+  );
+}
+
 // Renderiza mídia quando `media_url` já é uma URL http(s). No modelo Zernio,
 // tanto a mídia inbound (URL do attachment no webhook) quanto a outbound do
 // operador (URL do /media/upload-direct) chegam já como URL — o placeholder
@@ -91,7 +153,7 @@ function MediaContent({ message }: { message: Message }) {
       );
     }
     if (message.content_type === 'audio') {
-      return <audio controls src={url} className="max-w-full" />;
+      return <RepairableAudio message={message} />;
     }
     if (message.content_type === 'video') {
       return <video controls src={url} className="max-h-64 rounded-lg" />;
@@ -140,7 +202,24 @@ function FailedActions({
   );
 }
 
-export function MessageThread({ messages, loading, onRetry, onDismiss }: MessageThreadProps) {
+function MessageActions({ message, onForward, onReply, onReact }: {
+  message: ThreadMessage;
+  onForward?: (message: ThreadMessage) => void;
+  onReply?: (message: ThreadMessage) => void;
+  onReact?: (message: ThreadMessage, emoji: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return <div className="relative mb-2 flex items-center gap-0.5 opacity-0 transition group-hover/message:opacity-100 focus-within:opacity-100">
+    <button type="button" onClick={() => onReply?.(message)} className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-text-secondary)] hover:bg-white/5" title="Responder"><Reply className="h-3.5 w-3.5" /></button>
+    <button type="button" onClick={() => setOpen((value) => !value)} className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-text-secondary)] hover:bg-white/5" title="Reagir"><SmilePlus className="h-3.5 w-3.5" /></button>
+    <button type="button" onClick={() => onForward?.(message)} className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-text-secondary)] hover:bg-white/5" title="Encaminhar"><Forward className="h-3.5 w-3.5" /></button>
+    {open && <div className="absolute bottom-9 left-0 z-20 flex gap-1 rounded-lg border border-[var(--color-border-card)] bg-[var(--color-bg-elevated)] p-1 shadow-xl">
+      {['👍','❤️','😂','😮','😢','🙏'].map((emoji) => <button key={emoji} type="button" className="flex h-8 w-8 items-center justify-center rounded hover:bg-white/10" onClick={() => { onReact?.(message, emoji); setOpen(false); }}>{emoji}</button>)}
+    </div>}
+  </div>;
+}
+
+export function MessageThread({ messages, loading, onRetry, onDismiss, onForward, onReply, onReact }: MessageThreadProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Marca, por mensagem, se ela é a primeira do seu grupo de dia (local time)
@@ -193,25 +272,25 @@ export function MessageThread({ messages, loading, onRetry, onDismiss }: Message
             <div key={m.id} className="contents">
               {showDaySeparator && <DaySeparator iso={m.created_at} />}
               <div
-              className={cn(
-                'mx-auto max-w-[85%] rounded-lg border border-[rgba(245,158,11,0.25)] bg-[rgba(245,158,11,0.06)] p-3',
-                m._state === 'pending' && 'opacity-70',
-              )}
-            >
-              <div className="flex items-center gap-2 text-[10px] uppercase tracking-wide text-[#FBBF24] mb-1">
-                <StickyNote className="h-3 w-3" />
-                Nota privada entre operadores
-                <span className="ml-auto opacity-70 inline-flex items-center gap-1">
-                  {m._state === 'pending' && <Clock className="h-3 w-3 animate-pulse" />}
-                  {formatTime(m.created_at)}
-                </span>
-              </div>
-              <div className="text-sm text-[var(--color-text-primary)] whitespace-pre-wrap break-words">
-                {m.content}
-              </div>
-              {m._state === 'failed' && m._tempId && (
-                <FailedActions tempId={m._tempId} onRetry={onRetry} onDismiss={onDismiss} />
-              )}
+                className={cn(
+                  'mx-auto max-w-[85%] rounded-lg border border-[rgba(245,158,11,0.25)] bg-[rgba(245,158,11,0.06)] p-3',
+                  m._state === 'pending' && 'opacity-70',
+                )}
+              >
+                <div className="flex items-center gap-2 text-[10px] uppercase tracking-wide text-[#FBBF24] mb-1">
+                  <StickyNote className="h-3 w-3" />
+                  Nota privada entre operadores
+                  <span className="ml-auto opacity-70 inline-flex items-center gap-1">
+                    {m._state === 'pending' && <Clock className="h-3 w-3 animate-pulse" />}
+                    {formatTime(m.created_at)}
+                  </span>
+                </div>
+                <div className="text-sm text-[var(--color-text-primary)] whitespace-pre-wrap break-words">
+                  {m.content}
+                </div>
+                {m._state === 'failed' && m._tempId && (
+                  <FailedActions tempId={m._tempId} onRetry={onRetry} onDismiss={onDismiss} />
+                )}
               </div>
             </div>
           );
@@ -220,56 +299,69 @@ export function MessageThread({ messages, loading, onRetry, onDismiss }: Message
         return (
           <div key={m.id} className="contents">
             {showDaySeparator && <DaySeparator iso={m.created_at} />}
-            <div className={cn('flex', isInbound ? 'justify-start' : 'justify-end')}>
             <div
-              className={cn(
-                'max-w-[70%] rounded-2xl px-4 py-2.5 text-sm shadow-sm transition-opacity',
-                isInbound
-                  ? 'bg-white/[0.04] text-[var(--color-text-primary)] rounded-bl-md'
-                  : 'bg-[var(--accent-primary)] text-white rounded-br-md',
-                m._state === 'pending' && 'opacity-70',
-                m._state === 'failed' && 'ring-1 ring-[var(--color-error)]',
-              )}
+              className={cn('group/message flex items-end gap-1', isInbound ? 'justify-start' : 'justify-end')}
             >
-              {!isInbound && m.sender_type !== 'contact' && (
-                <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide opacity-70 mb-1">
-                  <SenderIcon sender={m.sender_type} />
-                  {m.sender_type === 'ai' ? 'IA' : 'Operador'}
-                </div>
-              )}
-              {m.content_type === 'text' || m.content_type === 'note' ? (
-                <div className="whitespace-pre-wrap break-words">{m.content}</div>
-              ) : m.content_type === 'template' ? (
-                // Template é texto renderizado (body com variáveis já substituídas),
-                // não mídia — exibe o conteúdo com um rótulo discreto de template.
-                <div className="space-y-1">
-                  <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide opacity-70">
-                    <FileText className="h-3 w-3" />
-                    Template
-                  </div>
-                  <div className="whitespace-pre-wrap break-words">{m.content}</div>
-                </div>
-              ) : (
-                <MediaContent message={m} />
+              {!isInbound && (
+                <MessageActions message={m} onForward={onForward} onReply={onReply} onReact={onReact} />
               )}
               <div
                 className={cn(
-                  'flex items-center gap-1 text-[10px] mt-1 opacity-70',
-                  isInbound ? 'justify-start' : 'justify-end',
+                  'max-w-[70%] rounded-2xl px-4 py-2.5 text-sm shadow-sm transition-opacity',
+                  isInbound
+                    ? 'bg-white/[0.04] text-[var(--color-text-primary)] rounded-bl-md'
+                    : 'bg-[var(--accent-primary)] text-white rounded-br-md',
+                  m._state === 'pending' && 'opacity-70',
+                  m._state === 'failed' && 'ring-1 ring-[var(--color-error)]',
                 )}
               >
-                <span>{formatTime(m.created_at)}</span>
-                {!isInbound && m._state === 'pending' && (
-                  <Clock className="h-3 w-3 animate-pulse" aria-label="enviando" />
+                {!isInbound && m.sender_type !== 'contact' && (
+                  <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide opacity-70 mb-1">
+                    <SenderIcon sender={m.sender_type} />
+                    {m.sender_type === 'ai' ? 'IA' : 'Operador'}
+                  </div>
                 )}
-                {!isInbound && m._state !== 'pending' && m._state !== 'failed' && (
-                  <StatusTicks status={m.meta_status} />
+                {m.reply_preview && (
+                  <div className="mb-2 rounded border-l-2 border-current bg-black/10 px-2 py-1 text-xs opacity-75 line-clamp-2">
+                    {m.reply_preview}
+                  </div>
+                )}
+                {m.content_type === 'text' || m.content_type === 'note' ? (
+                  <div className="whitespace-pre-wrap break-words">{m.content}</div>
+                ) : m.content_type === 'template' ? (
+                  // Template é texto renderizado (body com variáveis já substituídas),
+                  // não mídia — exibe o conteúdo com um rótulo discreto de template.
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide opacity-70">
+                      <FileText className="h-3 w-3" />
+                      Template
+                    </div>
+                    <div className="whitespace-pre-wrap break-words">{m.content}</div>
+                  </div>
+                ) : (
+                  <MediaContent message={m} />
+                )}
+                <div
+                  className={cn(
+                    'flex items-center gap-1 text-[10px] mt-1 opacity-70',
+                    isInbound ? 'justify-start' : 'justify-end',
+                  )}
+                >
+                  <span>{formatTime(m.created_at)}</span>
+                  {!isInbound && m._state === 'pending' && (
+                    <Clock className="h-3 w-3 animate-pulse" aria-label="enviando" />
+                  )}
+                  {!isInbound && m._state !== 'pending' && m._state !== 'failed' && (
+                    <StatusTicks status={m.meta_status} />
+                  )}
+                </div>
+                {m._state === 'failed' && m._tempId && (
+                  <FailedActions tempId={m._tempId} onRetry={onRetry} onDismiss={onDismiss} inverse />
                 )}
               </div>
-              {m._state === 'failed' && m._tempId && (
-                <FailedActions tempId={m._tempId} onRetry={onRetry} onDismiss={onDismiss} inverse />
+              {isInbound && (
+                <MessageActions message={m} onForward={onForward} onReply={onReply} onReact={onReact} />
               )}
-            </div>
             </div>
           </div>
         );

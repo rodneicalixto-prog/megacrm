@@ -21,7 +21,10 @@ vi.mock('../../supabase/functions/_shared/credentials.ts', () => ({
 
 const { handleInbound } = await import('../../supabase/functions/whatsapp-inbound/index.ts');
 
-const EVOLUTION_URL = 'https://fake.supabase.co/functions/v1/whatsapp-inbound?provider=evolution';
+const EVOLUTION_SECRET = 'segredo-evolution';
+const EVOLUTION_URL =
+  'https://fake.supabase.co/functions/v1/whatsapp-inbound?provider=evolution&token=' +
+  EVOLUTION_SECRET;
 
 function upsert(body: Record<string, unknown>) {
   return { event: 'messages.upsert', instance: 'pricall', data: body };
@@ -50,6 +53,7 @@ const DEPT = 'dept-geral';
 beforeEach(() => {
   db.tables = {};
   db.rpcCalls = [];
+  db.storageFiles = [];
   // O número que recebe define o departamento. Sem departamento padrão a
   // mensagem é recusada de propósito — melhor que aterrissar no lugar errado.
   db.seed('departments', [{ id: DEPT, name: 'Geral', is_default: true }]);
@@ -58,6 +62,7 @@ beforeEach(() => {
   credentials.evolution_server_url = 'https://evo.example.com';
   credentials.evolution_api_key = 'apikey';
   credentials.evolution_instance = 'pricall';
+  credentials.evolution_webhook_secret = EVOLUTION_SECRET;
 });
 
 // ------------------------------------------------------------- método
@@ -72,6 +77,20 @@ test('JSON inválido é recusado sem tocar no banco', async () => {
     new Request(EVOLUTION_URL, { method: 'POST', body: 'não é json' }),
   );
   expect(res.status).toBe(400);
+  expect(db.rows('contacts')).toHaveLength(0);
+});
+test('Evolution recusa payload sem segredo de webhook', async () => {
+  const url = 'https://fake.supabase.co/functions/v1/whatsapp-inbound?provider=evolution';
+  const res = await handleInbound(post(url, msg()));
+  expect(res.status).toBe(401);
+  expect(db.rows('contacts')).toHaveLength(0);
+});
+
+test('Evolution recusa segredo de webhook incorreto', async () => {
+  const url =
+    'https://fake.supabase.co/functions/v1/whatsapp-inbound?provider=evolution&token=incorreto';
+  const res = await handleInbound(post(url, msg()));
+  expect(res.status).toBe(401);
   expect(db.rows('contacts')).toHaveLength(0);
 });
 
@@ -105,6 +124,29 @@ test('mensagem nova cria contato, conversa e mensagem no inbox', async () => {
   });
 });
 
+test('áudio inbound é materializado no Storage antes de entrar na thread', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => new Response(JSON.stringify({
+    base64: btoa('ogg-real'),
+    mimetype: 'audio/ogg',
+    fileName: 'audio.ogg',
+  }))) as typeof fetch;
+
+  try {
+    const res = await handleInbound(post(EVOLUTION_URL, msg({
+      key: { remoteJid: '5511999998888@s.whatsapp.net', fromMe: false, id: 'AUD2' },
+      message: { audioMessage: { directPath: '/arquivo-criptografado', mediaKey: { 0: 1 } } },
+    })));
+    expect(res.status).toBe(200);
+    expect(db.rows('messages')[0]).toMatchObject({
+      content_type: 'audio',
+      media_url: 'https://fake.supabase.co/storage/v1/object/public/whatsapp-hub-outbound-media/inbound/AUD2/audio.ogg',
+    });
+    expect(db.storageFiles).toContain('whatsapp-hub-outbound-media/inbound/AUD2/audio.ogg');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
 test('contato já existente é reaproveitado em vez de duplicado', async () => {
   db.seed('contacts', [{ id: 'c-existente', phone: '+5511999998888' }]);
   await handleInbound(post(EVOLUTION_URL, msg()));
@@ -134,6 +176,21 @@ test('sem departamento padrão a mensagem é recusada, não chutada', async () =
   const res = await handleInbound(post(EVOLUTION_URL, msg()));
 
   expect(res.status).toBe(500);
+  expect(db.rows('contacts')).toHaveLength(0);
+});
+
+test('instância global configurada usa o departamento padrão durante a transição', async () => {
+  const res = await handleInbound(post(EVOLUTION_URL, msg()));
+
+  expect(res.status).toBe(200);
+  expect(db.rows('conversations')[0]).toMatchObject({ department_id: DEPT });
+});
+
+test('instância desconhecida continua bloqueada mesmo com departamento padrão', async () => {
+  const res = await handleInbound(post(EVOLUTION_URL, { ...msg(), instance: 'desconhecida' }));
+
+  expect(res.status).toBe(500);
+  expect(await res.json()).toMatchObject({ error: 'instância não associada a departamento' });
   expect(db.rows('contacts')).toHaveLength(0);
 });
 
@@ -330,8 +387,45 @@ test('duas linhas no mesmo departamento não se confundem', async () => {
     { id: 'linha-b', department_id: DEPT, position_id: null, instance: 'linha-b' },
   ]);
 
-  const url = 'https://fake.supabase.co/functions/v1/whatsapp-inbound?provider=evolution';
-  await handleInbound(post(url, { ...msg(), instance: 'linha-b' }));
+  await handleInbound(post(EVOLUTION_URL, { ...msg(), instance: 'linha-b' }));
 
   expect(db.rows('conversations')[0]).toMatchObject({ connection_id: 'linha-b' });
+});
+
+test('linha de fila segue a ordem do setor quando a distribui??o est? ativa', async () => {
+  db.seed('departments', [{ id: DEPT, name: 'Departamento Pessoal', is_default: true }]);
+  db.seed('department_connections', [
+    { id: 'conn1', department_id: DEPT, position_id: null, instance: 'pricall' },
+  ]);
+  db.rpcResults.next_department_assignee = { data: 'user-atendente-2', error: null };
+
+  await handleInbound(post(EVOLUTION_URL, msg()));
+
+  expect(db.rows('conversations')[0]).toMatchObject({
+    department_id: DEPT,
+    assigned_to: 'user-atendente-2',
+  });
+  expect(db.rpcCalls).toContainEqual({
+    name: 'next_department_assignee',
+    args: { p_department_id: DEPT },
+  });
+});
+
+test('linha pessoal de admin atende direto e nunca consulta a fila', async () => {
+  db.seed('departments', [{ id: DEPT, name: 'Administra??o', is_default: true }]);
+  db.seed('department_positions', [
+    { id: 'pos-admin', department_id: DEPT, name: 'Admin', user_id: 'user-admin' },
+  ]);
+  db.seed('department_connections', [
+    { id: 'conn-admin', department_id: DEPT, position_id: 'pos-admin', instance: 'pricall' },
+  ]);
+  db.rpcResults.next_department_assignee = { data: 'user-atendente-2', error: null };
+
+  await handleInbound(post(EVOLUTION_URL, msg()));
+
+  expect(db.rows('conversations')[0]).toMatchObject({
+    department_id: DEPT,
+    assigned_to: 'user-admin',
+  });
+  expect(db.rpcCalls.some((call) => call.name === 'next_department_assignee')).toBe(false);
 });

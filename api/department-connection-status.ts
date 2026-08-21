@@ -84,7 +84,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   try {
     if (req.method !== 'GET') return res.status(405).end();
     const auth = await requireAdmin(req.headers?.authorization ?? req.headers?.Authorization);
-    if (!auth.ok) return res.status(auth.status).json({ success: false, message: auth.message });
+    if (auth.ok === false) return res.status(auth.status).json({ success: false, message: auth.message });
 
     const { data, error } = await getAdmin()
       .schema('whatsapp_hub')

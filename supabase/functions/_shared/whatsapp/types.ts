@@ -39,6 +39,10 @@ export interface SendOptions {
   conversationId?: string;   // Zernio envia 1:1 por conversationId
   mediaUrl?: string | null;
   mediaType?: string;        // image | video | audio | document
+  quotedMessageId?: string;
+  quotedRemoteJid?: string;
+  quotedFromMe?: boolean;
+  voiceNote?: boolean;
 }
 
 export interface SendResult {
@@ -48,11 +52,18 @@ export interface SendResult {
   error?: string;
 }
 
+export interface DownloadedInboundMedia {
+  bytes: Uint8Array;
+  mime: string;
+  fileName: string;
+}
+
 export interface WhatsAppProvider {
   readonly name: ProviderName;
   sendMessage(to: string, text: string, opts?: SendOptions): Promise<SendResult>;
   parseInboundWebhook(rawPayload: unknown): NormalizedInbound | null;
   extractReferral(rawPayload: unknown): Referral | null;
+  downloadInboundMedia?(rawPayload: unknown): Promise<DownloadedInboundMedia | null>;
 }
 
 // ---- helpers de leitura tolerante (compartilhados pelos adapters) ----------

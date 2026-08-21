@@ -234,10 +234,29 @@ export function useConversations(): UseConversationsResult {
 
   const setStatus: UseConversationsResult['setStatus'] = async (id, next) => {
     const supabase = getSupabase();
-    const patch: Record<string, unknown> = { status: next };
-    if (next === 'closed') patch.closed_at = new Date().toISOString();
+    const patch: Record<string, unknown> = {
+      status: next,
+      closed_at: next === 'closed' ? new Date().toISOString() : null,
+      ...(next === 'closed' ? { unread_count: 0 } : {}),
+    };
+    const previous = conversations.find((conversation) => conversation.id === id);
+    setConversations((current) =>
+      current.map((conversation) =>
+        conversation.id === id
+          ? ({ ...conversation, ...patch } as ConversationWithContact)
+          : conversation,
+      ),
+    );
+
     const { error } = await supabase.schema('whatsapp_hub').from('conversations').update(patch).eq('id', id);
-    if (error) throw new Error(translateDbError(error.message));
+    if (error) {
+      if (previous) {
+        setConversations((current) =>
+          current.map((conversation) => (conversation.id === id ? previous : conversation)),
+        );
+      }
+      throw new Error(translateDbError(error.message));
+    }
   };
 
   const setAiPaused: UseConversationsResult['setAiPaused'] = async (id, paused) => {
@@ -337,6 +356,11 @@ export function useConversations(): UseConversationsResult {
 
   const markRead: UseConversationsResult['markRead'] = async (id) => {
     const supabase = getSupabase();
+    setConversations((current) =>
+      current.map((conversation) =>
+        conversation.id === id ? { ...conversation, unread_count: 0 } : conversation,
+      ),
+    );
     const { error } = await supabase.schema('whatsapp_hub').from('conversations').update({ unread_count: 0 }).eq('id', id);
     if (error) throw new Error(translateDbError(error.message));
   };

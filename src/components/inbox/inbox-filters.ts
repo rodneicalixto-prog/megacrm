@@ -118,7 +118,7 @@ export function matchesQueue(
     case 'prioridade_alta':
       return !c.archived && c.priority === 'alta';
     case 'nao_lidos':
-      return !c.archived && c.unread_count > 0;
+      return !c.archived && c.status !== 'closed' && c.unread_count > 0;
     case 'favoritos':
       return c.isFavorite;
     default:

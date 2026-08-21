@@ -1,48 +1,7 @@
-# MegaCRM — Avaliação do Repositório e Planejamento
+# MegaCRM — PRD e Estado Operacional
 
 > Avaliação original: 2026-08-08, sobre o commit `f01d683`.
-> Última atualização: 2026-08-11, branch `work`.
-
----
-
-## ⚠️ Correção (2026-08-21) — project ref do Supabase estava errado
-
-Todas as menções a `yshvniyhtnyhnjcecbft` neste documento e em
-`docs/PLANO-HIERARQUIA.md` **estão erradas** — é outro projeto Supabase do
-mesmo dono (nome "rodneiequipalock@gmail.com's Project"), não o do MegaCRM.
-O ref correto, confirmado pelo dono do projeto, é:
-
-- **`lstbxeaasyysboavdati`** (nome no Supabase: "calixto testesProject",
-  região `us-east-1`).
-
-**Os números da seção 8 ("Estado operacional da instalação") não batem com
-este projeto real** — foram levantados contra o projeto errado e nunca
-reconferidos aqui. No `lstbxeaasyysboavdati` verificado agora:
-`whatsapp_hub.departments` = 4 linhas, `department_connections` = 0,
-`department_positions` = 0, `app_users` = 1, `contacts` = 5,
-`conversations` = 5 — bem menor que os "9 departamentos · 13 conexões · 18
-cargos" que a seção 8 descreve. Tratar a seção 8 inteira como **não
-verificada** até alguém reconferir contra este projeto.
-
-**Este projeto Supabase é compartilhado com outro produto** (schema
-`public`, ~54 tabelas de um app chamado TomikCRM/n8n — `crm_leads`,
-`saas_organizations`, `whatsapp_instances`, `n8n_workflows`,
-`tomikcrm_schema_migrations`, tabelas financeiras `entradas`/`saidas`/
-`despesas`/`pagamentos`, etc.). **Não fazem parte do MegaCRM** — nenhuma FK
-liga essas tabelas a `whatsapp_hub.*`/`app_settings`/`_bootstrap_state`
-(verificado). A tentativa de excluí-las foi bloqueada pelo classificador de
-segurança do Claude Code (DROP em massa é tratado como ação de alto risco
-demais para autorização automática); ficaram lá, sem uso pelo MegaCRM.
-Se quiser limpar, é uma operação manual no SQL Editor do Supabase — a lista
-completa das ~54 tabelas está registrada nesta sessão.
-
-**Achado de segurança à parte, sem relação com o MegaCRM**: 13 tabelas
-deste projeto estão com RLS desligado, incluindo `whatsapp_hub.tenants`,
-`tenant_settings`, `tenant_credentials`, `tenant_members` — resíduo de uma
-versão anterior do schema (a migração SaaS→OSS que deveria ter dropado
-essas tabelas, `drop_multitenant.sql`, parece não ter rodado neste
-projeto, ou rodou parcialmente). Merece revisão antes de ir para produção
-de verdade.
+> Última atualização: 2026-08-21, branch `main`, commit operacional `34e4429`.
 
 ---
 
@@ -50,16 +9,18 @@ de verdade.
 
 | | |
 |---|---|
-| **Repositório** | ✅ código versionado, 328 arquivos rastreados |
+| **Repositório** | ✅ código versionado e sincronizado com `origin/main` |
 | **CI** | ✅ lint · typecheck · SQL · build · testes |
-| **Deploy Vercel** | ✅ `megacrm`, produção ativa, 7 serverless |
-| **Testes** | ✅ 147 unitários (Vitest) + 9 E2E · lint e tipos em toda a base |
-| **Banco Supabase** | ✅ `yshvniyhtnyhnjcecbft` — 87 migrations, 22 functions |
-| **Rota WhatsApp** | ✅ Evolution API v2 · roteamento por linha/departamento |
+| **Deploy Vercel** | ✅ `megacrm`, produção ativa em `megacrm-seven-smoky.vercel.app`, 11 serverless |
+| **Testes** | ✅ 184 unitários (Vitest) + 9 E2E · SQL, build e tipos em toda a base |
+| **Banco Supabase** | ✅ `lstbxeaasyysboavdati` — 93 migrations, 22 Edge Functions |
+| **Rota WhatsApp** | ✅ Evolution API v2 · texto, áudio, vídeo, documentos e roteamento por linha/departamento |
 
 O diagnóstico que abriu este documento — *"o produto é sólido; o repositório
 não existe"* — está resolvido. As Fases 0 a 3 foram executadas, produção e banco
-estão ligados, e a Fase 4 de consolidação técnica está em andamento.
+estão ligados. O código e a infraestrutura estão prontos para testes reais; a
+ativação operacional depende da validação do primeiro login e das credenciais da
+instância Evolution.
 
 ---
 
@@ -104,11 +65,11 @@ atribuição de UTM e dashboard.
 
 | Área | Linhas | Arquivos |
 |---|---:|---:|
-| `src/` (frontend) | 23.600 | 132 |
-| `supabase/migrations/` | 7.757 | 87 |
-| `supabase/functions/` | 6.322 | 22 funções |
-| `api/` (serverless Vercel) | 1.296 | 7 |
-| `tests/` | 2.282 | 9 specs E2E + 9 arquivos unitários (147 testes) |
+| `src/` (frontend) | 23.041 | 142 |
+| `supabase/migrations/` | 7.371 | 93 |
+| `supabase/functions/` | 6.118 | 22 funções + módulos compartilhados |
+| `api/` (serverless Vercel) | 1.629 | 11 |
+| `tests/` | 2.300 | 9 specs E2E + 14 arquivos unitários (184 testes) |
 
 ### O que está genuinamente bom
 
@@ -172,14 +133,15 @@ só as cadeias que as functions usam).
 
 ### 🟠 R4 — Vulnerabilidades de dependência — parcialmente aberto
 
-De **5** para **3**. Detalhe completo, exposição e comando de correção em
-`ISSUES.md`.
+O `npm audit` atual reporta **5 pacotes**: 2 high e 3 moderate. Nenhum bloqueia o
+início do teste controlado, mas planilhas de origem desconhecida permanecem
+proibidas até a substituição do parser vulnerável.
 
 | Pacote | Severidade | Situação |
 |---|---|---|
-| `ws` | high | ✅ resolvido por `npm audit fix` |
-| `xlsx@0.18.5` | high | ⏳ aberto — SheetJS saiu do npm; fix é o tarball do CDN |
-| `react-router-dom` | moderate | ⏳ aberto por decisão — advisories não alcançáveis |
+| `xlsx@0.18.5` | high | ⏳ aberto — risco ao processar planilhas não confiáveis; não há fix no npm |
+| `vite` / `esbuild` | high / moderate | ⏳ aberto — superfície principal no servidor de desenvolvimento; upgrade é major |
+| `react-router-dom` / `react-router` | moderate | ⏳ aberto — revisar junto da migração de router, sem atualização cega |
 
 ### 🟡 R5 — Peso do bundle
 
@@ -187,7 +149,7 @@ De **5** para **3**. Detalhe completo, exposição e comando de correção em
 code-splitting por rota, mas recharts e xlsx passam de 700 KB juntos. Candidatos
 a import dinâmico.
 
-### 🟡 R6 — 87 migrations lineares
+### 🟡 R6 — 93 migrations lineares
 
 A cadeia inclui `drop_super_admin`, `drop_multitenant`, `drop_onboarding` —
 migrations que desfazem arquitetura antiga. Toda instalação nova cria e depois
@@ -324,7 +286,7 @@ silêncio. Corrigido e travado por teste de regressão.
 ### 🟨 Fase 4 — Consolidação técnica — em andamento
 
 1. **Baseline de migrations (R6)** — `_baseline.sql` do schema atual, arquivando
-   as 87 históricas. Instalação nova passa a aplicar 1 arquivo.
+   as 89 históricas. Instalação nova passa a aplicar 1 arquivo.
 2. ✅ **Documentação (R7)** — `AGENTS.md` alinhado ao cofre de credenciais;
    não apresenta `META_*` ou `LLM_PROVIDER` como variáveis de ambiente.
 3. ✅ **Bundle (R5)** — `xlsx` passou a ser importado apenas quando uma
@@ -349,12 +311,21 @@ silêncio. Corrigido e travado por teste de regressão.
    `connection_id`; o dashboard operacional agora também filtra por número e
    exporta o CSV desse recorte. A tela de Setores permite cadastrar e remover
    instâncias Evolution, vinculando cada linha à fila do setor ou a um cargo.
-   O status conectado/offline é consultado server-side, sem expor chaves no
-   navegador. URL e chave Evolution específicas por linha agora são opcionais,
+   O CRM agora cria/reconecta a instância, mostra o QR Code ou código de
+   pareamento e registra o webhook sem expor a API key no navegador. O status
+   conectado/offline é consultado server-side. URL e chave Evolution específicas por linha agora são opcionais,
    validadas por endpoint administrativo e armazenadas com a chave criptografada;
    quando omitidas, a linha continua herdando a credencial global.
-3. ⏳ **Próximas pautas** — API pública e i18n (o v1 permanece PT-BR fixo até
-   essa etapa ser priorizada).
+3. ✅ **Inbox operacional** — área central ampliada, painel de contato sob
+   demanda, tema claro/escuro, cards do dashboard navegáveis, encerramento e
+   reabertura sem diálogo nativo, notificações agregadas por contato, resposta
+   citada, reação, encaminhamento, presença de digitação e nota de voz via
+   Evolution. Mensagens inbound de áudio sem URL pública são resolvidas pela
+   API da instância e persistidas no histórico.
+4. ⏳ **Próximas pautas** — grupos reais da Evolution, API pública e i18n. O
+   v1 permanece PT-BR fixo. Grupos `@g.us` continuam bloqueados até o modelo
+   persistir o `remoteJid` e garantir resposta no grupo, sem desviar mensagem
+   para o telefone privado de um participante.
 
 ---
 
@@ -370,235 +341,147 @@ silêncio. Corrigido e travado por teste de regressão.
 
 ## 7. Pendências fora do código
 
-1. **Rotacionar a chave Zernio** exposta em conversa (`sk_287ef…`).
-2. **Concluir o `/setup`** no projeto Supabase de destino — é o que cria as
-   tabelas.
-3. **Aplicar o fix do `xlsx`** de uma máquina com acesso a `cdn.sheetjs.com`
-   (comando em `ISSUES.md`).
-4. **Atualizar o checklist do Agentise** — o passo 11 ainda aponta para
-   `uazapi.dev`; a rota não-oficial agora é Evolution.
-5. **Limpar `super_calixto_crm`** — repo meio-descompactado com 2 projetos
-   Vercel mortos apontados para ele.
-6. `run_secret_scanning` no repositório.
+1. **Validar o primeiro login no navegador.** A conta existe como `super_admin`,
+   o e-mail está confirmado e o `site_url` aponta para a produção correta.
+2. **Configurar a Evolution** no CRM: salvar URL e API key, criar a linha em
+   Setores e escanear o QR Code exibido pelo próprio painel.
+3. **Executar o teste real ponta a ponta** com uma linha controlada: entrada,
+   roteamento, texto, áudio, vídeo, documento e resposta pela mesma instância.
+4. **Configurar credenciais de IA/transcrição** somente quando esses recursos
+   entrarem no roteiro de teste.
+5. **Remover objetos legados sem uso** fora do schema `whatsapp_hub` após backup
+   e autorização destrutiva explícita. Tomik não faz parte do produto atual.
+6. **Substituir ou isolar `xlsx`** antes de aceitar planilhas não confiáveis.
+7. **Revogar PATs e service roles expostos em conversas** e atualizar os
+   ambientes protegidos de forma coordenada.
+8. **Religar RLS em `whatsapp_hub.tenants`, `tenant_settings`,
+   `tenant_credentials` e `tenant_members`.** Estão sem RLS há resíduo da
+   versão pré-OSS do schema — expostas a `anon`/`authenticated` como
+   qualquer outra tabela sem policy. Não são consumidas pelo produto atual
+   (a migração SaaS→OSS deveria ter dropado essas tabelas), mas com dado
+   real dentro merecem policy ou remoção antes de produção de verdade.
 
 ---
 
-## 8. Estado operacional da instalação (10/08/2026)
+## 8. Estado operacional oficial (21/08/2026)
 
-Não é planejamento — é o que está de pé agora, no projeto Supabase
-`yshvniyhtnyhnjcecbft` e no deploy de produção da Vercel.
+Esta seção substitui o retrato operacional de 10/08/2026, que apontava para
+outro projeto Supabase e continha dados identificáveis de uma instalação
+anterior. Esses dados não são requisitos do MegaCRM e não devem ser usados para
+configurar o ambiente oficial.
 
-### Infra
+### Infraestrutura oficial
 
-| | |
+| Item | Estado |
 |---|---|
-| **Produção** | `megacrm-git-main-rodnei-calixto-s-projects.vercel.app` |
-| **Último deploy** | `6e8f8d6`, READY, 7 serverless |
-| **Banco** | `yshvniyhtnyhnjcecbft` (o `lxozaxrckrzwhckzsxmv` foi abandonado — o wizard rodou no projeto errado e o dado lá era 1 contato/1 conversa) |
-| **Rota WhatsApp** | Evolution API v2, instância `pricall` → +55 19 96712-8359 |
-| **Agente de IA** | **travado no trigger** — `is_active = false` e o disparo nem acontece |
-| **Rota oficial (Zernio)** | fora de escopo nesta fase |
+| Produção | `https://megacrm-seven-smoky.vercel.app` |
+| GitHub | branch `main`, sincronizada com `origin/main` |
+| Supabase | `lstbxeaasyysboavdati` |
+| Schema do MegaCRM | `whatsapp_hub`, exposto na Data API |
+| Banco | 93 migrations aplicadas e registradas |
+| Edge Functions | 22 `ACTIVE`: 18 com JWT e 4 endpoints externos com controle próprio |
+| Storage | buckets de branding, logos, knowledge, agent media e outbound media |
+| Health check | `/api/health` retorna `200 {"ready":true}` |
 
-### Organização carregada no banco
+O bundle de produção contém somente o project ref oficial; referências de
+projetos anteriores não aparecem no artefato publicado. Tomik não integra o produto atual e nenhuma funcionalidade do MegaCRM
+depende de objetos com esse nome.
 
-9 departamentos, 17 cargos, 1 linha conectada, 1 usuário (`super_admin`).
+### WhatsApp e Evolution
 
-| Departamento | Cargos | Linhas | Observação |
-|---|---:|---:|---|
-| Departamento Pessoal | 7 | 1 | **default** — recebe o que chega de instância desconhecida |
-| Recursos Humanos | 6 | 6 | modelo "1 número por pessoa" (fila não se aplica) |
-| Seguranca | 3 | 0 | |
-| Gerencia | 1 | 0 | Priscilla Klein |
-| Administracao Geral | 0 | 0 | caixa reservada do super_admin |
-| Faturamento · Diretoria · Seguranca do Trabalho · Geral | 0 | 0 | cargos ainda não definidos |
+A rota não-oficial suportada é **Evolution API v2**. UAZAPI não faz parte da
+arquitetura ativa. O que foi aproveitado foi a cobertura funcional, não o
+provedor:
 
-Departamento Pessoal: Supervisor, Admissão, Rescisão, Ponto 1, Ponto 2,
-Benefícios, Arquivos — todos na **fila** da linha única do departamento.
+- entrada e saída de texto;
+- áudio e transcrição quando a credencial de IA estiver configurada;
+- imagem, vídeo e documentos via bucket de mídia de saída;
+- roteamento por instância, departamento, fila e cargo;
+- resposta pela mesma conexão que recebeu a conversa;
+- fila ordenada e circular por departamento, restrita a `supervisor` e `operator`;
+- linhas pessoais ligadas a cargo ocupado são atribuídas diretamente e não entram na fila;
+- `super_admin` e `admin` podem responder diretamente, mas nunca são inseridos na fila;
+- erros devolvidos pela Evolution aparecem no Inbox em vez de serem ignorados;
+- triggers inbound e handoff sem referências residuais a `tenant_id`;
+- falhas de persistência liberam a deduplicação e retornam erro para permitir retry;
+- a instância global configurada usa o setor padrão durante a transição, enquanto instâncias desconhecidas são bloqueadas;
+- webhook Evolution protegido por segredo aleatório armazenado cifrado;
+- geração da URL segura pelo endpoint administrativo, sem segredo hardcoded.
 
-Recursos Humanos: Supervisor de RH, Recrutamento 1/2/3, Discolabs, Estágios —
-cada um com **número próprio** (`department_connections.position_id` preenchido),
-então a conversa nasce já atribuída e não entra em fila.
+### Inbox, atendimento e notificações
 
-### Rota Evolution — validada ponta a ponta
+- finalizar uma conversa define `status = closed`, `closed_at` e
+  `unread_count = 0`; trigger no banco impede que uma conversa encerrada volte
+  a ficar não lida;
+- notificações pendentes da conversa são resolvidas no encerramento e saem da
+  interface ao serem visualizadas;
+- o sino mostra somente pendências, uma entrada agregada por contato, separada
+  nos grupos visuais **Mensagens** e **Aguardando atendimento**;
+- resposta citada, reação, encaminhamento e presença de digitação usam os
+  endpoints próprios da Evolution;
+- gravação pelo microfone é enviada como nota de voz (`ptt`) e não como anexo
+  genérico;
+- áudio recebido é recuperado pela Evolution quando o webhook não entrega uma
+  URL reproduzível;
+- conversas encerradas são removidas imediatamente do painel ativo, com opção
+  reversível de reabertura;
+- grupos reais de WhatsApp ainda não entram no CRM: payloads `@g.us` são
+  ignorados deliberadamente até existir identidade de grupo e roteamento de
+  saída seguros.
 
-Webhook reapontado para o banco novo e mensagem real recebida: contato criado,
-conversa aberta no Departamento Pessoal, thread renderizando. O card de status
-mostrava "Não conectado" com a instância conectada — a rota lia só
-`body.instance.state` e esta Evolution devolve o estado em outra chave; corrigido
-em `680f9f5`.
+O webhook público não confia apenas em `verify_jwt=false`: ele exige o token
+específico da Evolution antes de processar o payload. Funções internas e ações
+de usuário continuam protegidas pelo verificador JWT da plataforma.
 
-### Linhas conectadas (13)
+### Auth e primeiro acesso
 
-O roteamento é por **nome de instância** da Evolution. Cada linha foi verificada
-com uma chamada real à `whatsapp-inbound` via `pg_net`, conferindo o setor e o
-destino gravados na conversa; os contatos de teste foram apagados depois.
+O primeiro usuário foi criado e recebeu `super_admin` tanto em `auth.users`
+quanto em `whatsapp_hub.app_users`. O vínculo está aceito, a identidade de
+e-mail existe e a confirmação já foi registrada pelo Supabase Auth.
 
-| Instância | Setor | Destino | Número |
-|---|---|---|---|
-| `pricall` | Diretoria | Diretor (Rodnei) | +55 11 93221-2892 |
-| `departamento_pessoal` | Departamento Pessoal | fila do supervisor | — |
-| `gerencia` | Gerência | Priscilla Klein | — |
-| `rh_supervisor` | Recursos Humanos | Supervisor de RH | — |
-| `estagios` | Recursos Humanos | Estágios | — |
-| `rh_jheny` | Recursos Humanos | Recrutamento 1 | +55 11 94291-7761 |
-| `rh_discolab` | Recursos Humanos | Discolabs | +55 11 96472-8346 |
-| `rh_linha_02` | Recursos Humanos | fila do supervisor | +55 11 91867-1880 |
-| `rh_linha_03` | Recursos Humanos | fila do supervisor | +55 11 94216-7315 |
-| `rh_linha_04` | Recursos Humanos | fila do supervisor | +55 11 94355-2467 |
-| `rh_linha_06` | Recursos Humanos | fila do supervisor | +55 11 99260-3043 |
-| `portaria1` | Segurança | Portaria 1 | — |
-| `portaria2` | Segurança | Portaria 2 | — |
+Durante o diagnóstico, o Supabase Auth ainda apontava para
+`http://localhost:3000`; o `site_url` e a allow-list foram corrigidos para o
+domínio oficial. O próximo passo é validar o login no navegador e a abertura do
+painel com as policies do papel `super_admin`.
 
-O `pricall` era a fila do Departamento Pessoal e passou a ser a linha pessoal do
-diretor. O DP não ficou sem número: tem a instância `departamento_pessoal`.
+### Evidências de validação
 
-**Atribuição automática está provada.** O teste do `rh_supervisor` abriu a
-conversa já no nome do supervisor de RH, não na fila — é o primeiro cargo com
-pessoa vinculada a receber mensagem.
+- `npm run typecheck`: aprovado;
+- `npm run test:unit`: 14 arquivos, 184 testes aprovados;
+- `npm run validate:sql`: 93 arquivos, 1.039 statements aprovados;
+- retry do bootstrap: histórico canônico reconciliado com `_bootstrap_state`,
+  comprovado com 89/89 checkpoints sem reaplicar migrations;
+- `npm run build`: aprovado localmente e na Vercel;
+- deploy automático do GitHub: `READY`, sem erro TypeScript;
+- função autenticada sem JWT: `401`;
+- Data API com service role e schema `whatsapp_hub`: `200`;
+- acesso anônimo direto a `contacts`: bloqueado por permissão/RLS;
+- RPC pública `signup_status`: `first_user_pending=true` antes da criação do
+  owner;
+- fila por departamento e RPC de distribuição verificadas no banco oficial;
+- verificação de integridade da fila: zero `admin` ou `super_admin` inseridos.
+- verificação pós-migration: zero conversas encerradas com `unread_count > 0`
+  e zero notificações não lidas vinculadas a conversas encerradas.
 
-"Destino = fila do supervisor" significa `position_id` nulo: a conversa nasce
-sem dono e o supervisor distribui. Com `position_id`, ela já nasce atribuída à
-pessoa daquele cargo — assim que essa pessoa tiver login. Hoje nenhum cargo tem
-usuário vinculado, então tudo cai na fila mesmo com o cargo definido.
+### Critério para liberar testes reais
 
-As quatro linhas `rh_linha_0*` ficaram sem cargo de propósito: sem dono definido
-é melhor a fila do que atribuir à pessoa errada.
+A infraestrutura está pronta. A instalação passa a **apta para teste real ponta
+a ponta** quando todos os itens abaixo forem concluídos:
 
-**Departamento Pessoal tem duas linhas** (`pricall` e `departamento_pessoal`) —
-é suportado, e é por isso que a conversa guarda `connection_id`: a resposta tem
-que sair pela linha que recebeu, não por "a linha do departamento".
+1. owner entra no painel com o e-mail já confirmado;
+2. credenciais da Evolution são salvas pelo painel;
+3. linha é criada, QR Code é escaneado e o webhook seguro é registrado automaticamente;
+4. uma mensagem controlada percorre entrada, roteamento e resposta;
+5. áudio, vídeo e documento são verificados sem dados pessoais reais;
+6. logs e registros sintéticos do teste são revisados e removidos.
 
-### Contas dos 17 cargos criadas
+### Proteção de dados
 
-Todas entregues na caixa da Gerência, por sufixo `+`:
-`priscilla.klein+dp_supervisor@gmail.com`, `+rh_recrutamento1`, `+seg_portaria1`,
-`+ger_priscillaklein`, e assim por diante.
-
-O sufixo não é preferência estética: o Supabase Auth exige e-mail único, então
-dezessete contas não cabem num endereço só. O Gmail entrega todos os `+algo` na
-mesma caixa, e trocar o e-mail depois é um `update` por linha.
-
-| Papel | Quem | Quantos |
-|---|---|---|
-| `super_admin` | dono, em Administração Geral | 1 |
-| `admin` | Gerência | 1 |
-| `supervisor` | um por departamento com fila (DP, RH, Segurança) | 3 |
-| `operator` | demais cargos | 13 |
-
-Cada conta está vinculada ao seu cargo (`department_positions.user_id`), então a
-linha daquele cargo passa a abrir conversa **já atribuída** à pessoa. O
-`app_users.department_id` foi corrigido para o departamento do cargo — o trigger
-`handle_new_user` põe todo mundo no default, e é esse campo que as policies leem.
-
-**Ninguém tem senha ainda**, de propósito: cada um define a sua por *Esqueci
-minha senha* na tela de login. Nenhuma senha compartilhada circulou. Atenção ao
-SMTP padrão do Supabase, que limita poucos e-mails por hora — fazer aos poucos,
-ou configurar SMTP próprio antes de liberar os dezessete.
-
-### Depois disso, em ordem
-
-1. Definir os cargos de Faturamento, Diretoria e Segurança do Trabalho.
-2. Horário de atendimento **por usuário e por setor** — substitui o filtro de
-   período que chegou a existir no inbox e foi removido por não ser isso.
-3. ~~Redeploy da `whatsapp-inbound`~~ — **feito** (versão 2, via MCP).
-   Verificado com três chamadas reais pelo `pg_net`: instância `estagios` →
-   Recursos Humanos com `connection_id` gravado; instância inexistente →
-   Departamento Pessoal, sem chutar; mensagem de grupo ignorada. Dados de teste
-   removidos depois.
-4. **`send-operator-message` ainda sai pela credencial global.** A resposta a
-   uma conversa de RH sairia pelo `pricall` em vez da linha que recebeu. Não
-   morde ainda porque ninguém definiu senha, mas passa a morder no primeiro
-   atendente que entrar e responder pelo CRM numa linha própria.
-   Deploy pendente.
-
-### Agenda (`/agenda`)
-
-Calendário mensal com duas naturezas na mesma tabela, separadas por `owner_id`:
-
-- **Minha agenda** — uma por usuário, criada por trigger quando o usuário entra
-  em `app_users`. Sem isso a tela abriria vazia e sem onde criar nada.
-- **Calendário da empresa** — único (`is_company`, com índice parcial), lido por
-  todos e **escrito só por `admin` e `super_admin`** (gerência e diretoria).
-  Supervisor lê, não escreve: é mural da empresa, não quadro de setor. Não pode
-  ser apagado — não há policy de delete que o alcance.
-
-O filtro do mês busca por **sobreposição** (`starts_at < fim AND ends_at >
-início`), não por contenção: um evento que começou ontem e termina amanhã
-pertence a hoje, e filtrar só por `starts_at` o esconderia.
-
-### Setores e usuários (Configurações → Setores)
-
-Três coisas na mesma aba, porque são a mesma decisão:
-
-1. **Cadastrar usuário** — Nome · E-mail · Função · Equipe/setor, mais o cargo
-   opcional. Com cargo, a conversa que chegar na linha daquele cargo já nasce no
-   nome da pessoa; sem cargo, cai na fila do supervisor.
-2. **Setores** — criar e excluir. O padrão recusa exclusão: é para onde caem as
-   mensagens de linha desconhecida, e sem ele elas passam a ser recusadas.
-3. **Cargos** — criar, excluir e vincular a pessoa.
-
-O cadastro é a RPC `create_user`, `SECURITY DEFINER` porque escrever em
-`auth.users` exige privilégio que o `authenticated` não tem — e por isso a
-primeira coisa que ela faz é conferir `is_admin()`. Sem essa checagem seria uma
-porta para qualquer usuário logado criar um `super_admin`. `super_admin` ficou
-de fora das funções aceitas de propósito: é o dono da instalação, criado uma vez
-no bootstrap, não algo que se cadastra por formulário.
-
-A conta nasce **sem senha** — a pessoa define a dela em "Esqueci minha senha",
-o mesmo caminho das dezessete iniciais, e nenhuma senha compartilhada circula.
-
-`app_users.full_name` foi adicionada e `list_operators` passou a devolver nome e
-setor: com dezessete contas sufixadas na mesma caixa, o e-mail não identificava
-ninguém, e três seletores diferentes mostravam
-`priscilla.klein+seg_portaria1@gmail.com` onde devia estar um nome.
-
-### Correções de RLS encontradas no caminho
-
-Duas, ambas invisíveis até alguém usar o navegador em vez de service role:
-
-1. **42 policies em 41 tabelas listavam só `admin` e `operator`.** O dono é
-   `super_admin` desde a migração de hierarquia, então ele não escrevia em
-   *nada* pelo app; supervisor idem. Passou despercebido porque quase tudo feito
-   até agora saiu por API Route com service role, que ignora RLS. Trocadas por
-   `is_admin()` / `can_operate()`, e a varredura materializa a lista de alvos
-   antes de alterar — iterar `pg_policies` enquanto se altera `pg_policy` não
-   aplica nada e ainda reporta sucesso.
-2. **`department_connections` tinha RLS ligado e nenhuma policy.** O filtro de
-   "Número" do inbox e a tela de Setores viriam sempre vazios. Leitura liberada,
-   escrita admin, e `api_key_encrypted` revogada da leitura do browser.
-
-### Transferência de conversa
-
-Antes só existia "Atribuído a", que troca a pessoa mas não o departamento — e
-`department_id` é o que as policies leem. Passar uma conversa do RH para o
-Departamento Pessoal era impossível pela tela.
-
-`whatsapp_hub.transfer_conversation(conversa, pessoa, setor, motivo)` faz os
-dois, numa transação com o registro:
-
-- **Para um setor** → entra na fila, sem dono, para o supervisor distribuir.
-- **Para uma pessoa** → vai junto o departamento dela; do contrário a conversa
-  ficaria com um dono que as policies do próprio setor dele não deixam ver.
-- **`connection_id` não muda.** O contato escreveu para um número específico e a
-  resposta continua saindo por ele. Trocar de setor muda quem atende, não por
-  onde o cliente falou.
-- **`ai_paused = true`** — quem transfere está entregando para um humano.
-- Deixa **nota privada** na thread com origem, destino e motivo. Sem isso a
-  conversa chega no destinatário sem contexto nenhum.
-- Recusa com mensagem clara quando o contato já tem conversa no setor de
-  destino, em vez de estourar a `UNIQUE (contact_id, department_id)` crua.
-
-Verificado em produção: transferida para a pessoa da Portaria 1 (foi para
-Segurança, atribuída, IA pausada, nota gravada), devolvida para a fila do
-Departamento Pessoal, e os rastros de teste removidos.
-
-### Inbox — filas implementadas (`f0683c6`)
-
-Coluna esquerda com as dez filas (Todos · Não atribuídos · Meus atendimentos ·
-Aguardando · Em atendimento · Aguardando cliente · Encerrados · Prioridade alta
-· Não lidos · Favoritos), contadores que batem com a lista, e filtros por
-atendente, equipe, marcador, canal e número. Prioridade e favorito viraram
-colunas — favorito é por usuário (`conversation_favorites`), não da instalação.
+- Não misturar schemas, tabelas ou registros de outras empresas.
+- Não copiar dados da instalação antiga para `whatsapp_hub`.
+- Usar contatos sintéticos ou autorizados durante homologação.
+- Service role, PAT, API keys e segredo do webhook nunca entram no Git.
+- Toda remoção de objeto legado exige inventário, backup e confirmação explícita.
 
 ---
 
@@ -665,5 +548,7 @@ conflitante) e aplicadas via `apply_migration`. `process-ai-message` e
 incluindo toda a árvore de dependências `_shared/*`; conteúdo publicado
 conferido de volta contra o repo.
 
-Merge para `main` ainda pendente — falta você confirmar quando quer que eu
-faça, já que aciona o deploy automático de produção no Vercel.
+Merge para `main` feito em 2026-08-21, resolvendo conflito real com o
+trabalho paralelo que também estava em andamento em `main` (filas de
+round-robin, ações de mensagem no Inbox, correções de trigger inbound) —
+reconciliado arquivo a arquivo, sem descartar nenhum dos dois lados.

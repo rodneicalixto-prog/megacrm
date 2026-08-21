@@ -6,7 +6,7 @@ import {
   hasAtLeastOneWhatsAppProvider,
   hasEvolutionProvider,
 } from './whatsappProviders';
-import { getSupabaseCredentials } from '@/lib/supabase';
+
 import { SetupCard, StepIndicator } from './SetupChrome';
 import { BootstrapStep, CredentialsStep, PreparationStep, type TimelineStep } from './SetupCoreSteps';
 import { ApplicationCredentialsStep } from './ApplicationCredentialsStep';
@@ -78,6 +78,7 @@ export default function SetupPage() {
   const [appValidation, setAppValidation] = useState<Record<string, boolean>>({});
   const [savingApps, setSavingApps] = useState(false);
   const [registeringHook, setRegisteringHook] = useState(false);
+  const [evolutionWebhookUrl, setEvolutionWebhookUrl] = useState('');
   // Zernio pode ter mais de uma conta WhatsApp sob a mesma API Key; quando
   // zernio-connect responde needsSelection, o wizard mostra o seletor abaixo.
   const [accountChoices, setAccountChoices] = useState<{ id: string; name: string }[] | null>(null);
@@ -412,6 +413,9 @@ export default function SetupPage() {
       if (!hookRes.ok || !hookBody.success) {
         throw new Error(hookBody.message ?? 'A Evolution recusou o registro do webhook.');
       }
+      if (typeof hookBody.webhook_url === 'string') {
+        setEvolutionWebhookUrl(hookBody.webhook_url);
+      }
       toast.success('Webhook registrado na Evolution.');
     } catch (err) {
       toast.error('Não foi possível registrar o webhook automaticamente', {
@@ -446,14 +450,6 @@ export default function SetupPage() {
   const evolutionOk = hasEvolutionProvider(appCredentials, appValidation);
   const openaiOk = appValidation['openai_api_key'] === true;
   const allAppValid = whatsappOk && openaiOk;
-
-  // URL do webhook que o usuário precisa cadastrar na Evolution (só aparece
-  // quando os campos da Evolution estão válidos). O Supabase URL vem do
-  // step 2 (localStorage) ou das envs do build pós-redeploy.
-  const supabaseBase = (core.supabase_url || getSupabaseCredentials()?.url || '').replace(/\/$/, '');
-  const evolutionWebhookUrl = supabaseBase
-    ? `${supabaseBase}/functions/v1/whatsapp-inbound?provider=evolution`
-    : '';
 
   return (
     <div className="min-h-screen bg-[#0A0A0F] px-4 py-8 text-[#F8FAFC] md:py-12">

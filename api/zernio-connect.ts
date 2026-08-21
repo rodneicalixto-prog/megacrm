@@ -182,7 +182,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).end();
 
     const auth = await requireAdmin(authHeaderOf(req));
-    if (!auth.ok) {
+    if (auth.ok === false) {
       return res.status(auth.status).json({ success: false, message: auth.message });
     }
 

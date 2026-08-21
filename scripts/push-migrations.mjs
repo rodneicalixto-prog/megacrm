@@ -54,6 +54,7 @@ function substitute(sql) {
 }
 
 const API = `https://api.supabase.com/v1/projects/${REF}/database/query`;
+const POSTGREST_API = `https://api.supabase.com/v1/projects/${REF}/postgrest`;
 
 async function runSql(query) {
   const res = await fetch(API, {
@@ -68,6 +69,40 @@ async function runSql(query) {
   return { ok: res.ok, status: res.status, body };
 }
 
+async function ensureExposedSchema() {
+  const headers = {
+    Authorization: `Bearer ${TOKEN}`,
+    'Content-Type': 'application/json',
+  };
+  const currentResponse = await fetch(POSTGREST_API, { headers });
+  const currentBody = await currentResponse.text();
+  if (!currentResponse.ok) {
+    throw new Error(`Failed to read PostgREST config: ${currentBody}`);
+  }
+
+  const current = JSON.parse(currentBody);
+  const schemas = String(current.db_schema ?? '')
+    .split(',')
+    .map((schema) => schema.trim())
+    .filter(Boolean);
+
+  if (schemas.includes('whatsapp_hub')) {
+    console.log('PostgREST already exposes whatsapp_hub.');
+    return;
+  }
+
+  schemas.push('whatsapp_hub');
+  const updateResponse = await fetch(POSTGREST_API, {
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify({ db_schema: schemas.join(', ') }),
+  });
+  const updateBody = await updateResponse.text();
+  if (!updateResponse.ok) {
+    throw new Error(`Failed to expose whatsapp_hub in PostgREST: ${updateBody}`);
+  }
+  console.log('PostgREST now exposes whatsapp_hub.');
+}
 function parseFilename(file) {
   // 20260422120001_init.sql → { version: '20260422120001', name: 'init' }
   const base = file.replace(/\.sql$/, '');
@@ -142,6 +177,8 @@ async function main() {
     console.log(`  ✓ applied and recorded`);
     pushedCount++;
   }
+
+  await ensureExposedSchema();
 
   console.log(`\nDone. ${pushedCount} migrations pushed.`);
 }

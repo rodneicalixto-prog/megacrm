@@ -30,7 +30,12 @@ BEGIN
   END IF;
 
   IF position('whatsapp_hub' IN schemas) = 0 THEN
-    EXECUTE format('ALTER ROLE authenticator SET pgrst.db_schemas = %L', schemas || ', whatsapp_hub');
+    BEGIN
+      EXECUTE format('ALTER ROLE authenticator SET pgrst.db_schemas = %L', schemas || ', whatsapp_hub');
+    EXCEPTION
+      WHEN insufficient_privilege THEN
+        RAISE NOTICE 'authenticator e reservado; o deploy configurara whatsapp_hub via Management API';
+    END;
   END IF;
 END
 $$;

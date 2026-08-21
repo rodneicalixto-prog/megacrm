@@ -5,6 +5,49 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Ordered round-robin assignment queues per department for supervisors and
+  operators.
+- Direct routing for personal WhatsApp lines linked to an occupied department
+  position, bypassing department queues.
+- Inbox controls for quoted replies, reactions, forwarding, typing presence,
+  screenshots, emoji selection, and Evolution voice notes.
+- Light/dark theme selection, navigable dashboard cards, and on-demand contact
+  details in the Inbox.
+- Notification grouping by contact and pending-action type.
+
+### Fixed
+
+- Allow `super_admin`, `admin`, `supervisor`, and `operator` to reply from the
+  Inbox.
+- Surface Evolution API delivery errors in the Inbox instead of silently
+  treating them as successful sends.
+- Repair residual multi-tenant inbound and handoff triggers that rejected new
+  messages after the `tenant_id` column was removed.
+- Release webhook deduplication reservations on persistence failures so
+  Evolution can retry instead of silently losing messages.
+- Keep the configured global Evolution instance routed to the default
+  department during migration while rejecting unknown instance names.
+- Prevent personal lines from being linked to positions without an assigned
+  user and keep administrators out of automatic assignment queues.
+- Recover inbound Evolution audio when the webhook does not include a directly
+  playable URL.
+- Clear unread state and pending notifications when a conversation is closed;
+  closed conversations can no longer appear in the unread queue.
+- Remove viewed notifications immediately instead of retaining and stacking
+  historical message rows in the notification tray.
+- Keep the active Inbox panel synchronized when conversations are closed or
+  reopened.
+
+### Security
+
+- Keep Evolution group payloads (`@g.us`) disabled until the data model stores
+  the group remote JID and outbound replies can be guaranteed to target the
+  group instead of a participant's private number.
+
 ## [1.1.0] — 2026-08-20
 
 Rodada de melhorias avaliadas a partir do pacote de atualização

@@ -144,7 +144,7 @@ export function ApplicationCredentialsStep({
           {NO_WHATSAPP_PROVIDER_MESSAGE}
         </p>
       ) : null}
-      {evolutionOk && evolutionWebhookUrl ? (
+      {evolutionOk ? (
         <div className="mt-4 rounded-xl border border-[rgba(245,158,11,0.3)] bg-[rgba(245,158,11,0.06)] p-5">
           <div className="text-sm font-semibold text-[#F8FAFC]">
             Cadastre este webhook na Evolution
@@ -155,24 +155,26 @@ export function ApplicationCredentialsStep({
             automaticamente</strong> ou registre manualmente no painel da instância →
             Webhook, evento “messages”.
           </p>
-          <div className="mt-3 flex items-start gap-2">
-            <code className="min-w-0 flex-1 break-all rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-xs text-[#F8FAFC]">
-              {evolutionWebhookUrl}
-            </code>
-            <button
-              type="button"
-              aria-label="Copiar URL do webhook"
-              onClick={() => {
-                void navigator.clipboard
-                  .writeText(evolutionWebhookUrl)
-                  .then(() => toast.success('URL do webhook copiada.'))
-                  .catch(() => toast.error('Não foi possível copiar — copie manualmente.'));
-              }}
-              className="rounded-lg border border-[rgba(59,130,246,0.25)] bg-white/[0.03] px-3 py-2 text-sm font-medium text-[#F8FAFC] transition hover:border-[#3B82F6]"
-            >
-              Copiar
-            </button>
-          </div>
+          {evolutionWebhookUrl ? (
+            <div className="mt-3 flex items-start gap-2">
+              <code className="min-w-0 flex-1 break-all rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-xs text-[#F8FAFC]">
+                {evolutionWebhookUrl}
+              </code>
+              <button
+                type="button"
+                aria-label="Copiar URL do webhook"
+                onClick={() => {
+                  void navigator.clipboard
+                    .writeText(evolutionWebhookUrl)
+                    .then(() => toast.success('URL do webhook copiada.'))
+                    .catch(() => toast.error('Não foi possível copiar — copie manualmente.'));
+                }}
+                className="rounded-lg border border-[rgba(59,130,246,0.25)] bg-white/[0.03] px-3 py-2 text-sm font-medium text-[#F8FAFC] transition hover:border-[#3B82F6]"
+              >
+                Copiar
+              </button>
+            </div>
+          ) : null}
           <div className="mt-3 flex justify-end">
             <button
               type="button"

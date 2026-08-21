@@ -11,13 +11,14 @@ import { downloadAttendanceCsv } from '@/lib/attendanceCsv';
 // tempo. É o que o supervisor olha para decidir o próximo movimento.
 
 function Card({
-  icon: Icon, label, value, hint, tone = 'neutral',
+  icon: Icon, label, value, hint, tone = 'neutral', href,
 }: {
   icon: typeof Inbox;
   label: string;
   value: string | number;
   hint?: string;
   tone?: 'neutral' | 'warn' | 'danger' | 'ok';
+  href: string;
 }) {
   const toneClass = {
     neutral: 'text-[var(--accent-secondary)] border-[rgba(59,130,246,0.25)]',
@@ -27,17 +28,20 @@ function Card({
   }[tone];
 
   return (
-    <div className={`glass-card p-4 border ${toneClass}`}>
+    <Link
+      to={href}
+      className={'glass-card group block p-4 border transition hover:-translate-y-0.5 focus-visible:border-[var(--accent-primary)] ' + toneClass}
+      title={'Ver dados de ' + label}
+    >
       <div className="flex items-center gap-2">
         <Icon className="h-4 w-4" />
         <span className="text-label">{label}</span>
       </div>
       <div className="mt-2 text-3xl font-extrabold text-[var(--color-text-primary)]">{value}</div>
       {hint ? <p className="mt-1 text-xs text-[var(--color-text-secondary)]">{hint}</p> : null}
-    </div>
+    </Link>
   );
 }
-
 // Barras dos 7 dias em CSS puro: sete valores não justificam carregar uma
 // biblioteca de gráficos que já pesa 374 KB no bundle de outra rota.
 function SevenDayChart({ data }: { data: { dia: string; novas: number }[] }) {
@@ -68,15 +72,21 @@ function SevenDayChart({ data }: { data: { dia: string; novas: number }[] }) {
 }
 
 export function AttendancePanel({
-  metrics, operators,
+  metrics, operators, inboxScope = '',
 }: {
   metrics: AttendanceMetrics;
   operators: Operator[];
+  inboxScope?: string;
 }) {
   const nameOf = (userId: string) =>
     operators.find((o) => o.user_id === userId)?.email ?? 'Sem responsável';
 
   const comCarga = metrics.por_agente.filter((a) => a.abertas > 0 || a.fechadas_hoje > 0);
+  const inboxLink = (queue?: string) => {
+    const params = new URLSearchParams(inboxScope);
+    if (queue) params.set('fq', queue);
+    return '/inbox?' + params.toString();
+  };
 
   return (
     <div className="space-y-4">
@@ -99,20 +109,23 @@ export function AttendancePanel({
           value={metrics.aguardando}
           hint="Abertas, sem responsável"
           tone={metrics.aguardando > 0 ? 'warn' : 'neutral'}
+          href={inboxLink('nao_atribuidos')}
         />
-        <Card icon={Users} label="Em andamento" value={metrics.em_andamento} hint="Já atribuídas" />
+        <Card icon={Users} label="Em andamento" value={metrics.em_andamento} hint="Já atribuídas" href={inboxLink('em_atendimento')} />
         <Card
           icon={MessageSquareWarning}
           label="Sem resposta"
           value={metrics.sem_resposta}
           hint="A última palavra foi do cliente"
           tone={metrics.sem_resposta > 0 ? 'danger' : 'ok'}
+          href={inboxLink('aguardando')}
         />
         <Card
           icon={CheckCircle2}
           label="Finalizados hoje"
           value={metrics.finalizados_hoje}
           tone="ok"
+          href={inboxLink('encerrados')}
         />
       </div>
 
@@ -123,18 +136,21 @@ export function AttendancePanel({
           label="1ª resposta (média)"
           value={formatDuration(metrics.tempo_medio_primeira_resposta)}
           hint="Do 1º contato à 1ª resposta humana"
+          href={inboxLink()}
         />
         <Card
           icon={Clock}
           label="Duração do atendimento"
           value={formatDuration(metrics.tempo_medio_atendimento)}
           hint="Da abertura ao encerramento"
+          href={inboxLink()}
         />
         <Card
           icon={Users}
           label="Atendentes online"
           value={`${metrics.agentes_online}/${metrics.agentes_total}`}
           tone={metrics.agentes_online > 0 ? 'ok' : 'warn'}
+          href="/settings/team"
         />
       </div>
 

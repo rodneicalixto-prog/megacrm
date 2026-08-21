@@ -1,14 +1,8 @@
 # Plano — Multi-atendimento por departamento
 
-> ⚠️ **Correção (2026-08-21):** `yshvniyhtnyhnjcecbft` estava errado — é
-> outro projeto Supabase do mesmo dono, não o do MegaCRM. O ref real é
-> `lstbxeaasyysboavdati`. Os números abaixo ("Estado real da instalação")
-> não foram reconferidos contra o projeto certo — ver `PLANEJAMENTO.md`
-> para os números reais verificados. Tratar esta seção como desatualizada
-> até alguém reconferir.
->
-> Atualizado em 2026-08-10. As fases A e B estão **implementadas e aplicadas**
-> no banco de produção (`yshvniyhtnyhnjcecbft`).
+> Documento histórico de implementação, atualizado originalmente em 2026-08-10.
+> O estado operacional oficial e os critérios atuais estão em `PLANEJAMENTO.md`;
+> referências de instalação presentes abaixo não devem ser reutilizadas.
 >
 > ## Estado real da instalação
 >
@@ -17,8 +11,8 @@
 > | Departamentos | 9 (7 da empresa + Geral + Administração Geral) |
 > | Posições | 17 cadastradas, nenhuma com login ainda |
 > | Padrão | **Departamento Pessoal** |
-> | Conexão ativa | `pricall` · +55 19 96712-8359 → Departamento Pessoal |
-> | Dono | `rodnei@calixtosolucoes.com.br` — **super_admin** |
+> | Conexão ativa | dado operacional removido; configurar no ambiente oficial |
+> | Dono | dado pessoal removido; o primeiro usuário válido recebe `super_admin` |
 > | Pendente | registrar o webhook; criar os logins (faltam e-mails) |
 >
 > ## O modelo, corrigido pela realidade
@@ -359,10 +353,12 @@ falha.
 
 ### Fase D — Fila e distribuição · ~3 dias
 
-15. Fila do departamento = conversas sem `assigned_to`.
+15. ✅ Fila do departamento = conversas sem `assigned_to`, com ordem circular
+    configurável por departamento.
 16. Ação de distribuir (supervisor → atendente) e transferir (entre
     departamentos), com histórico em `conversation_transfers`.
-17. Super_admin fora da lista de destinos.
+17. ✅ `super_admin` e `admin` fora da fila automática. Linhas pessoais ligadas
+    a cargos ocupados atendem diretamente e ignoram a fila.
 
 ### Fase E — Interface · ~4–5 dias
 
@@ -431,7 +427,7 @@ cresce.
 
 ## 10. Estado aplicado (10/08/2026)
 
-O plano deixou de ser só plano. O que já está no banco `yshvniyhtnyhnjcecbft` e
+O plano deixou de ser só plano. O que foi aplicado na instalação histórica e
 em produção:
 
 - **Fase A e B executadas.** `departments`, `department_positions`,
@@ -454,6 +450,12 @@ em produção:
   Humanos (1 número por pessoa).
 
 Fora de escopo confirmado nesta fase: agente de IA e rota oficial (Zernio).
+
+- **Ordem de atendimento por departamento ativa.** Somente `supervisor` e
+  `operator` participam da distribuição circular. `super_admin` e `admin`
+  respondem diretamente e suas linhas pessoais nunca entram na fila.
+- **Falhas de envio visíveis.** Erros devolvidos pela Evolution são propagados
+  até o Inbox para impedir que uma resposta com falha pareça enviada.
 
 O inventário de departamentos, cargos e linhas, mais o bloqueio atual e a ordem
 dos próximos passos, ficam na seção 8 do `PLANEJAMENTO.md` — fonte única, para

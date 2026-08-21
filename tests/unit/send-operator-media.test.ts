@@ -122,6 +122,24 @@ test('áudio vai pela rota de voz, não por sendMedia', async () => {
   expect(evolutionCalls.at(-1)!.url).toContain('/message/sendWhatsAppAudio/pricall');
 });
 
+test('vídeo sobe ao bucket e é enviado pela Evolution como video', async () => {
+  const mp4 = new File([new Uint8Array([4, 5, 6])], 'demo.mp4', { type: 'video/mp4' });
+  await handleOperatorMedia(form(mp4));
+  const chamada = evolutionCalls.at(-1)!;
+
+  expect(chamada.url).toContain('/message/sendMedia/pricall');
+  expect(chamada.body).toMatchObject({
+    number: '5511999998888',
+    mediatype: 'video',
+    caption: 'olha o orçamento',
+  });
+  expect(String((chamada.body as { media: string }).media)).toContain('demo.mp4');
+  expect(db.rows('messages')[0]).toMatchObject({
+    content_type: 'video',
+    media_url: expect.stringContaining('whatsapp-hub-outbound-media'),
+  });
+});
+
 test('documento sem tipo conhecido cai em document', async () => {
   const bin = new File([new Uint8Array([7])], 'contrato.pdf', { type: 'application/pdf' });
   await handleOperatorMedia(form(bin));
@@ -161,3 +179,4 @@ test('conversa inexistente devolve 404', async () => {
   const res = await handleOperatorMedia(form(png()));
   expect(res.status).toBe(404);
 });
+
