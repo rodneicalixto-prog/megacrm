@@ -29,6 +29,7 @@ export function MessageInput({ conversationId, disabled, withinWindow = true, on
   const [sending, setSending] = useState(false); // só para mídia (upload real bloqueia)
   const [voiceNote, setVoiceNote] = useState(false);
   const [recording, setRecording] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -85,13 +86,19 @@ export function MessageInput({ conversationId, disabled, withinWindow = true, on
         setVoiceNote(true); setRecording(false);
         stream.getTracks().forEach((track) => track.stop()); streamRef.current = null;
       };
-      recorder.start(); setRecording(true); setIsPrivate(false);
+      recorder.start(); setRecordingSeconds(0); setRecording(true); setIsPrivate(false);
     } catch (error) {
       toast.error('Não foi possível acessar o microfone', { description: error instanceof Error ? error.message : String(error) });
     }
   };
 
   useEffect(() => () => streamRef.current?.getTracks().forEach((track) => track.stop()), []);
+
+  useEffect(() => {
+    if (!recording) return;
+    const timer = window.setInterval(() => setRecordingSeconds((seconds) => seconds + 1), 1000);
+    return () => window.clearInterval(timer);
+  }, [recording]);
 
   useEffect(() => {
     if (disabled || isPrivate || !content.trim()) return;
@@ -265,9 +272,25 @@ export function MessageInput({ conversationId, disabled, withinWindow = true, on
             >
               <Paperclip className="h-4 w-4" />
             </Button>
-                        <Button type="button" variant={recording ? 'destructive' : 'ghost'} size="icon" onClick={() => void toggleRecording()} disabled={disabled || sending} aria-label={recording ? 'Parar gravação' : 'Gravar mensagem de voz'} title={recording ? 'Parar gravação' : 'Gravar mensagem de voz'}>
+            <Button
+              type="button"
+              variant={recording ? 'destructive' : 'outline'}
+              size="icon"
+              onClick={() => void toggleRecording()}
+              disabled={disabled || sending}
+              aria-label={recording ? 'Parar gravação' : 'Gravar mensagem de voz'}
+              aria-pressed={recording}
+              title={recording ? 'Parar gravação' : 'Gravar mensagem de voz'}
+              className={!recording ? 'text-[var(--accent-primary)]' : undefined}
+            >
               {recording ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-            </Button><Button
+            </Button>
+            {recording && (
+              <span className="min-w-12 text-xs font-semibold tabular-nums text-[var(--color-error)]">
+                {Math.floor(recordingSeconds / 60)}:{String(recordingSeconds % 60).padStart(2, '0')}
+              </span>
+            )}
+            <Button
               type="button"
               variant="ghost"
               size="icon"
