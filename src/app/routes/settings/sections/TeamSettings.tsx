@@ -9,6 +9,7 @@ import { getSupabase } from '@/lib/supabase';
 import { useAppUser } from '@/app/providers/AppUserProvider';
 import { canSeeAdminNav } from '@/app/layout/nav-config';
 import { Avatar } from '@/components/ui/Avatar';
+import { useDepartments } from '@/hooks/useDepartments';
 
 type Role = 'super_admin' | 'admin' | 'supervisor' | 'operator';
 
@@ -53,11 +54,13 @@ export function TeamSettings() {
   // dono da instalação (super_admin) — mesma classe de bug já corrigida em
   // CredentialsPage/AIAgentPage/FunilPage/LeadAssignmentSettings.
   const isOwner = canSeeAdminNav(callerRole);
+  const { departments } = useDepartments();
 
   const [members, setMembers] = useState<MemberRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<Role>('operator');
+  const [departmentId, setDepartmentId] = useState('');
   const [inviting, setInviting] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
 
@@ -113,8 +116,14 @@ export function TeamSettings() {
     const supabase = getSupabase();
     const { data, error } = await supabase.functions.invoke('invite-team-member', {
       // app_url = domínio atual (produção na Vercel) para o link do e-mail não
-      // cair em localhost.
-      body: { email: email.trim(), role, app_url: window.location.origin },
+      // cair em localhost. Sem department_id, o trigger cai no setor padrão —
+      // ruim pra supervisor/operator, que deveriam nascer no setor certo.
+      body: {
+        email: email.trim(),
+        role,
+        app_url: window.location.origin,
+        ...(departmentId ? { department_id: departmentId } : {}),
+      },
     });
     setInviting(false);
 
@@ -130,6 +139,7 @@ export function TeamSettings() {
     });
 
     setEmail('');
+    setDepartmentId('');
     void loadAll();
   };
 
@@ -170,7 +180,7 @@ export function TeamSettings() {
         {isOwner && (
           <form
             onSubmit={handleInvite}
-            className="grid grid-cols-1 md:grid-cols-[1fr_160px_auto] gap-3 items-end"
+            className="grid grid-cols-1 md:grid-cols-[1fr_150px_1fr_auto] gap-3 items-end"
           >
             <div className="space-y-2">
               <Label htmlFor="invite_email">E-mail</Label>
@@ -192,8 +202,27 @@ export function TeamSettings() {
                 disabled={inviting}
                 className="h-11 w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-4 text-sm text-[var(--color-text-primary)]"
               >
+                {callerRole === 'super_admin' && <option value="super_admin">Owner</option>}
                 <option value="admin">Admin</option>
+                <option value="supervisor">Supervisor</option>
                 <option value="operator">Operador</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="invite_department">Setor</Label>
+              <select
+                id="invite_department"
+                value={departmentId}
+                onChange={(e) => setDepartmentId(e.target.value)}
+                disabled={inviting}
+                className="h-11 w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-4 text-sm text-[var(--color-text-primary)]"
+              >
+                <option value="">Padrão</option>
+                {departments.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
               </select>
             </div>
             <Button type="submit" disabled={inviting}>

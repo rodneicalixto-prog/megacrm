@@ -7,6 +7,32 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ## [Unreleased]
 
+### Fixed
+
+- The invite form (`TeamSettings.tsx`) only offered Admin/Operador, with no
+  Supervisor option and no way to pick the invitee's department — likely
+  the actual cause behind a report of "invited user gets super_admin-level
+  access": with no Supervisor choice, inviting someone as Admin grants them
+  effectively the same operational reach as `super_admin` (see CLAUDE.md's
+  Auth & Roles). Added Supervisor (and Owner/`super_admin`, gated to
+  `super_admin` callers) plus a department selector — the backend
+  (`invite-team-member`) already accepted both, only the form never sent
+  them.
+- `whatsapp_hub.create_user` (the "cadastrar usuário" flow in
+  Departamentos, distinct from the e-mail invite above) creates the account
+  without a password on purpose, but nothing told the person a password
+  reset was needed — they'd have to guess to use "Esqueci minha senha" on
+  the login screen. Now fires `resetPasswordForEmail` automatically right
+  after creation, same call `LoginPage.tsx` already used for that flow.
+- The top-right corner showed the logged-in user's e-mail; now shows their
+  registered name (`operatorLabel`, same "name, falls back to e-mail"
+  helper already used everywhere else operators are listed).
+- Clearer error message when connecting an Evolution WhatsApp line fails
+  with create=403 "already in use" + connect=401: this is the API key not
+  having authority over an instance that already exists on the Evolution
+  server (not something MegaCRM's code can fix) — the message now says so
+  explicitly instead of just relaying the two raw HTTP errors.
+
 ### Added
 
 - Commercial plan gating for Campanhas, Vendas & Recompra, and Agente de IA:

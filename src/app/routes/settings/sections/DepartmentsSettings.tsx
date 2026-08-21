@@ -398,8 +398,18 @@ export function DepartmentsSettings() {
     });
     setBusy(false);
     if (error) return toast.error('Falha ao cadastrar', { description: error.message });
+
+    // create_user (RPC) não define senha de propósito — quem cria a senha é a
+    // própria pessoa. Sem este passo, ela precisaria descobrir sozinha que
+    // tem conta e ir em "Esqueci minha senha"; disparamos o e-mail de
+    // redefinição automaticamente, mesmo fluxo do LoginPage.tsx.
+    const { error: resetError } = await getSupabase().auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/invite`,
+    });
     toast.success('Usuário cadastrado.', {
-      description: 'A senha é definida pela própria pessoa em "Esqueci minha senha".',
+      description: resetError
+        ? 'Cadastro feito, mas o e-mail de senha não foi enviado — peça pra pessoa usar "Esqueci minha senha" na tela de login.'
+        : `Enviamos um e-mail para ${email.trim()} definir a senha.`,
     });
     setNome(''); setEmail(''); setCargoNovo('');
     void carregar();

@@ -776,3 +776,67 @@ mantêm seus imports relativos normais entre si. O código-fonte no repo
 continua com `../_shared/...` (é o layout real do projeto, correto para
 `supabase functions deploy` via CLI); o ajuste foi só no payload enviado
 a esta ferramenta MCP especificamente.
+
+**Sexta rodada, mesma data (21/08/2026) — 10 achados de uso real reportados
+pelo usuário**, testando a instalação em produção. Perguntado como priorizar
+(bugs vs. o novo módulo de campanhas em massa que ele também descreveu) —
+respondeu "bugs primeiro". Resolvidos:
+
+1. **Convite não respeitava a hierarquia / "vem com acesso de super_admin"**
+   (itens 5 e 6 do relato) — causa raiz encontrada: `TeamSettings.tsx` só
+   oferecia Admin/Operador no seletor de papel, sem Supervisor nem seletor
+   de setor. `admin` neste app tem alcance quase idêntico ao `super_admin`
+   (ver CLAUDE.md, seção Auth & Roles) — convidar alguém como Admin por
+   falta de opção melhor *é* dar acesso de topo. Backend
+   (`invite-team-member`) já aceitava `supervisor`/`super_admin`/
+   `department_id`; só o formulário nunca mandava. Corrigido: seletor
+   ganhou Supervisor (+ Owner, só visível pra quem já é `super_admin`) e um
+   seletor de setor. Confirmado pelo usuário que aconteceu num convite
+   normal (não durante teste de apagar/recriar conta), o que descarta a
+   hipótese alternativa (contagem de `app_users` zerada re-promovendo
+   alguém a "dono").
+2. **"Cadastrar usuário" (fluxo por Departamentos, RPC `create_user`) não
+   envia e-mail pra gerar senha** (item 7) — de propósito a RPC não define
+   senha, mas nada disparava o e-mail de redefinição; a pessoa teria que
+   adivinhar que precisa usar "Esqueci minha senha" no login. Agora chama
+   `resetPasswordForEmail` automaticamente após o cadastro (mesma chamada
+   que `LoginPage.tsx` já usa nesse fluxo).
+3. **Canto superior direito mostrava e-mail em vez do nome** (item 8) —
+   trocado por `operatorLabel()` (mesmo helper de nome→e-mail-como-fallback
+   usado em toda a UI que lista operadores).
+4. **QR Code não gerava** (itens 1 e 4) — diagnosticado, não é bug de
+   código: `/instance/create` retornou 403 "portaria2 já em uso" (instância
+   órfã já existente no servidor Evolution) e o fallback `/instance/connect`
+   retornou 401 — a API key configurada no MegaCRM não tem autoridade sobre
+   essa instância específica. Precisa resolver no próprio painel da
+   Evolution (apagar a instância órfã, ou confirmar a chave). Mensagem de
+   erro melhorada pra apontar essa causa explicitamente em vez de só
+   repassar os dois HTTP crus.
+
+**Ainda em aberto, fora de escopo desta rodada (não é bug pontual, precisa
+de planejamento próprio):**
+- Item 9: modelo de central de atendimento por departamento / painel de
+  configuração individualizado por setor.
+- Item 10: horário de atendimento individualizado por setor e por usuário
+  (já era pendência conhecida — ver seção 7 item pendente sobre
+  `business_hours` continuar singleton).
+- Item repetido "1-": "janela de opções deveria ser visível, não oculta
+  aguardando o mouse" — não ficou claro qual tela/dropdown específico do
+  MegaCRM está sendo descrito (os prints mostram principalmente o
+  sosapp.sosbot.online, outra ferramenta usada como referência); precisa de
+  confirmação antes de mexer em algo.
+- Especificação completa de um novo canal de disparos de mensagens em
+  massa (nome da campanha, lista de contatos/tags, conexão, agendamento,
+  até 5 mensagens com timing randômico anti-banimento, anexos, histórico de
+  arquivos reaproveitável, painel de status/gráficos/qualidade) inspirada
+  no sosapp.sosbot.online, mais uma aba de gerenciamento de arquivos de
+  campanha — o usuário decidiu deixar para depois dos bugs; é grande o
+  suficiente pra merecer seu próprio planejamento (schema novo, Edge
+  Functions, integração com o `campaigns`/`templates` existentes ou módulo
+  paralelo) antes de qualquer código.
+
+Validação local: `npx tsc -b --noEmit` (0 erros), `npm run lint` (0 erros,
+mesmos 68 warnings pré-existentes), `npm run build`, `npm run test:unit`
+(184/184). Sem migration nesta rodada — só frontend (`TeamSettings.tsx`,
+`DepartmentsSettings.tsx`, `Header.tsx`) e a API route
+`api/evolution-instance.ts`.
