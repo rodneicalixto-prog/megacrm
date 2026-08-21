@@ -152,12 +152,14 @@ export function LeadAssignmentSettings() {
         <header className="space-y-1">
           <h2 className="text-xl font-bold text-display">Distribuição automática de leads</h2>
           <p className="text-sm text-[var(--color-text-secondary)]">
-            No handoff (IA pausada), o próximo da fila vira responsável pela conversa — em sequência.
-            Só atribui quando a conversa está sem responsável.
+            No handoff (IA pausada), o próximo da fila <strong>que estiver online</strong> vira
+            responsável pela conversa — em sequência. Só atribui quando a conversa está sem
+            responsável e quando existe alguém online na fila.
           </p>
         </header>
         <p className="text-sm text-[var(--color-text-secondary)]">
-          No recebimento, a linha de fila segue esta ordem. Linhas pessoais são atendidas diretamente.
+          No recebimento, a linha de fila segue esta ordem pulando quem está offline. Linhas
+          pessoais são atendidas diretamente.
         </p>
 
         <div className="space-y-2">

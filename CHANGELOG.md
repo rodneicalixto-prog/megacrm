@@ -21,6 +21,19 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ### Fixed
 
+- AI agent now replies on a contact's first audio turn: `transcribe-audio`
+  invokes `process-ai-message` directly after writing the transcript (the
+  `UPDATE` on `messages.content` doesn't re-fire the `AFTER INSERT` trigger
+  that normally drives the reply), and `process-ai-message` treats a
+  transcribed audio message like text.
+- Lead round-robin auto-assignment (`next_department_assignee`) now only
+  considers supervisors/operators with `is_online = true`, instead of
+  assigning to whoever is next in sequence regardless of presence.
+- Re-enabled Row Level Security (zero policies, service-role-only — same
+  pattern as `public.app_settings`) on the legacy `whatsapp_hub.tenants`,
+  `tenant_settings`, `tenant_credentials`, and `tenant_members` tables, which
+  had drifted in production with RLS disabled and were exposed to the anon
+  key.
 - Allow `super_admin`, `admin`, `supervisor`, and `operator` to reply from the
   Inbox.
 - Surface Evolution API delivery errors in the Inbox instead of silently
@@ -98,12 +111,11 @@ LLM foram deliberadamente deixados de fora; ver `PLANEJAMENTO.md` seção
 
 ### Known gaps (documentados no código, não corrigidos nesta rodada)
 
-- Mensagens de áudio recebidas: `transcribe-audio` grava a transcrição
-  em `messages.content`, mas esse `UPDATE` não redispara o trigger
-  `AFTER INSERT` que aciona `process-ai-message` — a IA ainda não vê a
-  transcrição no primeiro turno de um áudio. Gap pré-existente, já
-  citado em `20260422120022_audio_trigger.sql`; exige mudança de
-  trigger, fora do escopo desta rodada.
+- ~~Mensagens de áudio recebidas: `transcribe-audio` grava a transcrição em
+  `messages.content`, mas esse `UPDATE` não redispara o trigger
+  `AFTER INSERT` que aciona `process-ai-message`~~ — **corrigido em
+  2026-08-21** (ver `[Unreleased]`): `transcribe-audio` agora invoca
+  `process-ai-message` diretamente no sucesso da transcrição.
 - O caminho de renderizar página de PDF em imagem para o fallback de
   OCR (`unpdf`) não foi testado dentro do runtime Deno das Edge
   Functions — precisa de teste de integração real com um PDF

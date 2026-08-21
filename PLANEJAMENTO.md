@@ -354,12 +354,13 @@ silêncio. Corrigido e travado por teste de regressão.
 6. **Substituir ou isolar `xlsx`** antes de aceitar planilhas não confiáveis.
 7. **Revogar PATs e service roles expostos em conversas** e atualizar os
    ambientes protegidos de forma coordenada.
-8. **Religar RLS em `whatsapp_hub.tenants`, `tenant_settings`,
-   `tenant_credentials` e `tenant_members`.** Estão sem RLS há resíduo da
-   versão pré-OSS do schema — expostas a `anon`/`authenticated` como
-   qualquer outra tabela sem policy. Não são consumidas pelo produto atual
-   (a migração SaaS→OSS deveria ter dropado essas tabelas), mas com dado
-   real dentro merecem policy ou remoção antes de produção de verdade.
+8. ~~**Religar RLS em `whatsapp_hub.tenants`, `tenant_settings`,
+   `tenant_credentials` e `tenant_members`.**~~ — **resolvido em 21/08/2026**:
+   migration `20260821150000_rls_legacy_tenant_tables.sql` religou RLS (zero
+   policies — mesmo padrão de `public.app_settings`, só service role acessa)
+   e revogou os grants de `anon`/`authenticated`, aplicada em produção
+   (`lstbxeaasyysboavdati`). As tabelas continuam sem uso pelo produto atual;
+   nenhuma delas foi removida.
 
 ---
 
@@ -519,11 +520,13 @@ erros reais na Base de Conhecimento.
 
 ### Decisões de produto adiadas (não implementadas, precisam de resposta antes)
 
-- **Round-robin só entre online**, no auto-assign de handoff
-  (`lead_assignment_queue`). Hoje é deliberadamente "puro, ignora is_online"
-  (decisão registrada em `20260721130000_lead_auto_assignment.sql`) — vale
-  reconsiderar à luz do tamanho atual da equipe, mas não foi trocado sem
-  confirmação.
+- ~~**Round-robin só entre online**, no auto-assign de handoff
+  (`lead_assignment_queue`).~~ — **resolvido em 21/08/2026**: confirmado pelo
+  usuário e implementado. `whatsapp_hub.next_department_assignee()` agora
+  filtra `au.is_online = true` nas duas buscas (próximo na sequência e
+  wrap-around); se ninguém do setor estiver online, não atribui (mesmo
+  comportamento de fila vazia). Migration
+  `20260821151000_assignment_queue_online_only.sql`, aplicada em produção.
 - **Variáveis por destinatário em campanhas.** Removidas deliberadamente do
   editor de templates (`TemplateFormDialog.tsx`: "Variáveis não são
   suportadas"). Reintroduzir é decisão de produto, não bug fix.
@@ -552,3 +555,25 @@ Merge para `main` feito em 2026-08-21, resolvendo conflito real com o
 trabalho paralelo que também estava em andamento em `main` (filas de
 round-robin, ações de mensagem no Inbox, correções de trigger inbound) —
 reconciliado arquivo a arquivo, sem descartar nenhum dos dois lados.
+
+**Segunda rodada, mesma data (21/08/2026) — as 3 pendências finais desta fase
+foram resolvidas**, a pedido explícito do usuário:
+
+1. RLS religado nas 4 tabelas legadas de tenant (item 8 da seção 7, acima).
+2. Round-robin de handoff só entre online (item da seção "Decisões de
+   produto adiadas", acima).
+3. Gap de retrigger da IA em áudio corrigido: `transcribe-audio` agora
+   invoca `process-ai-message` diretamente após gravar a transcrição com
+   sucesso (`fetch` direto para `${SUPABASE_URL}/functions/v1/process-ai-message`
+   com a service role key, só no caminho de sucesso); `process-ai-message`
+   passou a tratar `content_type='audio'` com transcrição como texto (exceto
+   quando `content` ainda é o marcador de falha de transcrição).
+
+Migrations `20260821150000_rls_legacy_tenant_tables.sql` e
+`20260821151000_assignment_queue_online_only.sql` aplicadas em produção via
+`apply_migration`; `transcribe-audio` (v6) e `process-ai-message` (v7)
+redeployados com a árvore `_shared/*` completa, conteúdo conferido de volta
+contra o repo. Validação local antes do deploy: `npm run typecheck`,
+`npm run validate:sql`, `npm run lint` (0 erros, só os warnings
+pré-existentes de `react-hooks/set-state-in-effect`), `npm run build` e
+`npm run test:unit` (184/184).

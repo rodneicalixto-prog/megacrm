@@ -159,13 +159,13 @@ Deno.serve(async (req) => {
   }
   // Texto: precisa de content. Imagem: precisa de media_url (legenda em
   // content é opcional) — o LLM recebe a imagem como bloco de visão, ver
-  // _shared/llm.ts. Áudio já chega com transcrição em content via
-  // transcribe-audio, mas content_type permanece 'audio' (o trigger
-  // on_audio_inbound só roda no INSERT original, sem legenda de texto ainda;
-  // a UPDATE que grava a transcrição não re-dispara o trigger de IA — gap
-  // conhecido, fora do escopo desta mudança). Vídeo/documento seguem sem
-  // suporte.
-  const isText = message.content_type === 'text' && !!message.content;
+  // _shared/llm.ts. Áudio: transcribe-audio grava a transcrição em content e,
+  // no sucesso, invoca esta função diretamente (a UPDATE em messages.content
+  // não redispara o trigger AFTER INSERT que aciona o texto) — tratamos como
+  // texto, exceto quando content ainda é o marcador de falha de transcrição.
+  // Vídeo/documento seguem sem suporte.
+  const isFailedAudioMarker = message.content_type === 'audio' && !!message.content?.startsWith('[áudio · transcrição falhou');
+  const isText = !!message.content && (message.content_type === 'text' || (message.content_type === 'audio' && !isFailedAudioMarker));
   const isImage = message.content_type === 'image' && !!message.media_url;
   if (!isText && !isImage) {
     return jsonResponse({ ok: true, skipped: `content_type=${message.content_type}` });
