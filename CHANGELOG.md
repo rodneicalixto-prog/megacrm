@@ -9,6 +9,23 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ### Added
 
+- Commercial plan gating for Campanhas, Vendas & Recompra, and Agente de IA:
+  these three nav items and their pages/RLS writes are now controlled by
+  `public.instance_plan.enabled_modules` (service-role-only, no edit UI —
+  set manually via SQL/MCP when a client's package changes; defaults to all
+  three modules enabled so existing installs aren't affected). New Edge
+  Function `get-instance-plan` lets any authenticated user read which
+  modules are active; `useEnabledModules()` drives nav filtering (Sidebar,
+  MobileNav) and page-level redirects (CampaignsPage, VendasPage,
+  AIAgentPage). Write policies on `templates`, `campaigns`,
+  `ai_agent_config`, `sales_records`, `repurchase_predictions`,
+  `repurchase_config` (plus the `compute_repurchase_predictions`/
+  `sales_dashboard` RPCs) now also require the module to be enabled — and,
+  as a side effect of touching them, fixed the same "compares literally
+  against `'admin'`" bug this session kept finding, so `super_admin` can
+  now actually write to those tables. When the Agente de IA module is off,
+  `process-ai-message` treats it the same as `ai_agent_config.is_active =
+  false` — the agent stops auto-replying, not just the config screen.
 - Ordered round-robin assignment queues per department for supervisors and
   operators.
 - Direct routing for personal WhatsApp lines linked to an occupied department

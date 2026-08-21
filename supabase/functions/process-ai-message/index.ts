@@ -25,6 +25,7 @@ import { loadAppCredentials } from '../_shared/tenant-credentials.ts';
 import { callLLM, type LLMProvider } from '../_shared/llm.ts';
 import { jsonResponse, preflight } from '../_shared/cors.ts';
 import { requireServiceRole } from '../_shared/auth.ts';
+import { isModuleEnabled } from '../_shared/plan.ts';
 import { createInboxConversation, loadZernioContext, sendInboxMessage } from '../_shared/zernio.ts';
 import { applyVariables, extractHandoff, extractMedia } from '../_shared/ai-reply.ts';
 import { buildScheduleVars } from '../_shared/business-hours.ts';
@@ -215,6 +216,13 @@ Deno.serve(async (req) => {
 
   if (!agent || agent.is_active === false) {
     return jsonResponse({ ok: true, skipped: 'ai agent disabled' });
+  }
+
+  // Pacote comercial sem o módulo Agente de IA: desliga de verdade, não só a
+  // tela de configuração — decisão de produto de 21/08/2026 (ver
+  // PLANEJAMENTO.md e _shared/plan.ts). Mesmo formato de skip do gate acima.
+  if (!(await isModuleEnabled('ai_agent'))) {
+    return jsonResponse({ ok: true, skipped: 'ai_agent module not enabled' });
   }
 
   // 3. Credentials.

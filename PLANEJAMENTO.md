@@ -704,3 +704,75 @@ Validação local desta rodada: `npm run validate:sql` (102 arquivos),
 pré-existentes), `npm run build`, `npm run test:unit` (184/184). Migration
 aplicada em produção via `apply_migration` e conferida via `execute_sql`
 contra `pg_policy`.
+
+**Quinta rodada, mesma data (21/08/2026) — Campanhas / Vendas & Recompra /
+Agente de IA viram módulos de pacote comercial**, a pedido do usuário:
+"campanhas, Vendas, Agente de IA serão links para uma categoria de plano
+comercial, dependendo do pacote contratado o cliente terá acesso a eles...
+eles devem ficar ocultos para quem não tem o pacote total". Perguntado ao
+usuário via AskUserQuestion antes de implementar:
+
+1. **Provisionamento**: sem tela nova — o pacote de cada instalação é
+   ajustado direto no Supabase do cliente (SQL/MCP) quando o pacote é
+   fechado ou muda. Não existe (e não deveria existir) uma tela dentro da
+   própria instalação onde o `super_admin` edita seu próprio pacote — isso
+   é controlado por quem vende o produto, não por quem o opera.
+2. **Agente de IA sem o módulo**: desliga de verdade — o agente para de
+   responder automaticamente no Inbox, não só a tela de configuração some.
+
+Implementação:
+- `public.instance_plan` (singleton, RLS sem policies — mesmo padrão de
+  `app_settings`/`_bootstrap_state`, só service role lê/escreve) guarda
+  `enabled_modules text[]`, default `{campaigns,vendas,ai_agent}` (fail-open:
+  instalação sem o pacote setado continua com tudo liberado, não trava quem
+  já está em produção agora). Escrever esse valor é manual (SQL/MCP), de
+  propósito — não há endpoint de escrita.
+- `whatsapp_hub.module_enabled(p_module)` (SECURITY DEFINER) e
+  `whatsapp_hub._assert_module(p_module)` (mesma coisa, mas lança exceção) —
+  usados nas policies de escrita de `templates`, `campaigns`,
+  `ai_agent_config`, `sales_records`, `repurchase_predictions`,
+  `repurchase_config`, e dentro de `compute_repurchase_predictions()`/
+  `sales_dashboard()` (RPCs SECURITY DEFINER chamadas direto pelo frontend —
+  bypassam RLS de tabela, por isso precisam do guard próprio). De brinde,
+  essas 6 policies comparavam `current_user_role() = 'admin'` (literal) —
+  mesma classe de bug já corrigida várias vezes nesta rodada — agora usam
+  `is_admin()`.
+- Nova Edge Function `get-instance-plan` (qualquer autenticado, não só
+  admin — o gate é por instalação, não por papel) devolve
+  `enabledModules`. Hook `useEnabledModules()` no frontend, fail-open
+  enquanto carrega. `nav-config.ts` ganhou `module?: CommercialModule` nos 3
+  itens; `Sidebar.tsx`/`MobileNav.tsx` filtram por ele.
+  `CampaignsPage`/`VendasPage`/`AIAgentPage` ganharam guard de página
+  (redireciona pra `/dashboard` se o módulo não está habilitado) —
+  `CampaignsPage` não tinha guard nenhum antes disso.
+- `process-ai-message` (Edge Function, service role — bypassa RLS) ganhou o
+  mesmo check de `ai_agent_config.is_active === false`: sem o módulo, a IA
+  não responde, mesmo que a config interna esteja ativa.
+- **Escopo aceito, não é servidor de licenciamento**: o gate cobre
+  criar/editar conteúdo novo do módulo (templates, campanhas, config do
+  agente, registros de venda); não interrompe trabalho já em andamento
+  (uma campanha já disparando continua, cron jobs não foram tocados) — bug
+  a menos, não uma fortaleza. Enforcement real de licença exigiria um
+  servidor externo fora do Supabase do próprio cliente, fora de escopo
+  desta rodada.
+
+Migration `20260821210000_commercial_plan_modules.sql` aplicada em produção
+e conferida via `execute_sql` (`module_enabled` retorna `true` pros 3
+módulos e `false` pra um módulo inexistente, com a linha default recém-
+criada). Edge Functions `get-instance-plan` (nova) e `process-ai-message`
+(v8, árvore `_shared/*` completa) redeployadas e conferidas `ACTIVE` via
+`list_edge_functions`. Validação local: `npx tsc -b --noEmit` (0 erros),
+`npm run lint` (0 erros, mesmos 68 warnings), `npm run test:unit`
+(184/184), `npm run validate:sql` (103 arquivos).
+
+Nota técnica sobre o deploy de Edge Functions via `apply_migration`/
+`deploy_edge_function` (MCP): imports relativos que sobem um nível a partir
+do entrypoint (`../_shared/...`, o padrão usado no repo, onde `_shared/` é
+irmã da pasta da função) **não resolvem** nesse mecanismo de deploy — ele
+achata tudo sob uma raiz comum e o entrypoint precisa referenciar
+`./_shared/...` (filho, não pai). Só o `index.ts` de cada função precisou
+desse ajuste no payload do deploy; os arquivos dentro de `_shared/*`
+mantêm seus imports relativos normais entre si. O código-fonte no repo
+continua com `../_shared/...` (é o layout real do projeto, correto para
+`supabase functions deploy` via CLI); o ajuste foi só no payload enviado
+a esta ferramenta MCP especificamente.

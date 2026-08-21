@@ -5,6 +5,7 @@ import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppUser } from '@/app/providers/AppUserProvider';
 import { canSeeAdminNav } from '@/app/layout/nav-config';
+import { useEnabledModules } from '@/hooks/useEnabledModules';
 import { AIAgentSettings } from '../settings/sections/AIAgentSettings';
 import { AgentMediaSettings } from '../settings/sections/AgentMediaSettings';
 import { BusinessHoursSettings } from '../settings/sections/BusinessHoursSettings';
@@ -30,10 +31,11 @@ const TABS: TabDef[] = [
 
 export default function AIAgentPage() {
   const { role, loading } = useAppUser();
+  const { loading: loadingModules, hasModule } = useEnabledModules();
   const [active, setActive] = useState<TabId>('agent');
   const current = TABS.find((t) => t.id === active) ?? TABS[0];
 
-  if (loading) {
+  if (loading || loadingModules) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <Loader2 className="h-5 w-5 animate-spin text-[var(--accent-primary)]" />
@@ -41,7 +43,8 @@ export default function AIAgentPage() {
     );
   }
   // Tela admin-only: configuração do agente, mídias, base, follow-ups e horário.
-  if (!canSeeAdminNav(role)) return <Navigate to="/dashboard" replace />;
+  // Módulo Agente de IA: só entra quem contratou (ver docs/PLANEJAMENTO.md).
+  if (!canSeeAdminNav(role) || !hasModule('ai_agent')) return <Navigate to="/dashboard" replace />;
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">

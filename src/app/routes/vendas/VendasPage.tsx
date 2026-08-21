@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { BarChart3, Loader2, MoreVertical, RefreshCw, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { getSupabase } from '@/lib/supabase';
 import { useAppUser } from '@/app/providers/AppUserProvider';
+import { useEnabledModules } from '@/hooks/useEnabledModules';
 import { useSalesUpload, withHeaderRow, SALES_FIELDS, type PreparedSheet } from '@/hooks/useSalesUpload';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -53,6 +54,7 @@ const selectCls = `${inputCls} [&>option]:bg-[#0A0A0F]`;
 export default function VendasPage() {
   const { role } = useAppUser();
   const isAdmin = role === 'admin';
+  const { loading: loadingModules, hasModule } = useEnabledModules();
   const navigate = useNavigate();
   const { prepare, commit, busy, result } = useSalesUpload();
   const [metrics, setMetrics] = useState<Metrics | null>(null);
@@ -116,6 +118,16 @@ export default function VendasPage() {
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  if (loadingModules) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <Loader2 className="h-5 w-5 animate-spin text-[var(--accent-primary)]" />
+      </div>
+    );
+  }
+  // Módulo Vendas & Recompra: só entra quem contratou (ver docs/PLANEJAMENTO.md).
+  if (!hasModule('vendas')) return <Navigate to="/dashboard" replace />;
 
   // Seleção de arquivo → lê e abre o popup de mapeamento com sugestão automática.
   const handleFile = async (file: File) => {

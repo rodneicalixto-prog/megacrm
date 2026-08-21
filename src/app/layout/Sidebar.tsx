@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { NAV_ITEMS, canSeeAdminNav } from './nav-config';
 import { useAppUser } from '@/app/providers/AppUserProvider';
 import { useBranding } from '@/hooks/useBranding';
+import { useEnabledModules } from '@/hooks/useEnabledModules';
 
 const STORAGE_KEY = 'mch:sidebar-collapsed';
 
@@ -23,7 +24,10 @@ function readStoredCollapsed(): boolean {
 export function Sidebar() {
   const { branding } = useBranding();
   const { role } = useAppUser();
-  const items = NAV_ITEMS.filter((item) => !item.adminOnly || canSeeAdminNav(role));
+  const { hasModule } = useEnabledModules();
+  const items = NAV_ITEMS.filter(
+    (item) => (!item.adminOnly || canSeeAdminNav(role)) && (!item.module || hasModule(item.module)),
+  );
   const [collapsed, setCollapsed] = useState(readStoredCollapsed);
 
   useEffect(() => {
