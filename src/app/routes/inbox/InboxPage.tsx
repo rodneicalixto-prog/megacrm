@@ -27,6 +27,7 @@ import {
   type InboxFilterState,
 } from '@/components/inbox/inbox-filters';
 import { LoadErrorBanner } from '@/components/LoadErrorBanner';
+import { getSupabase } from '@/lib/supabase';
 
 export default function InboxPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -42,6 +43,7 @@ export default function InboxPage() {
   const [showPanelMobile, setShowPanelMobile] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
   const [forwardMessage, setForwardMessage] = useState<ThreadMessage | null>(null);
+  const [replyMessage, setReplyMessage] = useState<ThreadMessage | null>(null);
   const { operators } = useOperators();
   const { tags } = useTags();
   const { departments, lines } = useDepartments();
@@ -226,6 +228,13 @@ export default function InboxPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId, selected?.unread_count]);
 
+  const reactToMessage = async (message: ThreadMessage, emoji: string) => {
+    if (!selected) return;
+    const { data, error } = await getSupabase().functions.invoke('interact-message', {
+      body: { action: 'reaction', conversation_id: selected.id, message_id: message.id, emoji },
+    });
+    if (error || !data?.ok) toast.error('Não foi possível reagir', { description: data?.error ?? error?.message });
+  };
   const changeConversationStatus = async () => {
     if (!selected) return;
     const closing = selected.status !== 'closed';
@@ -434,12 +443,16 @@ export default function InboxPage() {
                 onRetry={retry}
                 onDismiss={dismissFailed}
                 onForward={setForwardMessage}
+                onReply={setReplyMessage}
+                onReact={(message, emoji) => void reactToMessage(message, emoji)}
               />
               {selected.status !== 'closed' && (
                 <MessageInput
                   conversationId={selected.id}
                   withinWindow={withinWindow}
                   onSendText={sendText}
+                  replyTo={replyMessage}
+                  onCancelReply={() => setReplyMessage(null)}
                 />
               )}
             </>

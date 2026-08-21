@@ -34,15 +34,46 @@ export async function sendEvolutionMessage(
   mediaUrl?: string | null,
   mediaType?: string,
   connectionId?: string | null,
+  quotedMessageId?: string | null,
+  quotedFromMe?: boolean,
+  voiceNote?: boolean,
 ): Promise<{ messageId: string | null }> {
   const conn = await connectionForConversation(connectionId);
   const provider = conn ? providerFor(conn) : await loadEvolutionProvider();
   const result = await provider.sendMessage(phone, text, {
     mediaUrl: mediaUrl ?? undefined,
     mediaType,
+    quotedMessageId: quotedMessageId ?? undefined,
+    quotedRemoteJid: `${phone.replace(/\D/g, '')}@s.whatsapp.net`,
+    quotedFromMe,
+    voiceNote,
   });
   if (!result.ok) {
     throw new Error(result.error ?? 'Erro ao enviar via Evolution.');
   }
   return { messageId: result.messageId };
+}
+
+export async function sendEvolutionPresence(
+  phone: string,
+  presence: 'composing' | 'paused',
+  connectionId?: string | null,
+): Promise<void> {
+  const conn = await connectionForConversation(connectionId);
+  const provider = conn ? providerFor(conn) : await loadEvolutionProvider();
+  if (!(provider instanceof EvolutionProvider)) return;
+  await provider.sendPresence(phone, presence);
+}
+
+export async function sendEvolutionReaction(
+  phone: string,
+  messageId: string,
+  emoji: string,
+  fromMe: boolean,
+  connectionId?: string | null,
+): Promise<void> {
+  const conn = await connectionForConversation(connectionId);
+  const provider = conn ? providerFor(conn) : await loadEvolutionProvider();
+  if (!(provider instanceof EvolutionProvider)) throw new Error('Reações disponíveis apenas em conversas Evolution.');
+  await provider.react(phone, messageId, emoji, fromMe);
 }

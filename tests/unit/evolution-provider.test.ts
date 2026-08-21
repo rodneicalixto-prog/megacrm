@@ -216,3 +216,49 @@ test('áudio usa sendMedia como fallback quando sendWhatsAppAudio falha', async 
     globalThis.fetch = originalFetch;
   }
 });
+
+test('texto citado envia a chave correta para a Evolution', async () => {
+  const originalFetch = globalThis.fetch;
+  let body: Record<string, unknown> = {};
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    body = JSON.parse(String(init?.body ?? '{}'));
+    return new Response(JSON.stringify({ key: { id: 'REPLY-1' } }), { status: 200 });
+  }) as typeof fetch;
+  try {
+    const got = await provider.sendMessage('+55 11 99999-8888', 'resposta', {
+      quotedMessageId: 'ORIGINAL-1',
+      quotedRemoteJid: '5511999998888@s.whatsapp.net',
+      quotedFromMe: false,
+    });
+    assert.equal(got.ok, true);
+    assert.deepEqual(body.quoted, { key: { remoteJid: '5511999998888@s.whatsapp.net', fromMe: false, id: 'ORIGINAL-1' } });
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test('presença e reação usam os endpoints oficiais', async () => {
+  const originalFetch = globalThis.fetch;
+  const calls: Array<{ url: string; body: unknown }> = [];
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    calls.push({ url: String(input), body: JSON.parse(String(init?.body ?? '{}')) });
+    return new Response('{}', { status: 200 });
+  }) as typeof fetch;
+  try {
+    await provider.sendPresence('+55 11 99999-8888', 'composing');
+    await provider.react('+55 11 99999-8888', 'MSG-1', '👍', true);
+    assert.equal(calls[0].url, 'https://evo.example.com/chat/sendPresence/minha-instancia');
+    assert.deepEqual(calls[0].body, { number: '5511999998888', presence: 'composing', delay: 1200 });
+    assert.equal(calls[1].url, 'https://evo.example.com/message/sendReaction/minha-instancia');
+    assert.deepEqual(calls[1].body, { key: { remoteJid: '5511999998888@s.whatsapp.net', fromMe: true, id: 'MSG-1' }, reaction: '👍' });
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test('nota de voz não cai no fallback de arquivo de áudio', async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = (async () => { calls += 1; return new Response('{}', { status: 500 }); }) as typeof fetch;
+  try {
+    const got = await provider.sendMessage('5511999998888', '', { mediaUrl: 'https://cdn.exemplo.com/voz.webm', mediaType: 'audio', voiceNote: true });
+    assert.equal(got.ok, false);
+    assert.equal(calls, 1);
+  } finally { globalThis.fetch = originalFetch; }
+});

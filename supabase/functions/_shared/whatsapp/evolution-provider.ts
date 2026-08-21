@@ -130,6 +130,28 @@ export class EvolutionProvider implements WhatsAppProvider {
     const fileName = str(body, ['fileName']) ?? ('media.' + extension);
     return { bytes, mime, fileName };
   }
+  async sendPresence(to: string, presence: 'composing' | 'paused'): Promise<void> {
+    const number = to.replace(/\D/g, '');
+    const res = await fetch(`${this.serverUrl}/chat/sendPresence/${this.instance}`, {
+      method: 'POST',
+      headers: { apikey: this.apiKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ number, presence, delay: 1200 }),
+    });
+    if (!res.ok) throw new Error(`Evolution presence HTTP ${res.status}`);
+  }
+
+  async react(to: string, messageId: string, emoji: string, fromMe: boolean): Promise<void> {
+    const number = to.replace(/\D/g, '');
+    const res = await fetch(`${this.serverUrl}/message/sendReaction/${this.instance}`, {
+      method: 'POST',
+      headers: { apikey: this.apiKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        key: { remoteJid: `${number}@s.whatsapp.net`, fromMe, id: messageId },
+        reaction: emoji,
+      }),
+    });
+    if (!res.ok) throw new Error(`Evolution reaction HTTP ${res.status}`);
+  }
   async sendMessage(to: string, text: string, opts: SendOptions = {}): Promise<SendResult> {
     const number = to.replace(/\D/g, '');
     try {
@@ -142,7 +164,13 @@ export class EvolutionProvider implements WhatsAppProvider {
         : `/message/sendText/${this.instance}`;
 
       const body = !opts.mediaUrl
-        ? { number, text }
+        ? {
+            number,
+            text,
+            quoted: opts.quotedMessageId
+              ? { key: { remoteJid: opts.quotedRemoteJid, fromMe: opts.quotedFromMe ?? false, id: opts.quotedMessageId } }
+              : undefined,
+          }
         : isAudio
           ? { number, audio: opts.mediaUrl }
           : {
@@ -157,7 +185,7 @@ export class EvolutionProvider implements WhatsAppProvider {
         headers: { apikey: this.apiKey, 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      if (!res.ok && isAudio) {
+      if (!res.ok && isAudio && !opts.voiceNote) {
         const fallback = await fetch(`${this.serverUrl}/message/sendMedia/${this.instance}`, {
           method: 'POST',
           headers: { apikey: this.apiKey, 'Content-Type': 'application/json' },

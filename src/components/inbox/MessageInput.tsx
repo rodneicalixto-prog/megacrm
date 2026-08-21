@@ -1,9 +1,9 @@
-import { useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from 'react';
 import { toast } from 'sonner';
-import { Clock, FileText, Loader2, MonitorUp, Paperclip, Send, Smile, StickyNote, X } from 'lucide-react';
+import { Clock, FileText, Loader2, Mic, MonitorUp, Paperclip, Reply, Send, Smile, Square, StickyNote, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getSupabase } from '@/lib/supabase';
-import type { SendResult } from '@/hooks/useMessages';
+import type { SendResult, ThreadMessage } from '@/hooks/useMessages';
 import { TemplateRestartDialog } from './TemplateRestartDialog';
 
 interface MessageInputProps {
@@ -13,18 +13,24 @@ interface MessageInputProps {
   withinWindow?: boolean;
   // Envio OTIMISTA de texto/nota: o balão aparece na hora e a requisição roda
   // em segundo plano (dono do estado é o useMessages).
-  onSendText: (text: string, isPrivate: boolean) => Promise<SendResult>;
+  onSendText: (text: string, isPrivate: boolean, replyTo?: ThreadMessage | null) => Promise<SendResult>;
+  replyTo?: ThreadMessage | null;
+  onCancelReply?: () => void;
 }
 
 const MAX_BYTES = 25 * 1024 * 1024;
 
-export function MessageInput({ conversationId, disabled, withinWindow = true, onSendText }: MessageInputProps) {
+export function MessageInput({ conversationId, disabled, withinWindow = true, onSendText, replyTo, onCancelReply }: MessageInputProps) {
   const [content, setContent] = useState('');
   const [isPrivate, setIsPrivate] = useState(false);
   const [showTemplate, setShowTemplate] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false); // só para mídia (upload real bloqueia)
+  const [voiceNote, setVoiceNote] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const onPickFile = (e: ChangeEvent<HTMLInputElement>) => {
@@ -35,6 +41,7 @@ export function MessageInput({ conversationId, disabled, withinWindow = true, on
       return;
     }
     setFile(f);
+    setVoiceNote(false);
     if (f) setIsPrivate(false); // mídia nunca é nota privada
   };
 
@@ -51,6 +58,7 @@ export function MessageInput({ conversationId, disabled, withinWindow = true, on
       stream.getTracks().forEach((track) => track.stop());
       const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
       if (!blob) throw new Error('Não foi possível gerar a captura.');
+      setVoiceNote(false);
       setFile(new File([blob], 'captura-de-tela.png', { type: 'image/png' }));
       setIsPrivate(false);
     } catch (error) {
@@ -61,6 +69,37 @@ export function MessageInput({ conversationId, disabled, withinWindow = true, on
     }
   };
 
+  const toggleRecording = async () => {
+    if (recording) { recorderRef.current?.stop(); return; }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : '';
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      const chunks: Blob[] = [];
+      streamRef.current = stream; recorderRef.current = recorder;
+      recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data); };
+      recorder.onstop = () => {
+        const type = recorder.mimeType || 'audio/webm';
+        const blob = new Blob(chunks, { type });
+        setFile(new File([blob], 'mensagem-de-voz.webm', { type }));
+        setVoiceNote(true); setRecording(false);
+        stream.getTracks().forEach((track) => track.stop()); streamRef.current = null;
+      };
+      recorder.start(); setRecording(true); setIsPrivate(false);
+    } catch (error) {
+      toast.error('Não foi possível acessar o microfone', { description: error instanceof Error ? error.message : String(error) });
+    }
+  };
+
+  useEffect(() => () => streamRef.current?.getTracks().forEach((track) => track.stop()), []);
+
+  useEffect(() => {
+    if (disabled || isPrivate || !content.trim()) return;
+    const timer = window.setTimeout(() => {
+      void getSupabase().functions.invoke('interact-message', { body: { action: 'presence', conversation_id: conversationId, presence: 'composing' } });
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [content, conversationId, disabled, isPrivate]);
   const sendMedia = async () => {
     if (!file) return;
     const supabase = getSupabase();
@@ -68,6 +107,7 @@ export function MessageInput({ conversationId, disabled, withinWindow = true, on
     form.append('conversation_id', conversationId);
     form.append('file', file);
     if (content.trim()) form.append('content', content.trim());
+    if (voiceNote) form.append('voice_note', 'true');
     const { data, error } = await supabase.functions.invoke('send-operator-media', { body: form });
     if (error || !data?.ok) {
       toast.error('Falha ao enviar mídia', {
@@ -88,7 +128,8 @@ export function MessageInput({ conversationId, disabled, withinWindow = true, on
     if (!text) return;
     const wasPrivate = isPrivate;
     setContent('');
-    const res = await onSendText(text, wasPrivate);
+    const res = await onSendText(text, wasPrivate, replyTo);
+    onCancelReply?.();
     if (res.ok && res.zernioError) {
       // Balão salvo, mas o WhatsApp recusou (ex.: fora da janela de 24h).
       toast.warning('Salvo, mas não enviado ao WhatsApp', { description: res.zernioError });
@@ -128,6 +169,14 @@ export function MessageInput({ conversationId, disabled, withinWindow = true, on
       onSubmit={handleSubmit}
       className="border-t border-[rgba(59,130,246,0.08)] p-4 space-y-3 glass-surface"
     >
+      {replyTo && (
+        <div className="flex items-center gap-2 rounded-lg border-l-2 border-[var(--accent-primary)] bg-white/[0.03] px-3 py-2 text-xs">
+          <Reply className="h-3.5 w-3.5 text-[var(--accent-primary)]" />
+          <span className="min-w-0 flex-1 truncate">Respondendo: {replyTo.content || 'Mensagem'}</span>
+          <button type="button" onClick={onCancelReply} aria-label="Cancelar resposta"><X className="h-3.5 w-3.5" /></button>
+        </div>
+      )}
+
       <div className="flex items-center gap-2">
         <button
           type="button"
@@ -160,7 +209,8 @@ export function MessageInput({ conversationId, disabled, withinWindow = true, on
             contato responder. Enquanto ele não responder, o envio de mensagens
             livres continua bloqueado.
           </p>
-          <div className="flex items-center gap-2">
+
+      <div className="flex items-center gap-2">
             <Button type="button" variant="outline" onClick={() => setShowTemplate(true)} disabled={disabled || sending}>
               <FileText className="h-4 w-4" />
               Reiniciar com template
@@ -175,7 +225,7 @@ export function MessageInput({ conversationId, disabled, withinWindow = true, on
       {(withinWindow || isPrivate) && file && (
         <div className="flex items-center gap-2 rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-xs">
           <Paperclip className="h-3.5 w-3.5 text-[var(--accent-primary)]" />
-          <span className="truncate text-[var(--color-text-primary)]">{file.name}</span>
+          <span className="truncate text-[var(--color-text-primary)]">{voiceNote ? 'Mensagem de voz' : file.name}</span>
           <span className="text-[var(--color-text-secondary)]">
             {(file.size / 1024 / 1024).toFixed(1)} MB
           </span>
@@ -215,7 +265,9 @@ export function MessageInput({ conversationId, disabled, withinWindow = true, on
             >
               <Paperclip className="h-4 w-4" />
             </Button>
-            <Button
+                        <Button type="button" variant={recording ? 'destructive' : 'ghost'} size="icon" onClick={() => void toggleRecording()} disabled={disabled || sending} aria-label={recording ? 'Parar gravação' : 'Gravar mensagem de voz'} title={recording ? 'Parar gravação' : 'Gravar mensagem de voz'}>
+              {recording ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+            </Button><Button
               type="button"
               variant="ghost"
               size="icon"

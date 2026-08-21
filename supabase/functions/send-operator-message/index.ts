@@ -23,6 +23,7 @@ interface Payload {
   conversation_id?: string;
   content?: string;
   is_private_note?: boolean;
+  reply_to_message_id?: string;
 }
 
 Deno.serve(async (req) => {
@@ -45,6 +46,7 @@ Deno.serve(async (req) => {
     const conversationId = body.conversation_id?.trim();
     const content = (body.content ?? '').trim();
     const isPrivate = Boolean(body.is_private_note);
+    const replyToId = body.reply_to_message_id?.trim() || null;
 
     if (!conversationId) return jsonResponse({ ok: false, error: 'conversation_id ausente.' }, { status: 400 });
     if (!content) return jsonResponse({ ok: false, error: 'Conteúdo vazio.' }, { status: 400 });
@@ -72,6 +74,20 @@ Deno.serve(async (req) => {
       return jsonResponse({ ok: false, error: 'Conversa não encontrada.' }, { status: 404 });
     }
 
+    let replyPreview: string | null = null;
+    let quotedEvolutionId: string | null = null;
+    let quotedFromMe = false;
+    if (replyToId && !isPrivate) {
+      const { data: replied } = await admin.from('messages')
+        .select('conversation_id, content, content_type, zernio_message_id, direction')
+        .eq('id', replyToId).maybeSingle();
+      if (!replied || replied.conversation_id !== conversationId) {
+        return jsonResponse({ ok: false, error: 'Mensagem respondida invalida.' }, { status: 400 });
+      }
+      replyPreview = String(replied.content || replied.content_type || 'Mensagem').slice(0, 180);
+      quotedEvolutionId = String(replied.zernio_message_id || '').replace(/^evolution:/, '') || null;
+      quotedFromMe = replied.direction === 'outbound';
+    }
     // Insert the message row first. UI gets it from realtime immediately.
     const { data: inserted, error: insErr } = await admin
       .from('messages')
@@ -83,6 +99,8 @@ Deno.serve(async (req) => {
         content_type: isPrivate ? 'note' : 'text',
         content,
         is_private_note: isPrivate,
+        reply_to_message_id: replyToId,
+        reply_preview: replyPreview,
       })
       .select()
       .single();
@@ -115,7 +133,7 @@ Deno.serve(async (req) => {
           .from('contacts').select('phone').eq('id', convRow.contact_id).maybeSingle();
         const phone = (contactRow as { phone?: string } | null)?.phone ?? null;
         if (!phone) throw new Error('Contato sem telefone.');
-        const sent = await sendEvolutionMessage(phone, content, null, undefined, convRow.connection_id);
+        const sent = await sendEvolutionMessage(phone, content, null, undefined, convRow.connection_id, quotedEvolutionId, quotedFromMe);
         await admin
           .from('messages')
           .update({ meta_status: 'sent', zernio_message_id: sent.messageId ? `evolution:${sent.messageId}` : null })

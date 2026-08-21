@@ -117,7 +117,7 @@ export async function handleOperatorMedia(req: Request): Promise<Response> {
 
       let evolutionMessageId: string | null = null;
       try {
-        const sent = await sendEvolutionMessage(phone, caption, publicUrl, contentType, convRow.connection_id);
+        const sent = await sendEvolutionMessage(phone, caption, publicUrl, contentType, convRow.connection_id, null, false, voiceNote);
         evolutionMessageId = sent.messageId;
       } catch (err) {
         // O arquivo já está no bucket; sem o envio ele viraria lixo silencioso.

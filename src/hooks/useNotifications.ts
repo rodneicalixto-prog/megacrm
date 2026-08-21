@@ -22,6 +22,7 @@ interface UseNotificationsResult {
   unreadCount: number;
   loading: boolean;
   markRead: (id: string) => Promise<void>;
+  markConversationRead: (conversationId: string) => Promise<void>;
   markAllRead: () => Promise<void>;
   reload: () => Promise<void>;
 }
@@ -144,6 +145,14 @@ export function useNotifications(): UseNotificationsResult {
     }
   }, []);
 
+  const markConversationRead = useCallback(async (conversationId: string) => {
+    const supabase = getSupabase();
+    const { error } = await supabase.schema('whatsapp_hub').from('notifications')
+      .update({ is_read: true }).eq('conversation_id', conversationId).eq('is_read', false);
+    if (!error) setNotifications((prev) => prev.map((n) =>
+      n.conversation_id === conversationId ? { ...n, is_read: true } : n,
+    ));
+  }, []);
   const markAllRead = useCallback(async () => {
     if (!userId) return;
     const supabase = getSupabase();
@@ -178,5 +187,5 @@ export function useNotifications(): UseNotificationsResult {
     };
   }, [unreadCount]);
 
-  return { notifications, unreadCount, loading, markRead, markAllRead, reload };
+  return { notifications, unreadCount, loading, markRead, markConversationRead, markAllRead, reload };
 }

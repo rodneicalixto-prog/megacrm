@@ -39,6 +39,10 @@ export interface SendOptions {
   conversationId?: string;   // Zernio envia 1:1 por conversationId
   mediaUrl?: string | null;
   mediaType?: string;        // image | video | audio | document
+  quotedMessageId?: string;
+  quotedRemoteJid?: string;
+  quotedFromMe?: boolean;
+  voiceNote?: boolean;
 }
 
 export interface SendResult {

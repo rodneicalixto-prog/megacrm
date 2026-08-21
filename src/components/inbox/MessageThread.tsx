@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Bot, Check, CheckCheck, Clock, FileText, Forward, StickyNote, User } from 'lucide-react';
+import { Bot, Check, CheckCheck, Clock, FileText, Forward, Reply, SmilePlus, StickyNote, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getSupabase } from '@/lib/supabase';
 import type { Message } from '@/types/inbox';
@@ -11,6 +11,8 @@ interface MessageThreadProps {
   onRetry?: (tempId: string) => void;
   onDismiss?: (tempId: string) => void;
   onForward?: (message: ThreadMessage) => void;
+  onReply?: (message: ThreadMessage) => void;
+  onReact?: (message: ThreadMessage, emoji: string) => void;
 }
 
 function StatusTicks({ status }: { status: Message['meta_status'] }) {
@@ -172,7 +174,23 @@ function FailedActions({
   );
 }
 
-export function MessageThread({ messages, loading, onRetry, onDismiss, onForward }: MessageThreadProps) {
+function MessageActions({ message, onForward, onReply, onReact }: {
+  message: ThreadMessage;
+  onForward?: (message: ThreadMessage) => void;
+  onReply?: (message: ThreadMessage) => void;
+  onReact?: (message: ThreadMessage, emoji: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return <div className="relative mb-2 flex items-center gap-0.5 opacity-0 transition group-hover/message:opacity-100 focus-within:opacity-100">
+    <button type="button" onClick={() => onReply?.(message)} className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-text-secondary)] hover:bg-white/5" title="Responder"><Reply className="h-3.5 w-3.5" /></button>
+    <button type="button" onClick={() => setOpen((value) => !value)} className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-text-secondary)] hover:bg-white/5" title="Reagir"><SmilePlus className="h-3.5 w-3.5" /></button>
+    <button type="button" onClick={() => onForward?.(message)} className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-text-secondary)] hover:bg-white/5" title="Encaminhar"><Forward className="h-3.5 w-3.5" /></button>
+    {open && <div className="absolute bottom-9 left-0 z-20 flex gap-1 rounded-lg border border-[var(--color-border-card)] bg-[var(--color-bg-elevated)] p-1 shadow-xl">
+      {['👍','❤️','😂','😮','😢','🙏'].map((emoji) => <button key={emoji} type="button" className="flex h-8 w-8 items-center justify-center rounded hover:bg-white/10" onClick={() => { onReact?.(message, emoji); setOpen(false); }}>{emoji}</button>)}
+    </div>}
+  </div>;
+}
+export function MessageThread({ messages, loading, onRetry, onDismiss, onForward, onReply, onReact }: MessageThreadProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -237,15 +255,7 @@ export function MessageThread({ messages, loading, onRetry, onDismiss, onForward
             className={cn('group/message flex items-end gap-1', isInbound ? 'justify-start' : 'justify-end')}
           >
             {!isInbound && (
-              <button
-                type="button"
-                onClick={() => onForward?.(m)}
-                className="mb-2 flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-text-secondary)] opacity-0 transition hover:bg-white/5 hover:text-[var(--color-text-primary)] group-hover/message:opacity-100 focus-visible:opacity-100"
-                aria-label="Encaminhar mensagem"
-                title="Encaminhar"
-              >
-                <Forward className="h-3.5 w-3.5" />
-              </button>
+              <MessageActions message={m} onForward={onForward} onReply={onReply} onReact={onReact} />
             )}
             <div
               className={cn(
@@ -261,6 +271,11 @@ export function MessageThread({ messages, loading, onRetry, onDismiss, onForward
                 <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide opacity-70 mb-1">
                   <SenderIcon sender={m.sender_type} />
                   {m.sender_type === 'ai' ? 'IA' : 'Operador'}
+                </div>
+              )}
+              {m.reply_preview && (
+                <div className="mb-2 rounded border-l-2 border-current bg-black/10 px-2 py-1 text-xs opacity-75 line-clamp-2">
+                  {m.reply_preview}
                 </div>
               )}
               {m.content_type === 'text' || m.content_type === 'note' ? (
@@ -297,15 +312,7 @@ export function MessageThread({ messages, loading, onRetry, onDismiss, onForward
               )}
             </div>
             {isInbound && (
-              <button
-                type="button"
-                onClick={() => onForward?.(m)}
-                className="mb-2 flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-text-secondary)] opacity-0 transition hover:bg-white/5 hover:text-[var(--color-text-primary)] group-hover/message:opacity-100 focus-visible:opacity-100"
-                aria-label="Encaminhar mensagem"
-                title="Encaminhar"
-              >
-                <Forward className="h-3.5 w-3.5" />
-              </button>
+              <MessageActions message={m} onForward={onForward} onReply={onReply} onReact={onReact} />
             )}
           </div>
         );

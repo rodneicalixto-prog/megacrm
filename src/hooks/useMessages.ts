@@ -9,7 +9,7 @@ export type ThreadMessage = Message & {
   _tempId?: string;
   _state?: 'pending' | 'sent' | 'failed';
   _realId?: string;
-  _retry?: { text: string; isPrivate: boolean };
+  _retry?: { text: string; isPrivate: boolean; replyToId?: string };
 };
 
 export interface SendResult {
@@ -22,7 +22,7 @@ interface UseMessagesResult {
   loading: boolean;
   error: string | null;
   reload: () => Promise<void>;
-  sendText: (text: string, isPrivate: boolean) => Promise<SendResult>;
+  sendText: (text: string, isPrivate: boolean, replyTo?: ThreadMessage | null) => Promise<SendResult>;
   retry: (tempId: string) => Promise<SendResult>;
   dismissFailed: (tempId: string) => void;
 }
@@ -143,14 +143,14 @@ export function useMessages(conversationId: string | null): UseMessagesResult {
 
   // Executa (ou re-executa) o envio de um balão otimista e concilia o estado.
   const doSend = useCallback(
-    async (tempId: string, text: string, isPrivate: boolean): Promise<SendResult> => {
+    async (tempId: string, text: string, isPrivate: boolean, replyToId?: string): Promise<SendResult> => {
       if (!conversationId) return { ok: false };
       setOptimistic((prev) =>
         prev.map((o) => (o._tempId === tempId ? { ...o, _state: 'pending' } : o)),
       );
       const supabase = getSupabase();
       const { data, error: err } = await supabase.functions.invoke('send-operator-message', {
-        body: { conversation_id: conversationId, content: text, is_private_note: isPrivate },
+        body: { conversation_id: conversationId, content: text, is_private_note: isPrivate, reply_to_message_id: replyToId },
       });
       if (err || !data?.ok) {
         setOptimistic((prev) =>
@@ -177,7 +177,7 @@ export function useMessages(conversationId: string | null): UseMessagesResult {
   );
 
   const sendText = useCallback(
-    async (text: string, isPrivate: boolean): Promise<SendResult> => {
+    async (text: string, isPrivate: boolean, replyTo?: ThreadMessage | null): Promise<SendResult> => {
       const trimmed = text.trim();
       if (!conversationId || !trimmed) return { ok: false };
       const tempId = `temp-${crypto.randomUUID()}`;
@@ -194,12 +194,15 @@ export function useMessages(conversationId: string | null): UseMessagesResult {
         meta_status: null,
         is_private_note: isPrivate,
         created_at: new Date().toISOString(),
+        reply_to_message_id: replyTo?.id ?? null,
+        reply_preview: replyTo?.content?.slice(0, 180) ?? null,
+        reactions: [],
         _tempId: tempId,
         _state: 'pending',
-        _retry: { text: trimmed, isPrivate },
+        _retry: { text: trimmed, isPrivate, replyToId: replyTo?.id },
       };
       setOptimistic((prev) => [...prev, bubble]);
-      return doSend(tempId, trimmed, isPrivate);
+      return doSend(tempId, trimmed, isPrivate, replyTo?.id);
     },
     [conversationId, userId, doSend],
   );
@@ -208,7 +211,7 @@ export function useMessages(conversationId: string | null): UseMessagesResult {
     async (tempId: string): Promise<SendResult> => {
       const bubble = optimistic.find((o) => o._tempId === tempId);
       if (!bubble?._retry) return { ok: false };
-      return doSend(tempId, bubble._retry.text, bubble._retry.isPrivate);
+      return doSend(tempId, bubble._retry.text, bubble._retry.isPrivate, bubble._retry.replyToId);
     },
     [optimistic, doSend],
   );
