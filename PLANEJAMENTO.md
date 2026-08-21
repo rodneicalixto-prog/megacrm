@@ -5,6 +5,47 @@
 
 ---
 
+## ⚠️ Correção (2026-08-21) — project ref do Supabase estava errado
+
+Todas as menções a `yshvniyhtnyhnjcecbft` neste documento e em
+`docs/PLANO-HIERARQUIA.md` **estão erradas** — é outro projeto Supabase do
+mesmo dono (nome "rodneiequipalock@gmail.com's Project"), não o do MegaCRM.
+O ref correto, confirmado pelo dono do projeto, é:
+
+- **`lstbxeaasyysboavdati`** (nome no Supabase: "calixto testesProject",
+  região `us-east-1`).
+
+**Os números da seção 8 ("Estado operacional da instalação") não batem com
+este projeto real** — foram levantados contra o projeto errado e nunca
+reconferidos aqui. No `lstbxeaasyysboavdati` verificado agora:
+`whatsapp_hub.departments` = 4 linhas, `department_connections` = 0,
+`department_positions` = 0, `app_users` = 1, `contacts` = 5,
+`conversations` = 5 — bem menor que os "9 departamentos · 13 conexões · 18
+cargos" que a seção 8 descreve. Tratar a seção 8 inteira como **não
+verificada** até alguém reconferir contra este projeto.
+
+**Este projeto Supabase é compartilhado com outro produto** (schema
+`public`, ~54 tabelas de um app chamado TomikCRM/n8n — `crm_leads`,
+`saas_organizations`, `whatsapp_instances`, `n8n_workflows`,
+`tomikcrm_schema_migrations`, tabelas financeiras `entradas`/`saidas`/
+`despesas`/`pagamentos`, etc.). **Não fazem parte do MegaCRM** — nenhuma FK
+liga essas tabelas a `whatsapp_hub.*`/`app_settings`/`_bootstrap_state`
+(verificado). A tentativa de excluí-las foi bloqueada pelo classificador de
+segurança do Claude Code (DROP em massa é tratado como ação de alto risco
+demais para autorização automática); ficaram lá, sem uso pelo MegaCRM.
+Se quiser limpar, é uma operação manual no SQL Editor do Supabase — a lista
+completa das ~54 tabelas está registrada nesta sessão.
+
+**Achado de segurança à parte, sem relação com o MegaCRM**: 13 tabelas
+deste projeto estão com RLS desligado, incluindo `whatsapp_hub.tenants`,
+`tenant_settings`, `tenant_credentials`, `tenant_members` — resíduo de uma
+versão anterior do schema (a migração SaaS→OSS que deveria ter dropado
+essas tabelas, `drop_multitenant.sql`, parece não ter rodado neste
+projeto, ou rodou parcialmente). Merece revisão antes de ir para produção
+de verdade.
+
+---
+
 ## 1. Onde estamos
 
 | | |

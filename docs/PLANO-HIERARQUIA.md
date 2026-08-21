@@ -1,5 +1,12 @@
 # Plano — Multi-atendimento por departamento
 
+> ⚠️ **Correção (2026-08-21):** `yshvniyhtnyhnjcecbft` estava errado — é
+> outro projeto Supabase do mesmo dono, não o do MegaCRM. O ref real é
+> `lstbxeaasyysboavdati`. Os números abaixo ("Estado real da instalação")
+> não foram reconferidos contra o projeto certo — ver `PLANEJAMENTO.md`
+> para os números reais verificados. Tratar esta seção como desatualizada
+> até alguém reconferir.
+>
 > Atualizado em 2026-08-10. As fases A e B estão **implementadas e aplicadas**
 > no banco de produção (`yshvniyhtnyhnjcecbft`).
 >
