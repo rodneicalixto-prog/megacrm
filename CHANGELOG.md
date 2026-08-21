@@ -21,6 +21,13 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ### Fixed
 
+- Restore unlimited personal pipeline creation for supervisors and operators:
+  the RLS policy (`pipelines_insert`) and the `FunilManager` UI already fully
+  supported any operating role creating their own pipeline with no cap
+  ("owner_id = auth.uid()", no quantity limit), but the "Gerenciar funis"
+  button that opens that UI was gated `adminOnly`, so only admin/super_admin
+  could ever reach it — supervisors and operators had no way to create a
+  personal pipeline at all, despite the backend already allowing it.
 - AI agent now replies on a contact's first audio turn: `transcribe-audio`
   invokes `process-ai-message` directly after writing the transcript (the
   `UPDATE` on `messages.content` doesn't re-fire the `AFTER INSERT` trigger
