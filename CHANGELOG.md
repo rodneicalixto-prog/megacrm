@@ -9,6 +9,22 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ### Fixed
 
+- **Reações do WhatsApp não chegavam ao CRM**: reagir a uma mensagem pelo
+  celular (dono da linha) ou pelo contato nunca aparecia na Inbox — o webhook
+  Evolution (`whatsapp-inbound`) não reconhecia o payload `reactionMessage`
+  do Baileys e tratava o evento como uma mensagem de texto vazia, criando uma
+  bolha em branco na conversa em vez de anotar a reação. Novo
+  `EvolutionProvider.parseReaction()` intercepta esse payload ANTES do fluxo
+  normal de mensagem, localiza a mensagem alvo por `zernio_message_id` e
+  atualiza `messages.reactions` (substituindo a entrada anterior da mesma
+  origem — contato ou "o dono, pelo celular" — em vez de acumular; texto
+  vazio = Baileys removeu a reação). Não mexe em conversas/contadores de não
+  lida: reação não é mensagem nova. Também descoberto no processo: mesmo a
+  reação dada DENTRO do CRM (`interact-message`, já existente) nunca era
+  renderizada em lugar nenhum — `messages.reactions` era escrito mas nunca
+  lido pela UI. `MessageThread.tsx` agora mostra um badge de emoji (com
+  contagem) sob a bolha quando há reação, cobrindo as duas origens (CRM e
+  webhook). `whatsapp-inbound` redeployado (v11).
 - **"Card preto" no tema claro**: mais uma leva do mesmo bug já corrigido
   antes nesta sessão (fundo escuro hardcoded, ignorando `data-theme`), desta
   vez em componentes que a varredura anterior (que só buscou `#0A0A0F`) não

@@ -27,6 +27,31 @@ function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
 
+// Agrupa por emoji (contato, dono pelo celular e operador via CRM podem
+// reagir à mesma mensagem com o mesmo emoji) só para exibir "emoji ×N".
+function groupReactions(reactions: ThreadMessage['reactions']): Array<[string, number]> {
+  const counts = new Map<string, number>();
+  for (const r of reactions) counts.set(r.emoji, (counts.get(r.emoji) ?? 0) + 1);
+  return [...counts.entries()];
+}
+
+function ReactionBadges({ reactions }: { reactions: ThreadMessage['reactions'] }) {
+  if (!reactions || reactions.length === 0) return null;
+  return (
+    <div className="mt-1 flex flex-wrap gap-1">
+      {groupReactions(reactions).map(([emoji, count]) => (
+        <span
+          key={emoji}
+          className="inline-flex items-center gap-0.5 rounded-full bg-[var(--color-bg-elevated)] border border-[var(--color-border-card)] px-1.5 py-0.5 text-xs leading-none"
+        >
+          {emoji}
+          {count > 1 && <span className="text-[10px] text-[var(--color-text-secondary)]">{count}</span>}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 // Chave de dia local (não UTC) para agrupar mensagens por data de calendário.
 function dayKey(iso: string): string {
   const d = new Date(iso);
@@ -355,6 +380,7 @@ export function MessageThread({ messages, loading, onRetry, onDismiss, onForward
                     <StatusTicks status={m.meta_status} />
                   )}
                 </div>
+                <ReactionBadges reactions={m.reactions} />
                 {m._state === 'failed' && m._tempId && (
                   <FailedActions tempId={m._tempId} onRetry={onRetry} onDismiss={onDismiss} inverse />
                 )}

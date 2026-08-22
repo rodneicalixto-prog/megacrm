@@ -93,12 +93,44 @@ export async function handleInbound(req: Request): Promise<Response> {
     }
   }
 
+  const admin = getAdminClient();
+
+  // Reação (emoji) — não é mensagem: nunca criava contato/conversa, só
+  // anotava (ou removia) a reação na mensagem alvo. Precisa ser interceptada
+  // ANTES de parseInboundWebhook: esse não reconhece reactionMessage e
+  // devolveria um "texto vazio", virando bolha em branco na conversa.
+  if (provider.name === 'evolution' && provider.parseReaction) {
+    const reaction = provider.parseReaction(payload);
+    if (reaction) {
+      const targetKey = `evolution:${reaction.targetMessageId}`;
+      const { data: target } = await admin
+        .from('messages')
+        .select('id, reactions')
+        .eq('zernio_message_id', targetKey)
+        .maybeSingle();
+      if (target) {
+        const targetRow = target as { id: string; reactions: unknown };
+        const current = Array.isArray(targetRow.reactions)
+          ? targetRow.reactions as Array<Record<string, unknown>>
+          : [];
+        // Numa conversa 1:1 só há dois possíveis autores de reação: o
+        // contato ou o próprio número conectado (o dono, reagindo pelo
+        // celular em vez do CRM) — não há sessão de operador aqui.
+        const source = reaction.fromMe ? 'owner_phone' : 'contact';
+        const filtered = current.filter((r) => r.source !== source);
+        const next = reaction.emoji
+          ? [...filtered, { emoji: reaction.emoji, source, created_at: new Date().toISOString() }]
+          : filtered; // texto vazio = Baileys removeu a reação
+        await admin.from('messages').update({ reactions: next }).eq('id', targetRow.id);
+      }
+      return jsonResponse({ ok: true, reaction: true, matched: Boolean(target) });
+    }
+  }
+
   const inbound = provider.parseInboundWebhook(payload);
   if (!inbound) {
     return jsonResponse({ ok: true, skipped: 'não-inbound' });
   }
-
-  const admin = getAdminClient();
 
   // Qual número recebeu? É isso que define o departamento — não há triagem.
   // Fora da rota Evolution não há instância; cai no padrão.

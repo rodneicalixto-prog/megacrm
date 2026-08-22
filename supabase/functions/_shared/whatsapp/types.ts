@@ -58,12 +58,25 @@ export interface DownloadedInboundMedia {
   fileName: string;
 }
 
+// Reação (emoji) recebida via webhook — distinta de uma mensagem normal:
+// não cria contato/conversa/mensagem nova, só anota a mensagem alvo.
+export interface ParsedReaction {
+  /** id (provider-side) da mensagem original que recebeu a reação. */
+  targetMessageId: string;
+  /** '' = reação removida (Baileys manda texto vazio nesse caso). */
+  emoji: string;
+  /** true = reagiu pelo próprio número conectado (o dono, fora do CRM). */
+  fromMe: boolean;
+}
+
 export interface WhatsAppProvider {
   readonly name: ProviderName;
   sendMessage(to: string, text: string, opts?: SendOptions): Promise<SendResult>;
   parseInboundWebhook(rawPayload: unknown): NormalizedInbound | null;
   extractReferral(rawPayload: unknown): Referral | null;
   downloadInboundMedia?(rawPayload: unknown): Promise<DownloadedInboundMedia | null>;
+  /** Só a rota Evolution (Baileys) entrega reactionMessage; Zernio não implementa. */
+  parseReaction?(rawPayload: unknown): ParsedReaction | null;
 }
 
 // ---- helpers de leitura tolerante (compartilhados pelos adapters) ----------

@@ -55,7 +55,10 @@ export interface Message {
   created_at: string;
   reply_to_message_id: string | null;
   reply_preview: string | null;
-  reactions: Array<{ emoji: string; user_id: string; created_at: string }>;
+  // user_id = reação dada pelo CRM (interact-message, operador logado);
+  // source = reação recebida pelo webhook (contato, ou o dono reagindo pelo
+  // celular em vez do CRM) — não há sessão de operador nesse caminho.
+  reactions: Array<{ emoji: string; user_id?: string; source?: string; created_at: string }>;
 }
 
 export interface ConversationWithContact extends Conversation {

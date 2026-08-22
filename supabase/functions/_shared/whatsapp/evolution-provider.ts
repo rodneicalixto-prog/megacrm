@@ -21,6 +21,7 @@ import {
   toIso,
   type NormalizedInbound,
   type DownloadedInboundMedia,
+  type ParsedReaction,
   type Referral,
   type SendOptions,
   type SendResult,
@@ -100,6 +101,37 @@ export class EvolutionProvider implements WhatsAppProvider {
   // Baileys nunca carrega o ctwa_clid do Meta.
   extractReferral(_rawPayload: unknown): Referral | null {
     return null;
+  }
+
+  // Reação (👍 etc.) chega como messages.upsert também, mas com um
+  // `reactionMessage` no lugar do conteúdo normal — `key.id` desse envelope é
+  // o id da própria reação, não da mensagem reagida; o alvo mora em
+  // `reactionMessage.key.id`. Sem isso o whatsapp-inbound trataria o evento
+  // como mensagem de texto vazia e criaria uma bolha em branco na conversa.
+  parseReaction(rawPayload: unknown): ParsedReaction | null {
+    const root = asObject(rawPayload);
+    const evt = (str(root, ['event']) ?? '').toLowerCase().replace(/_/g, '.');
+    if (evt && evt !== 'messages.upsert') return null;
+
+    const data = Array.isArray(root.data)
+      ? asObject(root.data[0])
+      : Object.keys(asObject(root.data)).length
+        ? asObject(root.data)
+        : root;
+
+    const reactionMessage = asObject(asObject(data.message).reactionMessage);
+    if (!Object.keys(reactionMessage).length) return null;
+
+    const targetKey = asObject(reactionMessage.key);
+    const targetMessageId = str(targetKey, ['id']);
+    if (!targetMessageId) return null;
+
+    const outerKey = asObject(data.key);
+    return {
+      targetMessageId,
+      emoji: str(reactionMessage, ['text']) ?? '',
+      fromMe: outerKey.fromMe === true || outerKey.fromMe === 'true' || outerKey.fromMe === 1,
+    };
   }
 
   async downloadInboundMedia(rawPayload: unknown): Promise<DownloadedInboundMedia | null> {
