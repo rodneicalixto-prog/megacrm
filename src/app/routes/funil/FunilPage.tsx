@@ -287,7 +287,7 @@ function DealCard({
       onDragEnd={() => { window.setTimeout(() => { draggedRef.current = false; }, 50); }}
       onClick={() => { if (!draggedRef.current) onOpen(); }}
       className="cursor-pointer p-3 transition hover:border-[rgba(59,130,246,0.45)] active:cursor-grabbing rounded-xl border border-[rgba(59,130,246,0.25)] shadow-[0_0_20px_rgba(59,130,246,0.06),inset_0_1px_0_rgba(59,130,246,0.1)]"
-      style={{ background: '#0F1223' }}
+      style={{ background: 'var(--color-bg-elevated)' }}
     >
       <div className="flex items-start justify-between gap-2">
         {/* Ajuste 3: nome do LEAD em destaque, negócio como subtítulo */}

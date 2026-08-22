@@ -9,6 +9,25 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ### Fixed
 
+- **"Card preto" no tema claro**: mais uma leva do mesmo bug já corrigido
+  antes nesta sessão (fundo escuro hardcoded, ignorando `data-theme`), desta
+  vez em componentes que a varredura anterior (que só buscou `#0A0A0F`) não
+  pegou porque usavam um tom ligeiramente diferente (`#0F1223`) ou nem
+  seguiam o padrão de token nenhum:
+  - `sonner.tsx` (toasts): `theme="dark"` fixo + `rgba(15,18,35,0.85)` fixo no
+    fundo — todo toast, em qualquer tela (inclusive a de login, antes de
+    haver setor/sessão), sempre saía escuro por cima de um layout claro.
+    Agora observa `document.documentElement[data-theme]` via
+    `MutationObserver` e usa `var(--surface)`/`var(--color-border-card)`.
+  - `NotificationsDropdown.tsx`, `InboxFilters.tsx`, `ContactTagsEditor.tsx`,
+    `AIAgentSettings.tsx` (dropdowns flutuantes) e o card de deal do Kanban em
+    `FunilPage.tsx`: `bg-[#0F1223]` fixo → `var(--color-bg-elevated)`.
+  - Divisores internos do `NotificationsDropdown` (`border-white/5`,
+    `bg-white/[0.02]`, `hover:bg-white/[0.04]`, `divide-white/5`) trocados
+    pelo mesmo tom azulado translúcido já usado no resto do design system
+    (`rgba(59,130,246,0.0X)`) — os valores em branco ficavam praticamente
+    invisíveis sobre o fundo branco do tema claro.
+
 - **Security**: 5 `whatsapp_hub` SECURITY DEFINER functions had never had
   `EXECUTE` revoked from `anon`, so any unauthenticated request (the
   public `anon` key baked into the frontend build) could call them

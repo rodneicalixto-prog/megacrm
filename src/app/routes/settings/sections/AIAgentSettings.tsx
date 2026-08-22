@@ -200,7 +200,7 @@ export function AIAgentSettings() {
             className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-4 py-3 text-sm text-[var(--color-text-primary)] font-mono placeholder:text-[var(--color-text-secondary)] focus:outline-none focus:border-[var(--accent-primary)] focus:bg-white/[0.06]"
           />
           {varMenu && menuMatches.length > 0 && (
-            <div className="absolute z-20 mt-1 w-64 rounded-lg border border-[rgba(59,130,246,0.25)] bg-[#0F1223] shadow-2xl overflow-hidden">
+            <div className="absolute z-20 mt-1 w-64 rounded-lg border border-[rgba(59,130,246,0.25)] bg-[var(--color-bg-elevated)] shadow-2xl overflow-hidden">
               {menuMatches.map((k) => (
                 <button
                   key={k}

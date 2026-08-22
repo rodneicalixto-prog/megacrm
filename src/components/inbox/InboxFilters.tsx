@@ -301,7 +301,7 @@ export function InboxFilters({ filters, onChange, operators, tags, departments, 
                   : undefined
               }
               className={cn(
-                'z-50 bg-[#0F1223] border border-[rgba(59,130,246,0.25)] shadow-[0_0_40px_rgba(0,0,0,0.6)]',
+                'z-50 bg-[var(--color-bg-elevated)] border border-[rgba(59,130,246,0.25)] shadow-[0_0_40px_rgba(0,0,0,0.6)]',
                 'fixed inset-x-0 bottom-0 max-h-[80vh] overflow-y-auto rounded-t-2xl',
                 'sm:inset-x-auto sm:bottom-auto sm:w-80 sm:rounded-xl',
                 'sm:top-[var(--pop-top)] sm:right-[var(--pop-right)]',
