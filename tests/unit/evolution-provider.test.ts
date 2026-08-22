@@ -44,6 +44,26 @@ test('extendedTextMessage também é texto', () => {
   assert.equal(got?.contentType, 'text');
 });
 
+test('link com preview (jpegThumbnail embutido) vira contentType image', () => {
+  // Facebook/Instagram/YouTube etc: o Baileys manda a miniatura do link
+  // embutida em base64 junto do texto — sem tratar isso a mensagem chegava
+  // como texto puro, sem a "foto" que o WhatsApp mostra ao lado do link.
+  const got = provider.parseInboundWebhook({
+    event: 'messages.upsert',
+    data: {
+      key: { remoteJid: '5511999998888@s.whatsapp.net', fromMe: false, id: 'X2' },
+      message: {
+        extendedTextMessage: {
+          text: 'https://www.facebook.com/share/r/abc123',
+          jpegThumbnail: 'ZmFrZS1qcGVn', // base64 arbitrário só pra existir
+        },
+      },
+    },
+  });
+  assert.equal(got?.text, 'https://www.facebook.com/share/r/abc123');
+  assert.equal(got?.contentType, 'image');
+});
+
 test('mensagem de grupo é ignorada (senão a IA responderia no privado de quem falou)', () => {
   const got = provider.parseInboundWebhook({
     event: 'messages.upsert',
@@ -185,6 +205,34 @@ test('baixa e decodifica mídia inbound pela rota oficial da Evolution', async (
     globalThis.fetch = originalFetch;
   }
 });
+test('miniatura de link é decodificada direto do payload, sem chamar a Evolution', async () => {
+  const originalFetch = globalThis.fetch;
+  let fetchCalled = false;
+  globalThis.fetch = (async () => { fetchCalled = true; throw new Error('não deveria chamar a API'); }) as typeof fetch;
+
+  const payload = {
+    event: 'messages.upsert',
+    data: {
+      key: { remoteJid: '5511999998888@s.whatsapp.net', fromMe: false, id: 'X2' },
+      message: {
+        extendedTextMessage: {
+          text: 'https://www.facebook.com/share/r/abc123',
+          jpegThumbnail: btoa('fake-jpeg-bytes'),
+        },
+      },
+    },
+  };
+
+  try {
+    const media = await provider.downloadInboundMedia(payload);
+    assert.equal(fetchCalled, false);
+    assert.equal(media?.mime, 'image/jpeg');
+    assert.deepEqual(Array.from(media?.bytes ?? []), Array.from(new TextEncoder().encode('fake-jpeg-bytes')));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('áudio usa sendMedia como fallback quando sendWhatsAppAudio falha', async () => {
   const calls: Array<{ url: string; body: unknown }> = [];
   const originalFetch = globalThis.fetch;

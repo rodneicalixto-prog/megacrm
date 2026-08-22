@@ -9,6 +9,18 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ### Fixed
 
+- **Link compartilhado (Facebook/Instagram/YouTube...) chegava só como texto
+  cru, sem a foto de preview**: o WhatsApp mostra uma miniatura ao lado de um
+  link compartilhado, mas o webhook Evolution tratava `extendedTextMessage`
+  (o formato Baileys usa pra texto com preview) sempre como `contentType:
+  'text'`, ignorando o `jpegThumbnail` (base64) embutido no próprio payload.
+  `decodeBaileysContent` agora detecta esse thumbnail e devolve
+  `contentType: 'image'` com o texto do link como legenda;
+  `EvolutionProvider.downloadInboundMedia` decodifica o `jpegThumbnail` direto
+  do payload (sem chamar a API da Evolution) quando presente. Reaproveita a
+  pipeline existente de upload pro Storage e o branch de imagem já existente
+  em `MessageThread.tsx` — nenhum código novo em nenhum dos dois.
+  `whatsapp-inbound` redeployado (v12).
 - **Reações do WhatsApp não chegavam ao CRM**: reagir a uma mensagem pelo
   celular (dono da linha) ou pelo contato nunca aparecia na Inbox — o webhook
   Evolution (`whatsapp-inbound`) não reconhecia o payload `reactionMessage`

@@ -145,6 +145,16 @@ export class EvolutionProvider implements WhatsAppProvider {
     const key = asObject(data.key);
     if (!Object.keys(message).length && !str(key, ['id'])) return null;
 
+    // Miniatura de link (extendedTextMessage.jpegThumbnail) já vem embutida
+    // em base64 no próprio payload — não é mídia "de verdade" pra Evolution
+    // buscar, então decodifica direto em vez de chamar a API.
+    const linkThumbnail = str(asObject(message.extendedTextMessage), ['jpegThumbnail']);
+    if (linkThumbnail) {
+      const binary = atob(linkThumbnail.replace(/^data:[^;]+;base64,/, ''));
+      const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+      return { bytes, mime: 'image/jpeg', fileName: 'link-preview.jpg' };
+    }
+
     const res = await fetch(this.serverUrl + '/chat/getBase64FromMediaMessage/' + this.instance, {
       method: 'POST',
       headers: { apikey: this.apiKey, 'Content-Type': 'application/json' },

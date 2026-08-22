@@ -134,6 +134,14 @@ export function decodeBaileysContent(msg: Record<string, unknown>): {
   }
   const ext = asObject(msg.extendedTextMessage);
   if (typeof ext.text === 'string') {
+    // Link com preview (Facebook, Instagram, YouTube...) chega como texto,
+    // mas o Baileys embute uma miniatura (jpegThumbnail) junto — é a "foto"
+    // que o WhatsApp mostra ao lado do link. Sem isso a mensagem vira só a
+    // URL crua. downloadInboundMedia (Evolution) decodifica esse base64
+    // direto do payload, sem precisar pedir mídia pra API.
+    if (typeof ext.jpegThumbnail === 'string' && ext.jpegThumbnail.length > 0) {
+      return { contentType: 'image', content: ext.text, mediaUrl: null };
+    }
     return { contentType: 'text', content: ext.text, mediaUrl: null };
   }
   // Evolution com S3/MinIO anexa mediaUrl irmão dos *Message; preferimos ele.
