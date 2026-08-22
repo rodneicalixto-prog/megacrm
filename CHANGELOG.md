@@ -9,6 +9,23 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ### Fixed
 
+- **Certos tipos de mensagem do WhatsApp chegavam como bolha em branco no
+  Inbox** (relatado como "não visualizo o que chegou"): confirmado no banco
+  que as duas mensagens do caso tinham `content_type: 'text'` e `content:
+  null` — o Evolution/Baileys manda alguns tipos de mensagem embrulhados
+  num envelope (`ephemeralMessage`, `viewOnceMessage`/`V2`/`V2Extension`,
+  `documentWithCaptionMessage` — foto "visualização única", mensagem
+  efêmera, documento com legenda) em vez das chaves de sempre
+  (`imageMessage`, `conversation`, etc.), e `decodeBaileysContent` não
+  desembrulhava, caindo no fallback genérico com `content: null`.
+  `decodeBaileysContent` agora desembrulha esses envelopes recursivamente,
+  trata `stickerMessage` como imagem, `locationMessage`/`liveLocationMessage`
+  e `contactMessage` como texto legível, e — para qualquer tipo ainda não
+  mapeado (enquete, resposta de botão/lista, etc.) — devolve um rótulo
+  genérico `[Mensagem não suportada: <chave>]` em vez de `content: null`,
+  para nunca mais produzir uma bolha vazia sem nenhuma pista do que era.
+  As duas mensagens já gravadas em branco foram corrigidas via SQL direto.
+  `whatsapp-inbound` redeployado (v13).
 - **Botão "Responder" não fazia nada em conversas encerradas**: o composer
   (`MessageInput`, onde apareceria a faixa "Respondendo: ...") só é montado
   quando a conversa não está `closed`. Clicar no ícone de responder numa

@@ -124,11 +124,30 @@ export function jidToPhone(jid: string | null): string | null {
   return normalizePhone(bare);
 }
 
+// Mensagem "visualização única" / efêmera / documento-com-legenda embrulha a
+// mensagem real num envelope (`{ message: {...} }`) em vez de trazê-la nas
+// chaves de sempre — sem desembrulhar, caía direto no fallback genérico e
+// virava bolha em branco (content null). Recursivo: um envelope pode embrulhar
+// outro (ex.: efêmera + visualização única juntas).
+const ENVELOPE_KEYS = [
+  'ephemeralMessage',
+  'viewOnceMessage',
+  'viewOnceMessageV2',
+  'viewOnceMessageV2Extension',
+  'documentWithCaptionMessage',
+];
+
 export function decodeBaileysContent(msg: Record<string, unknown>): {
   contentType: NormalizedInbound['contentType'];
   content: string | null;
   mediaUrl: string | null;
 } {
+  for (const key of ENVELOPE_KEYS) {
+    const inner = asObject(asObject(msg[key]).message);
+    if (Object.keys(inner).length) {
+      return decodeBaileysContent(inner);
+    }
+  }
   if (typeof msg.conversation === 'string') {
     return { contentType: 'text', content: msg.conversation, mediaUrl: null };
   }
@@ -162,5 +181,29 @@ export function decodeBaileysContent(msg: Record<string, unknown>): {
   if (Object.keys(doc).length) {
     return { contentType: 'document', content: str(doc, ['caption', 'fileName']), mediaUrl: stored ?? str(doc, ['url', 'directPath']) };
   }
-  return { contentType: 'text', content: null, mediaUrl: null };
+  const sticker = asObject(msg.stickerMessage);
+  if (Object.keys(sticker).length) {
+    return { contentType: 'image', content: null, mediaUrl: stored ?? str(sticker, ['url', 'directPath']) };
+  }
+  const location = asObject(msg.locationMessage ?? msg.liveLocationMessage);
+  if (Object.keys(location).length) {
+    const lat = location.degreesLatitude;
+    const lng = location.degreesLongitude;
+    const link = typeof lat === 'number' && typeof lng === 'number' ? `https://maps.google.com/?q=${lat},${lng}` : null;
+    return { contentType: 'text', content: link ? `📍 Localização: ${link}` : '📍 Localização compartilhada', mediaUrl: null };
+  }
+  const contactCard = asObject(msg.contactMessage);
+  if (Object.keys(contactCard).length) {
+    return { contentType: 'text', content: `👤 Contato compartilhado: ${str(contactCard, ['displayName']) ?? 'sem nome'}`, mediaUrl: null };
+  }
+  // Tipo não mapeado (enquete, resposta de botão/lista, cartão de visita
+  // múltiplo, etc.) — melhor um rótulo genérico com a chave real (ajuda a
+  // identificar o tipo quando aparecer em produção) do que uma bolha em
+  // branco sem nenhuma pista.
+  const unknownKey = Object.keys(msg)[0];
+  return {
+    contentType: 'text',
+    content: unknownKey ? `[Mensagem não suportada: ${unknownKey}]` : '[Mensagem não suportada]',
+    mediaUrl: null,
+  };
 }

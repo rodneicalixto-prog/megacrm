@@ -64,6 +64,47 @@ test('link com preview (jpegThumbnail embutido) vira contentType image', () => {
   assert.equal(got?.contentType, 'image');
 });
 
+test('foto de visualização única (viewOnceMessage) é desembrulhada em vez de virar bolha em branco', () => {
+  const got = provider.parseInboundWebhook({
+    event: 'messages.upsert',
+    data: {
+      key: { remoteJid: '5511999998888@s.whatsapp.net', fromMe: false, id: 'VO1' },
+      message: {
+        viewOnceMessageV2: {
+          message: { imageMessage: { caption: 'olha só', url: 'https://cdn.example.com/x.jpg' } },
+        },
+      },
+    },
+  });
+  assert.equal(got?.contentType, 'image');
+  assert.equal(got?.text, 'olha só');
+  assert.equal(got?.mediaUrl, 'https://cdn.example.com/x.jpg');
+});
+
+test('figurinha (stickerMessage) vira contentType image', () => {
+  const got = provider.parseInboundWebhook({
+    event: 'messages.upsert',
+    data: {
+      key: { remoteJid: '5511999998888@s.whatsapp.net', fromMe: false, id: 'ST1' },
+      message: { stickerMessage: { url: 'https://cdn.example.com/sticker.webp' } },
+    },
+  });
+  assert.equal(got?.contentType, 'image');
+  assert.equal(got?.mediaUrl, 'https://cdn.example.com/sticker.webp');
+});
+
+test('tipo de mensagem desconhecido nunca vira bolha em branco (rótulo genérico com a chave real)', () => {
+  const got = provider.parseInboundWebhook({
+    event: 'messages.upsert',
+    data: {
+      key: { remoteJid: '5511999998888@s.whatsapp.net', fromMe: false, id: 'UNK1' },
+      message: { pollCreationMessage: { name: 'Qual dia?' } },
+    },
+  });
+  assert.equal(got?.contentType, 'text');
+  assert.equal(got?.text, '[Mensagem não suportada: pollCreationMessage]');
+});
+
 test('mensagem de grupo é ignorada (senão a IA responderia no privado de quem falou)', () => {
   const got = provider.parseInboundWebhook({
     event: 'messages.upsert',
