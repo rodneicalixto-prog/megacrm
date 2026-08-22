@@ -1255,3 +1255,74 @@ erros / 74 warnings (baseline inalterado), `npm run build` ok, `npm run
 test:unit` 184/184, `npm run validate:sql` 109 arquivos / 1220 statements.
 Migration aplicada em produção (projeto `lstbxeaasyysboavdati`) e
 `whatsapp-inbound` redeployado antes do commit.
+
+---
+
+### Décima segunda rodada (22/08/2026) — Chat interno (DM 1:1 entre usuários)
+
+Pedido do usuário, em sequência direta ao anterior:
+
+> "vai faltar o chat interno, onde os usuários possam conversar, veja se já
+> está no md ou já foi realizado"
+
+**Levantamento — não existia nada.** Grep em `PLANEJAMENTO.md`/`CLAUDE.md`/
+`docs/PLANO-HIERARQUIA.md` por "chat" não trouxe nenhum resultado. O único
+resquício era o valor `'mention'` do enum `whatsapp_hub.notification_type`,
+criado na migration inicial (`20260422120001_init.sql`) e nunca consumido por
+nenhum trigger, Edge Function ou tela — reservado e morto desde o começo. O
+que existe hoje (nota privada, `messages.is_private_note`) é um comentário
+preso a uma conversa de CLIENTE, não uma conversa entre atendentes.
+
+Perguntei formato (DM vs. DM+canais vs. só canais) e localização na UI via
+`AskUserQuestion`; o usuário dispensou a pergunta, mas emendou em seguida com
+contexto suficiente pra decidir sozinho: "teremos que ter uma lista de
+contatos internos e sinalizando quando estiverem ativos" (⇒ DM 1:1 com lista
+de contatos + presença, não canais) e depois "neste caso não haverá regras
+veladas por setor, todos se conversam" (⇒ sem escopo por departamento).
+
+**Implementado** (migration `20260822150000_internal_chat.sql`, aplicada em
+produção):
+
+- `whatsapp_hub.internal_conversations` — par `(user_a, user_b)` normalizado
+  (`user_a < user_b`, `CHECK` + `UNIQUE`) pra que (A,B) e (B,A) sempre caiam
+  na mesma linha. `last_message_at` + `last_read_a`/`last_read_b` pra
+  contagem de não lidas sem tabela extra.
+- `whatsapp_hub.internal_messages` — mensagens da conversa, trigger
+  `_bump_internal_conversation` atualiza `last_message_at` no INSERT.
+- Duas RPCs `SECURITY DEFINER` são o ÚNICO caminho de escrita em
+  `internal_conversations` (não há policy de INSERT/UPDATE direta):
+  `get_or_create_internal_conversation(p_peer_id)` — client só manda o
+  peer_id, a RPC normaliza a ordem e faz upsert; e
+  `mark_internal_conversation_read(p_conversation_id)` — só marca o lado de
+  quem chamou, então ninguém adultera a marca de leitura do outro.
+- RLS de `internal_messages`: SELECT/INSERT exigem que `auth.uid()` seja um
+  dos dois participantes da conversa — sem recorte de setor, como pedido.
+- Presença reaproveita o heartbeat que já existe pro round-robin
+  (`app_users.is_online`/`last_seen_at`) — `list_operators()` (RPC já usada
+  por `useOperators`) ganhou essas duas colunas em vez de um mecanismo de
+  presença novo. Precisou `DROP FUNCTION` antes do `CREATE` porque
+  `CREATE OR REPLACE` não troca o shape de um `RETURNS TABLE`.
+- Realtime nas duas tabelas (`ALTER PUBLICATION supabase_realtime ADD
+  TABLE`), mesmo padrão do Inbox.
+- Frontend: `useInternalChat.ts` (dois hooks — lista de conversas com
+  contagem de não lidas, e mensagens de uma conversa aberta com realtime),
+  `TeamChatPage.tsx` em `/team-chat` (novo item de nav "Chat interno", logo
+  depois de Inbox) — painel esquerdo com todos os membros da instância
+  (bolinha verde/cinza de presença, nome, setor, prévia de última mensagem,
+  indicador de não lida), painel direito com thread de bolhas 1:1 + input.
+  Sem gate de módulo comercial nem `adminOnly` — todo mundo vê e usa.
+- Não integrado ao sino de notificações genérico (`whatsapp_hub.notifications`)
+  nesta rodada — exigiria uma segunda migration só pra adicionar valor ao
+  enum `notification_type` (`ALTER TYPE ... ADD VALUE` não pode rodar na
+  mesma transação que o uso do valor nesse mesmo enum). Ficou fora do escopo
+  desta entrega; o chat já tem realtime + indicador de não lida na própria
+  tela, o que cobre o essencial.
+
+Pipeline de validação completa: `tsc -b --noEmit` limpo, `npm run lint` 0
+erros / 76 warnings (+2 do mesmo padrão `void reload()` já aceito em todo
+hook do projeto), `npm run build` ok, `npm run test:unit` 184/184, `npm run
+validate:sql` 110 arquivos / 1246 statements. Migration aplicada em produção
+(`lstbxeaasyysboavdati`) — a primeira tentativa falhou
+(`cannot change return type of existing function`, `list_operators()`
+precisava de `DROP FUNCTION` antes do `CREATE`) e foi corrigida e reaplicada
+com sucesso antes do commit.

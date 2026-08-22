@@ -437,6 +437,25 @@ service role key vêm de Vault entries (`whatsapp_hub_supabase_url`,
 - Atribuição automática round-robin entre operadores com `is_online = true`.
 - Filtros: status, assigned_to, tags, período.
 
+### Chat interno
+
+- DM 1:1 entre membros da instância, sem relação com contatos/atendimento —
+  rota própria (`/team-chat`), não é uma aba do Inbox.
+- `whatsapp_hub.internal_conversations` (par `user_a < user_b`, `UNIQUE`) +
+  `whatsapp_hub.internal_messages`. Sem canais por setor e sem regra de
+  visibilidade por departamento — qualquer membro fala com qualquer outro.
+- Conversa é obtida via RPC `get_or_create_internal_conversation(p_peer_id)`
+  (normaliza o par e faz upsert); marcar como lida via
+  `mark_internal_conversation_read(p_conversation_id)`. Não há policy de
+  INSERT/UPDATE direta em `internal_conversations` — só essas duas RPCs
+  `SECURITY DEFINER` escrevem nela, o que impede o client de forjar o par ou
+  a marca de leitura do outro participante.
+- Presença reaproveita o heartbeat que já existe pro round-robin
+  (`app_users.is_online`/`last_seen_at`) — `list_operators()` passou a
+  devolver os dois campos, sem mecanismo de presença novo.
+- Realtime nos dois canais (`internal_conversations`, `internal_messages`),
+  mesmo padrão do Inbox.
+
 ### Dashboard
 
 - Cards de métricas (mensagens enviadas / entregues / lidas / respondidas,
@@ -466,6 +485,7 @@ src/
 │   │   ├── invite/            aceite de convite (Supabase Auth nativo)
 │   │   ├── dashboard/
 │   │   ├── inbox/
+│   │   ├── team-chat/         Chat interno — DM 1:1 entre membros, sem relação com atendimento
 │   │   ├── campaigns/         inclui a aba Templates (rota própria removida)
 │   │   ├── mass-dispatch/     Disparo em massa via Evolution (abas Disparos/Arquivos, módulo `disparo_massa`)
 │   │   ├── contacts/

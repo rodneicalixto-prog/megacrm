@@ -8,6 +8,8 @@ export interface Operator {
   full_name: string | null;
   department_id: string | null;
   department_name: string | null;
+  is_online: boolean;
+  last_seen_at: string | null;
 }
 
 // Rótulo de uma pessoa na UI. O e-mail sozinho não identifica ninguém quando as

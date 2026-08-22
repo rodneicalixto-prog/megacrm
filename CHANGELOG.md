@@ -56,6 +56,22 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ### Added
 
+- **Chat interno** (new route `/team-chat`): 1:1 DMs between instance members,
+  fully decoupled from customer conversations — no department scoping, no
+  Zernio/Evolution involvement, everyone can message everyone. Didn't exist
+  at all before (the only trace was an unused `'mention'` value in
+  `notification_type`, dead since the very first migration); requested
+  directly by the user after confirming it. New tables
+  `internal_conversations` (normalized `user_a < user_b` pair, `UNIQUE`) and
+  `internal_messages`, both realtime-enabled. Two `SECURITY DEFINER` RPCs are
+  the only write path into `internal_conversations`
+  (`get_or_create_internal_conversation`, `mark_internal_conversation_read`)
+  — no direct INSERT/UPDATE policy, so a client can't forge the pair or mark
+  the other participant's side as read. Presence reuses the existing
+  round-robin heartbeat (`app_users.is_online`/`last_seen_at`) instead of a
+  new mechanism — `list_operators()` now also returns those two columns.
+  Left-panel contact list shows every teammate with an online/offline dot
+  and unread indicator; right panel is a plain 1:1 thread.
 - Commercial plan gating for Campanhas, Vendas & Recompra, and Agente de IA:
   these three nav items and their pages/RLS writes are now controlled by
   `public.instance_plan.enabled_modules` (service-role-only, no edit UI —

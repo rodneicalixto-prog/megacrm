@@ -10,6 +10,7 @@ import {
   SquareKanban,
   CalendarDays,
   Send,
+  MessageCircle,
 } from 'lucide-react';
 import type { CommercialModule } from '@/lib/plan';
 
@@ -44,6 +45,7 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/inbox', label: 'Inbox', icon: Inbox },
+  { to: '/team-chat', label: 'Chat interno', icon: MessageCircle },
   { to: '/funil', label: 'Funil', icon: SquareKanban },
   { to: '/agenda', label: 'Agenda', icon: CalendarDays },
   { to: '/contacts', label: 'Contatos', icon: Users },
