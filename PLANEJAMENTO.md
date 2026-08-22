@@ -973,9 +973,10 @@ em aberto no momento):
    tela/dropdown específico do MegaCRM está sendo descrito; os prints do
    usuário mostravam majoritariamente o sosapp.sosbot.online como
    referência. Precisa de uma captura de tela do MegaCRM apontando o menu
-   específico antes de virar tarefa — **único item da lista original que
-   permanece em aberto**, bloqueado por falta de informação, não por
-   esforço de implementação.
+   específico antes de virar tarefa. **Adiado explicitamente pelo usuário**
+   (21/08/2026: "deixa pra depois") — não é mais um bloqueio ativo desta
+   sessão, é decisão de priorização. Retomar quando o usuário trouxer o
+   print/confirmação.
 
 ### Nona rodada, mesma data (21/08/2026) — canal de "Disparo em massa"
 
@@ -1166,12 +1167,15 @@ implementados e enviados pra produção nesta sessão:
 2. ✅ Horário de atendimento por usuário — Décima rodada (mesmo componente
    do item 1, cascata usuário → setor → global).
 3. ✅ Canal de disparo em massa via Evolution — Nona rodada.
-4. ⏳ Item "1-" ambíguo do feedback ("janela de opções deveria ser visível,
-   não oculta aguardando o mouse") — **único item que segue sem
-   implementação**, e não por falta de esforço: ainda não há confirmação de
-   qual tela/dropdown específico do MegaCRM está sendo descrito. Os prints
-   originais do usuário mostravam majoritariamente a interface do
-   sosapp.sosbot.online (referência externa), não o MegaCRM. Pra desbloquear,
-   precisa de uma captura de tela do MegaCRM apontando o menu/dropdown
-   específico que deveria ficar sempre visível em vez de aparecer só no
-   hover do mouse.
+4. 🔜 Item "1-" ambíguo do feedback ("janela de opções deveria ser visível,
+   não oculta aguardando o mouse") — **adiado explicitamente pelo usuário**
+   (21/08/2026: "deixa pra depois, prossiga com o md"), não por falta de
+   esforço: ainda não há confirmação de qual tela/dropdown específico do
+   MegaCRM está sendo descrito. Os prints originais do usuário mostravam
+   majoritariamente a interface do sosapp.sosbot.online (referência
+   externa), não o MegaCRM. Retomar quando o usuário trouxer uma captura de
+   tela do MegaCRM apontando o menu/dropdown específico.
+
+Com isso, a lista de pendências consolidada nesta sessão está fechada: 3
+itens implementados e verificados em produção, 1 item adiado por decisão
+do usuário. Nenhuma tarefa aberta desta lista aguardando ação imediata.
