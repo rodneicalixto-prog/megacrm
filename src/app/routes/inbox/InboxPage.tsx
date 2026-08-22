@@ -262,6 +262,17 @@ export default function InboxPage() {
     }
   };
 
+  // Conversa fechada não renderiza o composer (MessageInput), então clicar em
+  // "Responder" numa mensagem antiga não tinha onde mostrar a faixa
+  // "Respondendo: ..." — o botão parecia simplesmente não fazer nada. Reabrir
+  // primeiro é a mesma ação que o botão "Reabrir" já faz.
+  const handleReply = (message: ThreadMessage) => {
+    if (selected?.status === 'closed') {
+      void setStatus(selected.id, 'human_active');
+    }
+    setReplyMessage(message);
+  };
+
   return (
     <div className="h-[calc(100vh-6rem)] flex flex-col">
       <div className="flex items-center justify-between mb-4">
@@ -443,7 +454,7 @@ export default function InboxPage() {
                 onRetry={retry}
                 onDismiss={dismissFailed}
                 onForward={setForwardMessage}
-                onReply={setReplyMessage}
+                onReply={handleReply}
                 onReact={(message, emoji) => void reactToMessage(message, emoji)}
               />
               {selected.status !== 'closed' && (

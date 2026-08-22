@@ -9,6 +9,13 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ### Fixed
 
+- **Botão "Responder" não fazia nada em conversas encerradas**: o composer
+  (`MessageInput`, onde apareceria a faixa "Respondendo: ...") só é montado
+  quando a conversa não está `closed`. Clicar no ícone de responder numa
+  mensagem de uma conversa finalizada atualizava o estado, mas não havia
+  onde mostrar isso — parecia um clique morto. `onReply` agora reabre a
+  conversa (mesma ação do botão "Reabrir") antes de marcar a mensagem
+  como resposta.
 - **Link compartilhado (Facebook/Instagram/YouTube...) chegava só como texto
   cru, sem a foto de preview**: o WhatsApp mostra uma miniatura ao lado de um
   link compartilhado, mas o webhook Evolution tratava `extendedTextMessage`
