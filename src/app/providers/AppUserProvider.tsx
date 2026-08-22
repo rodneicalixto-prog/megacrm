@@ -1,10 +1,12 @@
 import {
   createContext,
   useContext,
+  useEffect,
   useMemo,
   type ReactNode,
 } from 'react';
 import { useAuth } from './AuthProvider';
+import { getSupabase } from '@/lib/supabase';
 
 // ----------------------------------------------------------------------------
 // AppUserProvider
@@ -40,6 +42,34 @@ function readRoleFromUser(appMetadata: Record<string, unknown> | undefined): App
   return null;
 }
 
+// Heartbeat de presença: chama a RPC set_own_presence a cada 45s enquanto a
+// sessão estiver ativa. O round-robin de handoff (next_department_assignee)
+// só considera "online" quem tem last_seen_at nos últimos 2min — bem folgado
+// em relação a este intervalo — então uma aba fechada sem aviso (crash,
+// notebook fechado) expira sozinha em vez de ficar "online" pra sempre.
+const HEARTBEAT_INTERVAL_MS = 45_000;
+
+function usePresenceHeartbeat(userId: string | null) {
+  useEffect(() => {
+    if (!userId) return;
+    const supabase = getSupabase();
+
+    const ping = (online: boolean) => {
+      void supabase.schema('whatsapp_hub').rpc('set_own_presence', { p_online: online });
+    };
+
+    ping(true);
+    const interval = window.setInterval(() => ping(true), HEARTBEAT_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(interval);
+      // Melhor esforço: cobre logout/troca de usuário na mesma aba. Fechar a
+      // aba direto não dispara isso — para esse caso vale a expiração acima.
+      ping(false);
+    };
+  }, [userId]);
+}
+
 export function AppUserProvider({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
 
@@ -47,10 +77,13 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
     () => readRoleFromUser(user?.app_metadata as Record<string, unknown> | undefined),
     [user],
   );
+  const userId = user?.id ?? null;
+
+  usePresenceHeartbeat(userId);
 
   const value = useMemo<AppUserContextValue>(
-    () => ({ userId: user?.id ?? null, role, loading }),
-    [user, role, loading],
+    () => ({ userId, role, loading }),
+    [userId, role, loading],
   );
 
   return <AppUserContext.Provider value={value}>{children}</AppUserContext.Provider>;

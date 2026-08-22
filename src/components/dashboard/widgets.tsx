@@ -163,7 +163,7 @@ export function ForecastWidget({
       headerRight={
         <span className="group relative inline-flex cursor-help text-[var(--color-text-secondary)] transition hover:text-[var(--color-text-primary)]">
           <HelpCircle className="h-4 w-4" />
-          <span className="pointer-events-none absolute right-0 top-6 z-20 w-64 rounded-lg border border-[rgba(59,130,246,0.25)] bg-[#0A0A0F] px-3 py-2 text-xs leading-5 text-[var(--color-text-primary)] opacity-0 shadow-[0_0_30px_rgba(59,130,246,0.15)] transition-opacity duration-200 group-hover:opacity-100">
+          <span className="pointer-events-none absolute right-0 top-6 z-20 w-64 rounded-lg border border-[var(--color-border-card)] bg-[var(--color-bg-elevated)] px-3 py-2 text-xs leading-5 text-[var(--color-text-primary)] opacity-0 shadow-[0_0_30px_rgba(59,130,246,0.15)] transition-opacity duration-200 group-hover:opacity-100">
             Receita projetada de todo o pipeline aberto, não depende do período selecionado
           </span>
         </span>

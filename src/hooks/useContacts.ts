@@ -175,18 +175,28 @@ export function useContacts({
       return;
     }
 
-    const { data: linkRows, error: linkErr } = await supabase
-      .from('contact_tags')
-      .select('contact_id, tag:tag_id(id, name, color, created_at, updated_at)')
-      .in('contact_id', ids);
+    // A página pode ter até 1000 ids (PAGE_SIZE_OPTIONS inclui 1000) — fatia
+    // os .in() em lotes de 100 e mescla, mesmo padrão do ramo de tag acima.
+    const idChunks = chunkArray(ids, IN_FILTER_CHUNK_SIZE);
+
+    const linkResults = await Promise.all(
+      idChunks.map((chunk) =>
+        supabase
+          .from('contact_tags')
+          .select('contact_id, tag:tag_id(id, name, color, created_at, updated_at)')
+          .in('contact_id', chunk),
+      ),
+    );
+    const linkErr = linkResults.find((r) => r.error)?.error;
     if (linkErr) {
       setError(linkErr.message);
       setLoading(false);
       return;
     }
+    const linkRows = linkResults.flatMap((r) => r.data ?? []);
 
     const byContact = new Map<string, Tag[]>();
-    for (const row of linkRows ?? []) {
+    for (const row of linkRows) {
       const contactId = row.contact_id as string;
       const tag = row.tag as unknown as Tag | null;
       if (!tag) continue;
@@ -196,13 +206,21 @@ export function useContacts({
     }
 
     // Origem: traffic_type do deal mais recente de cada contato (coluna Origem).
-    const { data: dealRows } = await supabase
-      .from('deals')
-      .select('contact_id, traffic_type, created_at')
-      .in('contact_id', ids)
-      .order('created_at', { ascending: false });
+    const dealResults = await Promise.all(
+      idChunks.map((chunk) =>
+        supabase
+          .from('deals')
+          .select('contact_id, traffic_type, created_at')
+          .in('contact_id', chunk)
+          .order('created_at', { ascending: false }),
+      ),
+    );
+    const dealRows = dealResults.flatMap((r) => r.data ?? []) as Array<{
+      contact_id: string; traffic_type: string | null; created_at: string;
+    }>;
+    dealRows.sort((a, b) => b.created_at.localeCompare(a.created_at));
     const trafficByContact = new Map<string, string | null>();
-    for (const d of (dealRows ?? []) as Array<{ contact_id: string; traffic_type: string | null }>) {
+    for (const d of dealRows) {
       if (!trafficByContact.has(d.contact_id)) trafficByContact.set(d.contact_id, d.traffic_type);
     }
 
@@ -271,7 +289,12 @@ export function useContacts({
   const remove: UseContactsResult['remove'] = async (ids) => {
     if (ids.length === 0) return;
     const supabase = getSupabase();
-    const { error: err } = await supabase.schema('whatsapp_hub').from('contacts').delete().in('id', ids);
+    const results = await Promise.all(
+      chunkArray(ids, IN_FILTER_CHUNK_SIZE).map((chunk) =>
+        supabase.schema('whatsapp_hub').from('contacts').delete().in('id', chunk),
+      ),
+    );
+    const err = results.find((r) => r.error)?.error;
     if (err) {
       setError(err.message);
       throw new Error(translateContactError(err.message));

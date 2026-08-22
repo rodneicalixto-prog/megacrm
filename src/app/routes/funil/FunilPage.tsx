@@ -112,7 +112,7 @@ export default function FunilPage() {
             {pickerOpen && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setPickerOpen(false)} />
-                <div className="absolute right-0 z-20 mt-1 w-56 rounded-lg border border-[rgba(59,130,246,0.25)] bg-[#0A0A0F] p-1 shadow-[0_0_30px_rgba(59,130,246,0.15)]">
+                <div className="absolute right-0 z-20 mt-1 w-56 rounded-lg border border-[var(--color-border-card)] bg-[var(--color-bg-elevated)] p-1 shadow-[0_0_30px_rgba(59,130,246,0.15)]">
                   {pipelines.map((p) => (
                     <button
                       key={p.id}
@@ -129,14 +129,18 @@ export default function FunilPage() {
               </>
             )}
           </div>
-          {canSeeAdminNav(role) && (
-            <button
-              onClick={() => setManageOpen(true)}
-              className="inline-flex items-center gap-2 rounded-lg border border-[rgba(59,130,246,0.25)] px-3 py-2 text-sm text-[var(--accent-secondary)] transition hover:border-[var(--accent-primary)]"
-            >
-              <Settings2 className="h-4 w-4" /> Gerenciar funis
-            </button>
-          )}
+          {/* Sem gate de admin: qualquer papel operante pode criar/gerenciar o
+              PRÓPRIO funil pessoal (RLS: owner_id = auth.uid()), sem limite de
+              quantidade — só funil "da empresa" (owner_id NULL) é admin-only,
+              e isso já é reforçado pela RLS + toast em FunilManager. Antes
+              este botão era admin-only e escondia a função inteira de
+              supervisor/operator, apesar da policy já permitir. */}
+          <button
+            onClick={() => setManageOpen(true)}
+            className="inline-flex items-center gap-2 rounded-lg border border-[rgba(59,130,246,0.25)] px-3 py-2 text-sm text-[var(--accent-secondary)] transition hover:border-[var(--accent-primary)]"
+          >
+            <Settings2 className="h-4 w-4" /> Gerenciar funis
+          </button>
           <div className="relative">
             <button
               onClick={() => setQuickAddOpen((v) => !v)}
@@ -148,7 +152,7 @@ export default function FunilPage() {
             {quickAddOpen && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setQuickAddOpen(false)} />
-                <div className="absolute right-0 z-20 mt-1 w-64 rounded-lg border border-[rgba(59,130,246,0.25)] bg-[#0A0A0F] p-3 shadow-[0_0_30px_rgba(59,130,246,0.15)]">
+                <div className="absolute right-0 z-20 mt-1 w-64 rounded-lg border border-[var(--color-border-card)] bg-[var(--color-bg-elevated)] p-3 shadow-[0_0_30px_rgba(59,130,246,0.15)]">
                   <AddDealForm
                     contacts={contacts}
                     stages={stages}

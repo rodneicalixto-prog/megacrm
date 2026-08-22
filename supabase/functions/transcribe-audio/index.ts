@@ -11,9 +11,15 @@
 //      as multipart/form-data.
 //   4. Update message.content with the transcription so the Inbox can render
 //      text + preserve media_url for replay.
+//   5. On success, invoke process-ai-message directly for this message_id —
+//      the UPDATE in step 4 does not re-fire the AFTER INSERT trigger that
+//      normally drives the AI reply, so without this call the agent would
+//      stay silent on a contact's first audio turn (gap conhecido, corrigido
+//      aqui: transcribe-audio passa a acionar a IA explicitamente).
 //
 // On any failure we write a marker into content so the operator sees something
-// actionable instead of a blank audio bubble.
+// actionable instead of a blank audio bubble; process-ai-message is only
+// invoked on the success path.
 // ============================================================================
 
 import { getAdminClient } from '../_shared/supabase-admin.ts';
@@ -37,6 +43,35 @@ async function downloadAudio(url: string): Promise<{ blob: Blob; mime: string }>
   const blob = await res.blob();
   const mime = res.headers.get('content-type') ?? 'audio/ogg';
   return { blob, mime };
+}
+
+// Aciona a IA para este message_id agora que o content tem a transcrição —
+// ver nota no cabeçalho do arquivo. Erros aqui são logados e engolidos: a
+// transcrição já foi persistida com sucesso, então a resposta desta função
+// não deve virar falha por causa de um passo seguinte best-effort.
+async function invokeProcessAiMessage(messageId: string): Promise<void> {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!supabaseUrl || !serviceRoleKey) return;
+  try {
+    const res = await fetch(`${supabaseUrl}/functions/v1/process-ai-message`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${serviceRoleKey}`,
+      },
+      body: JSON.stringify({ message_id: messageId }),
+    });
+    if (!res.ok) {
+      console.log(JSON.stringify({ event: 'transcribe_audio_ai_trigger_failed', messageId, status: res.status }));
+    }
+  } catch (err) {
+    console.log(JSON.stringify({
+      event: 'transcribe_audio_ai_trigger_error',
+      messageId,
+      error: err instanceof Error ? err.message : 'erro desconhecido',
+    }));
+  }
 }
 
 async function transcribeWithWhisper(openaiKey: string, blob: Blob, mime: string): Promise<string> {
@@ -124,6 +159,8 @@ Deno.serve(async (req) => {
       .from('messages')
       .update({ content: transcript })
       .eq('id', message.id);
+
+    await invokeProcessAiMessage(message.id);
 
     return jsonResponse({ ok: true, chars: transcript.length });
   } catch (err) {

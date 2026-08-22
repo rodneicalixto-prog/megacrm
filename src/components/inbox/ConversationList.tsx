@@ -113,7 +113,7 @@ export function ConversationList({
                   </div>
                   <span
                     title={chan.label}
-                    className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#0A0A0F] ring-1 ring-[rgba(59,130,246,0.2)]"
+                    className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--color-bg-elevated)] ring-1 ring-[rgba(59,130,246,0.2)]"
                   >
                     <ChanIcon className={cn('h-2.5 w-2.5', chan.color)} />
                   </span>

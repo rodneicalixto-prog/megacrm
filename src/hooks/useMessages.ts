@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getSupabase } from '@/lib/supabase';
 import { useAppUser } from '@/app/providers/AppUserProvider';
 import type { Message } from '@/types/inbox';
@@ -34,8 +34,17 @@ export function useMessages(conversationId: string | null): UseMessagesResult {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Guarda contra corrida ao trocar de conversa rápido: se a resposta de uma
+  // conversa antiga chegar depois de já termos trocado pra outra, ela não
+  // pode sobrescrever o estado com mensagens da conversa errada.
+  const conversationIdRef = useRef(conversationId);
+  useEffect(() => {
+    conversationIdRef.current = conversationId;
+  }, [conversationId]);
+
   const reload = useCallback(async () => {
-    if (!conversationId) {
+    const requestedId = conversationId;
+    if (!requestedId) {
       setReal([]);
       setLoading(false);
       return;
@@ -46,8 +55,9 @@ export function useMessages(conversationId: string | null): UseMessagesResult {
     const { data, error: err } = await supabase.schema('whatsapp_hub')
       .from('messages')
       .select('*')
-      .eq('conversation_id', conversationId)
+      .eq('conversation_id', requestedId)
       .order('created_at', { ascending: true });
+    if (conversationIdRef.current !== requestedId) return;
     if (err) setError(err.message);
     else setReal((data ?? []) as Message[]);
     setLoading(false);

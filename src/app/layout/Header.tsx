@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { NotificationsDropdown } from '@/components/NotificationsDropdown';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { useOperators, operatorLabel } from '@/hooks/useOperators';
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -13,6 +14,11 @@ interface HeaderProps {
 export function Header({ onMenuClick }: HeaderProps) {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
+  // Nome de cadastro em vez do e-mail — operatorLabel já cai pro e-mail
+  // quando full_name está vazio (conta criada antes do cadastro pedir nome).
+  const { operators } = useOperators();
+  const me = operators.find((o) => o.user_id === user?.id);
+  const displayName = me ? operatorLabel(me) : (user?.email ?? '—');
 
   const handleLogout = async () => {
     await signOut();
@@ -45,7 +51,7 @@ export function Header({ onMenuClick }: HeaderProps) {
               Conectado
             </div>
             <div className="text-xs font-medium text-[var(--color-text-primary)] max-w-[200px] truncate">
-              {user?.email ?? '—'}
+              {displayName}
             </div>
           </div>
           <Button

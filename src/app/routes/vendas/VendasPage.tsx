@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { BarChart3, Loader2, MoreVertical, RefreshCw, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { getSupabase } from '@/lib/supabase';
 import { useAppUser } from '@/app/providers/AppUserProvider';
+import { useEnabledModules } from '@/hooks/useEnabledModules';
 import { useSalesUpload, withHeaderRow, SALES_FIELDS, type PreparedSheet } from '@/hooks/useSalesUpload';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -48,11 +49,12 @@ const STATUS_OPTIONS = ['pending', 'sent', 'converted', 'snoozed'];
 
 const inputCls =
   'w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)]';
-const selectCls = `${inputCls} [&>option]:bg-[#0A0A0F]`;
+const selectCls = `${inputCls} [&>option]:bg-[var(--color-bg-elevated)]`;
 
 export default function VendasPage() {
   const { role } = useAppUser();
   const isAdmin = role === 'admin';
+  const { loading: loadingModules, hasModule } = useEnabledModules();
   const navigate = useNavigate();
   const { prepare, commit, busy, result } = useSalesUpload();
   const [metrics, setMetrics] = useState<Metrics | null>(null);
@@ -116,6 +118,16 @@ export default function VendasPage() {
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  if (loadingModules) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <Loader2 className="h-5 w-5 animate-spin text-[var(--accent-primary)]" />
+      </div>
+    );
+  }
+  // Módulo Vendas & Recompra: só entra quem contratou (ver docs/PLANEJAMENTO.md).
+  if (!hasModule('vendas')) return <Navigate to="/dashboard" replace />;
 
   // Seleção de arquivo → lê e abre o popup de mapeamento com sugestão automática.
   const handleFile = async (file: File) => {
@@ -433,7 +445,7 @@ export default function VendasPage() {
                             <div className="fixed inset-0 z-10" onClick={() => setMenuFor(null)} />
                             <div
                               style={{ position: 'fixed', top: menuFor.top, left: menuFor.left }}
-                              className="z-20 w-52 rounded-lg border border-[rgba(59,130,246,0.25)] bg-[#0A0A0F] p-1 text-left shadow-[0_0_30px_rgba(59,130,246,0.15)]"
+                              className="z-20 w-52 rounded-lg border border-[var(--color-border-card)] bg-[var(--color-bg-elevated)] p-1 text-left shadow-[0_0_30px_rgba(59,130,246,0.15)]"
                             >
                               <button onClick={() => void dispatchNow(p)} className="block w-full rounded-md px-3 py-2 text-left text-xs text-[var(--color-text-primary)] transition hover:bg-white/5">
                                 Disparar mensagem agora

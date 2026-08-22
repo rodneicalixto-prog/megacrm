@@ -342,7 +342,7 @@ function LinkChannelModal({
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-2xl border border-[rgba(59,130,246,0.25)] bg-[#0A0A0F] p-5 shadow-[0_0_40px_rgba(59,130,246,0.15)]">
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-2xl border border-[var(--color-border-card)] bg-[var(--color-bg-elevated)] p-5 shadow-[0_0_40px_rgba(59,130,246,0.15)]">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-base font-bold text-display">Vincular canal</h3>
           <button onClick={onClose} aria-label="Fechar" className="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"><X className="h-5 w-5" /></button>

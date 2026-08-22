@@ -9,7 +9,9 @@ import {
   type LucideIcon,
   SquareKanban,
   CalendarDays,
+  Send,
 } from 'lucide-react';
+import type { CommercialModule } from '@/lib/plan';
 
 // Quem enxerga item marcado adminOnly. Uma função em vez da comparação solta
 // que estava repetida em três telas: quando super_admin entrou no enum, duas
@@ -27,6 +29,11 @@ export interface NavItem {
   // Credenciais (escrita admin-only — antes a rota existia mas sem link,
   // deixando Configurações/Equipe/Conta inalcançáveis pela UI).
   adminOnly?: boolean;
+  // Itens ligados a um módulo do pacote comercial (Campanhas / Vendas &
+  // Recompra / Agente de IA): só aparecem se a instalação tiver contratado
+  // esse módulo (ver useEnabledModules / get-instance-plan). Independente de
+  // adminOnly — os dois filtros se combinam.
+  module?: CommercialModule;
 }
 
 // Single source of truth for both the Sidebar and the router. Adding a new
@@ -40,8 +47,9 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/funil', label: 'Funil', icon: SquareKanban },
   { to: '/agenda', label: 'Agenda', icon: CalendarDays },
   { to: '/contacts', label: 'Contatos', icon: Users },
-  { to: '/campaigns', label: 'Campanhas', icon: Megaphone },
-  { to: '/vendas', label: 'Vendas & Recompra', icon: BarChart3 },
-  { to: '/ai-agent', label: 'Agente de IA', icon: Bot, adminOnly: true },
+  { to: '/campaigns', label: 'Campanhas', icon: Megaphone, module: 'campaigns' },
+  { to: '/disparo-massa', label: 'Disparo em massa', icon: Send, module: 'disparo_massa' },
+  { to: '/vendas', label: 'Vendas & Recompra', icon: BarChart3, module: 'vendas' },
+  { to: '/ai-agent', label: 'Agente de IA', icon: Bot, adminOnly: true, module: 'ai_agent' },
   { to: '/settings/profile', label: 'Configurações', icon: Settings },
 ];

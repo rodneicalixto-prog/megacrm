@@ -47,7 +47,7 @@ export default function InboxPage() {
   const { operators } = useOperators();
   const { tags } = useTags();
   const { departments, lines } = useDepartments();
-  const { userId } = useAppUser();
+  const { userId, role } = useAppUser();
 
   // Persiste os filtros na querystring (namespace f*), preservando ?conversation.
   const updateFilters = (next: InboxFilterState) => {
@@ -317,7 +317,7 @@ export default function InboxPage() {
               className="lg:hidden w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-2.5 py-2 text-xs text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
             >
               {QUEUES.map((q) => (
-                <option key={q.id} value={q.id} className="bg-[#0A0A0F]">
+                <option key={q.id} value={q.id} className="bg-[var(--color-bg-elevated)]">
                   {q.label}
                 </option>
               ))}
@@ -488,6 +488,7 @@ export default function InboxPage() {
               conversation={selected}
               withinWindow={withinWindow}
               operators={operators}
+              canReassign={role !== 'operator'}
               onPauseAI={() => setAiPaused(selected.id, true)}
               onResumeAI={() => setAiPaused(selected.id, false)}
               onClose={() => setStatus(selected.id, 'closed')}

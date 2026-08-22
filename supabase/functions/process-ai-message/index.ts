@@ -25,6 +25,7 @@ import { loadAppCredentials } from '../_shared/tenant-credentials.ts';
 import { callLLM, type LLMProvider } from '../_shared/llm.ts';
 import { jsonResponse, preflight } from '../_shared/cors.ts';
 import { requireServiceRole } from '../_shared/auth.ts';
+import { isModuleEnabled } from '../_shared/plan.ts';
 import { createInboxConversation, loadZernioContext, sendInboxMessage } from '../_shared/zernio.ts';
 import { applyVariables, extractHandoff, extractMedia } from '../_shared/ai-reply.ts';
 import { buildScheduleVars } from '../_shared/business-hours.ts';
@@ -56,6 +57,42 @@ interface ConversationRow {
   connection_id: string | null;
   channel: string | null;
   zernio_conversation_id: string | null;
+  assigned_to: string | null;
+}
+
+// Cascata de horário de atendimento: usuário atribuído > setor da conversa >
+// padrão global da instância. NULL nas duas colunas de um nível = "sem
+// override aqui, sobe pro próximo" (ver 20260822000000_business_hours_per_department_and_user.sql).
+async function resolveBusinessHours(
+  admin: ReturnType<typeof getAdminClient>,
+  assignedTo: string | null,
+  departmentId: string | null,
+): Promise<{ business_hours: unknown; out_of_hours_message: string | null }> {
+  if (assignedTo) {
+    const { data } = await admin
+      .from('app_users')
+      .select('business_hours, out_of_hours_message')
+      .eq('user_id', assignedTo)
+      .maybeSingle();
+    const row = data as { business_hours: unknown; out_of_hours_message: string | null } | null;
+    if (row?.business_hours || row?.out_of_hours_message) return row;
+  }
+  if (departmentId) {
+    const { data } = await admin
+      .from('departments')
+      .select('business_hours, out_of_hours_message')
+      .eq('id', departmentId)
+      .maybeSingle();
+    const row = data as { business_hours: unknown; out_of_hours_message: string | null } | null;
+    if (row?.business_hours || row?.out_of_hours_message) return row;
+  }
+  const { data: settingsRow } = await admin
+    .from('app_settings')
+    .select('business_hours, out_of_hours_message')
+    .eq('id', 1)
+    .maybeSingle();
+  return (settingsRow as { business_hours: unknown; out_of_hours_message: string | null } | null)
+    ?? { business_hours: null, out_of_hours_message: null };
 }
 
 interface AgentConfig {
@@ -159,13 +196,13 @@ Deno.serve(async (req) => {
   }
   // Texto: precisa de content. Imagem: precisa de media_url (legenda em
   // content é opcional) — o LLM recebe a imagem como bloco de visão, ver
-  // _shared/llm.ts. Áudio já chega com transcrição em content via
-  // transcribe-audio, mas content_type permanece 'audio' (o trigger
-  // on_audio_inbound só roda no INSERT original, sem legenda de texto ainda;
-  // a UPDATE que grava a transcrição não re-dispara o trigger de IA — gap
-  // conhecido, fora do escopo desta mudança). Vídeo/documento seguem sem
-  // suporte.
-  const isText = message.content_type === 'text' && !!message.content;
+  // _shared/llm.ts. Áudio: transcribe-audio grava a transcrição em content e,
+  // no sucesso, invoca esta função diretamente (a UPDATE em messages.content
+  // não redispara o trigger AFTER INSERT que aciona o texto) — tratamos como
+  // texto, exceto quando content ainda é o marcador de falha de transcrição.
+  // Vídeo/documento seguem sem suporte.
+  const isFailedAudioMarker = message.content_type === 'audio' && !!message.content?.startsWith('[áudio · transcrição falhou');
+  const isText = !!message.content && (message.content_type === 'text' || (message.content_type === 'audio' && !isFailedAudioMarker));
   const isImage = message.content_type === 'image' && !!message.media_url;
   if (!isText && !isImage) {
     return jsonResponse({ ok: true, skipped: `content_type=${message.content_type}` });
@@ -175,7 +212,7 @@ Deno.serve(async (req) => {
   const [{ data: convRow }, { data: agentRow }] = await Promise.all([
     admin
       .from('conversations')
-      .select('id, contact_id, status, ai_paused, channel, zernio_conversation_id, department_id, connection_id')
+      .select('id, contact_id, status, ai_paused, channel, zernio_conversation_id, department_id, connection_id, assigned_to')
       .eq('id', message.conversation_id)
       .maybeSingle(),
     admin
@@ -215,6 +252,13 @@ Deno.serve(async (req) => {
 
   if (!agent || agent.is_active === false) {
     return jsonResponse({ ok: true, skipped: 'ai agent disabled' });
+  }
+
+  // Pacote comercial sem o módulo Agente de IA: desliga de verdade, não só a
+  // tela de configuração — decisão de produto de 21/08/2026 (ver
+  // PLANEJAMENTO.md e _shared/plan.ts). Mesmo formato de skip do gate acima.
+  if (!(await isModuleEnabled('ai_agent'))) {
+    return jsonResponse({ ok: true, skipped: 'ai_agent module not enabled' });
   }
 
   // 3. Credentials.
@@ -275,15 +319,12 @@ Deno.serve(async (req) => {
 
   // Variáveis automáticas de horário (horário atual, dentro/fora do expediente,
   // mensagem de fora-do-horário já preenchida) — o prompt decide quando usar.
-  const { data: settingsRow } = await admin
-    .from('app_settings')
-    .select('business_hours, out_of_hours_message')
-    .eq('id', 1)
-    .maybeSingle();
+  // Cascata: usuário atribuído > setor da conversa > padrão global.
+  const businessHoursRow = await resolveBusinessHours(admin, conversation.assigned_to, conversation.department_id);
   const scheduleVars = buildScheduleVars(
     agent.timezone ?? 'America/Sao_Paulo',
-    (settingsRow as { business_hours?: unknown } | null)?.business_hours,
-    (settingsRow as { out_of_hours_message?: string | null } | null)?.out_of_hours_message ?? null,
+    businessHoursRow.business_hours,
+    businessHoursRow.out_of_hours_message,
   );
 
   // Mídias do agente: lista para o prompt ({midias_disponiveis}) e mapa

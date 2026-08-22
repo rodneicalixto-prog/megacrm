@@ -29,6 +29,10 @@ interface ImportReport {
 }
 
 const CHUNK_SIZE = 500;
+// Filtros .in() de leitura ficam mais sujeitos a limite de URL/parâmetro do
+// PostgREST que o body de um upsert — mesmo teto de 100 usado no resto do
+// projeto (useContacts.ts, useConversations.ts, useCampaigns.ts, usePipeline.ts).
+const IN_FILTER_CHUNK_SIZE = 100;
 
 function readFile(file: File): Promise<string[][]> {
   return new Promise((resolve, reject) => {
@@ -281,8 +285,8 @@ export function ImportContactsDialog({
     // Tags → vincula as tags escolhidas a TODOS os contatos importados.
     if (selectedTagIds.length && pending.length) {
       const phones = pending.map((c) => c.phone);
-      for (let i = 0; i < phones.length; i += CHUNK_SIZE) {
-        const chunkPhones = phones.slice(i, i + CHUNK_SIZE);
+      for (let i = 0; i < phones.length; i += IN_FILTER_CHUNK_SIZE) {
+        const chunkPhones = phones.slice(i, i + IN_FILTER_CHUNK_SIZE);
         const { data: contactRows } = await supabase
           .from('contacts')
           .select('id')
@@ -301,8 +305,8 @@ export function ImportContactsDialog({
     // negócio aberto, para reimportações não duplicarem cards no funil).
     if (tipo === 'lead' && pipelineId && stageId && pending.length) {
       const phones = pending.map((c) => c.phone);
-      for (let i = 0; i < phones.length; i += CHUNK_SIZE) {
-        const chunkPhones = phones.slice(i, i + CHUNK_SIZE);
+      for (let i = 0; i < phones.length; i += IN_FILTER_CHUNK_SIZE) {
+        const chunkPhones = phones.slice(i, i + IN_FILTER_CHUNK_SIZE);
         const { data: contactRows } = await supabase
           .from('contacts')
           .select('id, name, phone')
@@ -488,7 +492,7 @@ export function ImportContactsDialog({
                   <select
                     value={pipelineId}
                     onChange={(e) => setPipelineId(e.target.value)}
-                    className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-2 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)] [&>option]:bg-[#0A0A0F]"
+                    className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-2 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)] [&>option]:bg-[var(--color-bg-elevated)]"
                   >
                     {pipelines.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
@@ -498,7 +502,7 @@ export function ImportContactsDialog({
                   <select
                     value={stageId}
                     onChange={(e) => setStageId(e.target.value)}
-                    className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-2 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)] [&>option]:bg-[#0A0A0F]"
+                    className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-2 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)] [&>option]:bg-[var(--color-bg-elevated)]"
                   >
                     {pipelineStages.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
@@ -508,7 +512,7 @@ export function ImportContactsDialog({
                   <select
                     value={temperature}
                     onChange={(e) => setTemperature(e.target.value)}
-                    className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-2 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)] [&>option]:bg-[#0A0A0F]"
+                    className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-2 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)] [&>option]:bg-[var(--color-bg-elevated)]"
                   >
                     <option value="">—</option>
                     <option value="Frio">Frio</option>

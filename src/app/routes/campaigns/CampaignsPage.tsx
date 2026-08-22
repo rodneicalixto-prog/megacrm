@@ -1,11 +1,12 @@
 import { lazy, Suspense } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { BarChart3, FileText, Link2, Megaphone } from 'lucide-react';
+import { Navigate, useSearchParams } from 'react-router-dom';
+import { BarChart3, FileText, Link2, Loader2, Megaphone } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CampaignsList } from '@/components/campaigns/CampaignsList';
 import { TemplatesList } from '@/components/campaigns/TemplatesList';
 import { UtmBuilder } from '@/components/campaigns/UtmBuilder';
+import { useEnabledModules } from '@/hooks/useEnabledModules';
 
 const DispatchMetrics = lazy(() =>
   import('@/components/campaigns/DispatchMetrics').then((module) => ({
@@ -38,9 +39,20 @@ function isTabId(v: string | null): v is TabId {
 
 export default function CampaignsPage() {
   const [params, setParams] = useSearchParams();
+  const { loading: loadingModules, hasModule } = useEnabledModules();
   const raw = params.get('tab');
   const active: TabId = isTabId(raw) ? raw : 'campanhas';
   const current = TABS.find((t) => t.id === active) ?? TABS[0];
+
+  if (loadingModules) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <Loader2 className="h-5 w-5 animate-spin text-[var(--accent-primary)]" />
+      </div>
+    );
+  }
+  // Módulo Campanhas: só entra quem contratou (ver docs/PLANEJAMENTO.md).
+  if (!hasModule('campaigns')) return <Navigate to="/dashboard" replace />;
 
   const selectTab = (id: TabId) => {
     // replace evita empilhar histórico a cada troca de aba.

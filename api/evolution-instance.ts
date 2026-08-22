@@ -143,9 +143,18 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         source = connect;
         qr = readEvolutionQr(connect.body);
       } else if (!source.ok) {
+        // Criar deu 403 "already in use" (instância órfã, já existe no servidor)
+        // e conectar deu 401: a API key configurada aqui não é a que essa
+        // instância reconhece. Não é bug de código — precisa resolver no
+        // próprio servidor Evolution (apagar a instância órfã, ou confirmar
+        // que a mesma api key global gerencia todas as instâncias).
+        const hint =
+          source.status === 403 && connect.status === 401
+            ? ' A instância já existe no servidor Evolution, mas a API key configurada aqui não tem permissão sobre ela — confira no painel da Evolution se ela foi criada com outra chave, ou apague-a lá e gere de novo.'
+            : '';
         return res.status(502).json({
           success: false,
-          message: `A Evolution recusou criar e conectar a instância. Criar (${createError}); conectar (${connect.status}: ${connect.raw.slice(0, 180)}).`,
+          message: `A Evolution recusou criar e conectar a instância. Criar (${createError}); conectar (${connect.status}: ${connect.raw.slice(0, 180)}).${hint}`,
         });
       }
     }

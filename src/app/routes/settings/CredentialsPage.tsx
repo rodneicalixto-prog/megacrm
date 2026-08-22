@@ -365,7 +365,7 @@ export default function CredentialsPage() {
         )}
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 border-t border-[rgba(59,130,246,0.15)] bg-[#0A0A0F]/90 px-4 py-4 backdrop-blur-xl">
+      <div className="fixed inset-x-0 bottom-0 border-t border-[rgba(59,130,246,0.15)] bg-[var(--color-bg-elevated)]/90 px-4 py-4 backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl justify-end">
           <button
             type="button"
