@@ -86,21 +86,68 @@ Nunca usar o schema `public` para lógica de aplicação.
 ## Auth & Roles
 
 - Supabase Auth com email/senha.
-- Enum `whatsapp_hub.tenant_role` (nome herdado, semântica nova): valores
-  permitidos `'admin' | 'operator'`.
-- Trigger `whatsapp_hub.handle_new_user` em `auth.users`:
-  - Se o convite trouxe `raw_user_meta_data.invited_role` = `'admin'` ou
-    `'operator'`, usa esse valor.
-  - Caso contrário, conta as linhas em `app_users`. Se zero, o novo usuário
-    vira `admin`. Se ≥ 1, vira `operator`.
-  - Insere em `app_users (user_id, role, accepted_at = now())`.
+- Enum `whatsapp_hub.tenant_role` (nome herdado, semântica nova): **4
+  valores** — `'super_admin' | 'admin' | 'supervisor' | 'operator'`.
+  `super_admin` foi removido na migração para OSS v1.0.0 e reintroduzido na
+  fase de hierarquia/departamentos (`20260808160000_roles_add_values.sql`).
+- Departamentos (`whatsapp_hub.departments`): cada `app_users` pertence a um
+  (`department_id`). O departamento `is_restricted` ("Administração Geral")
+  só é visível para `super_admin`.
+- Trigger `whatsapp_hub.handle_new_user` em `auth.users`
+  (`20260808180000_hierarchy_roles.sql`):
+  - Primeiro usuário da instância vira `super_admin` (dono), não `admin`.
+  - Convite nativo grava `raw_user_meta_data.invited_role` ∈ `{super_admin,
+    admin, supervisor, operator}` e opcionalmente `invited_department`; sem
+    departamento no convite, cai no departamento `is_default`.
+  - Sem convite válido, `RAISE EXCEPTION` — self-signup fica desabilitado.
+  - Insere em `app_users (user_id, role, department_id, accepted_at = now())`.
   - Espelha a role em `auth.users.raw_app_meta_data.role` para que policies
     possam consultá-la via JWT sem ler `app_users`.
 - `app_users` é a tabela de membros da instância (substitui `tenant_members`
   do build SaaS antigo). UNIQUE por `user_id`.
-- Policies RLS gateiam por `whatsapp_hub.current_user_role()`:
-  - `'admin'` — controla templates, campanhas, knowledge, settings, equipe.
-  - `'operator'` — opera inbox + contatos + tags do dia a dia.
+- Alcance por papel (gateado por `whatsapp_hub.current_user_role()` +
+  helpers `current_user_department()` / `department_is_restricted()` /
+  `sees_all_departments()`):
+  - `super_admin` — topo da hierarquia; único que vê o departamento
+    restrito.
+  - `admin` — mesmo alcance operacional do `super_admin`, exceto no
+    departamento restrito.
+  - `supervisor` — administra o próprio departamento; participa da fila de
+    round-robin de handoff (`lead_assignment_queue`).
+  - `operator` — opera inbox + contatos + tags do dia a dia; também
+    participa da fila de round-robin.
+  - `admin`/`super_admin` nunca entram na fila de round-robin — só atendem
+    por linha pessoal (ver `department_positions`).
+
+### Evolution — múltiplos números, linha pessoal e cobertura
+
+> A lista de "Tabelas centrais" abaixo é herdada do baseline pré-departamentos
+> e não lista `department_positions`/`department_connections`/
+> `position_coverage`. Documentando aqui até a lista ser reescrita.
+
+- `whatsapp_hub.department_positions` — cargo dentro de um setor;
+  opcionalmente vinculado a um `user_id`. Um setor tem N cargos (N números
+  ativos por setor já é suportado por design — cada cargo pode ter sua
+  própria linha). Desde `20260822120000_position_coverage_and_multi_line.sql`
+  um mesmo usuário pode ocupar **até 2 cargos** (era `UNIQUE(user_id)`,
+  virou trigger `_enforce_max_positions_per_user` que bloqueia o 3º).
+- `whatsapp_hub.department_connections` — número Evolution. `position_id
+  NULL` = número de fila do setor (round-robin via `next_department_assignee`,
+  no máx. 1 por setor — `department_connections_queue_key`); `position_id`
+  preenchido = linha pessoal (a conversa já nasce atribuída ao titular do
+  cargo, no máx. 1 conexão por cargo — `department_connections_position_key`).
+- `whatsapp_hub.position_coverage` — cobertura temporária de linha pessoal
+  (colega ausente). Enquanto houver uma linha com `ended_at IS NULL` para um
+  cargo, `connectionForInstance` (`_shared/whatsapp/department-routing.ts`)
+  roteia mensagens **novas** dessa linha para `covering_user_id` em vez do
+  titular do cargo — sem alterar o vínculo cargo→titular, que volta a valer
+  sozinho quando a cobertura acaba. `ends_at` é opcional (previsão de volta);
+  o cron `wh-expire-position-coverage` (15min) encerra sozinho quando vence,
+  ou encerra manualmente (UI em Configurações → Setores, por cargo com linha
+  pessoal). Conversas que já existiam antes da cobertura começar não são
+  reatribuídas automaticamente — a RLS por departamento já deixa qualquer
+  colega do mesmo setor vê-las e responder (ver `conversations_select`),
+  então um substituto sempre consegue assumir manualmente.
 
 ---
 
@@ -136,7 +183,7 @@ tags
 contact_tags  (N:N contact_id × tag_id)
 
 templates
-├── id, name (UNIQUE), category ENUM('marketing','utility','authentication') -- 'service' deprecado (atendimento livre não é template)
+├── id, name (UNIQUE), category ENUM('marketing','utility','service','authentication') -- 'service' nunca foi removido do enum (só ganhou 'authentication' depois); não usar para atendimento livre, que não é template
 ├── language DEFAULT 'pt_BR'
 ├── status ENUM('draft','pending','approved','rejected')
 ├── meta_template_id, meta_template_status
@@ -169,6 +216,27 @@ follow_up_rules
 ├── template_id   (template do follow-up)
 ├── sequence_order INT
 ├── is_active BOOLEAN
+
+mass_dispatches  (módulo "Disparo em massa" — via Evolution, paralelo a campaigns/Zernio)
+├── id, name, connection_id (FK department_connections)
+├── status ENUM('draft','scheduled','sending','paused','completed','failed')
+├── audience_filter JSONB ({mode:'all'|'tags'|'file', tag_ids?, file_id?})
+├── min_delay_seconds, max_delay_seconds, next_send_at  (throttle: 1 envio/tick/disparo)
+├── total_contacts, sent, replied, failed  INT
+
+mass_dispatch_messages  (até 5 modelos por disparo, sorteados a cada envio)
+├── id, dispatch_id, content, media_url, media_type, position
+
+mass_dispatch_contacts  (fila de envio; UPDATE só por service role)
+├── id, dispatch_id, contact_id
+├── status ENUM('pending','sent','replied','failed')  -- sem 'delivered'/'read': Evolution não manda ACK aqui
+├── message_id_used, error_message, evolution_message_id
+├── claimed_at, sent_at, replied_at
+
+mass_dispatch_files  (listas de contato + anexos, reaproveitáveis entre disparos)
+├── id, name, file_type ENUM('contact_list','attachment')
+├── storage_path, media_type, file_size_bytes
+├── contact_ids UUID[]  (só contact_list — resolvido no upload, find-or-create por telefone)
 
 conversations
 ├── id, contact_id (UNIQUE)
@@ -273,13 +341,28 @@ public._bootstrap_state           <- checkpoints idempotentes do wizard /setup
 
 ## pg_cron jobs
 
-| Job                     | Cadência     | Função                  |
-|-------------------------|--------------|-------------------------|
-| `dispatch-campaigns`    | 30 segundos  | `dispatch-campaign`     |
-| `check-follow-ups`      | a cada 15min | `check-follow-ups`      |
+| Job                        | Cadência     | Função                    |
+|----------------------------|--------------|----------------------------|
+| `wh-dispatch-campaigns`      | 30 segundos  | `dispatch-campaign`       |
+| `wh-dispatch-mass-messages`  | 30 segundos  | `dispatch-mass-message`   |
+| `wh-check-follow-ups`        | a cada 15min | `check-follow-ups`        |
+| `wh-sync-broadcast-status`   | a cada 2min  | `sync-broadcast-status`   |
+| `wh-expire-position-coverage`| a cada 15min | SQL puro (sem Edge Function) — encerra cobertura de linha pessoal cujo `ends_at` venceu |
 
-> O antigo `check-template-status` (polling 5min) foi removido — o status do
-> template chega pelo webhook `whatsapp.template.status_updated`.
+> O antigo `wh-check-template-status` (polling 5min) apontava pra uma Edge
+> Function já removida (`check-template-status` → renomeada
+> `sync-template-status`, hoje manual). A migration que deveria tê-lo
+> desagendado (`20260623120000_zernio_schema.sql`) não pegou nesta instância
+> — confirmado em 21/08/2026 ainda ativo em produção, gerando 404 a cada 5min
+> — e foi removido de fato por `20260821170000_unschedule_stale_crons.sql`.
+> O status do template chega pelo webhook
+> `whatsapp.template.status_updated`.
+>
+> Os dois crons diários de recompra (`repurchase-predictions-daily`,
+> `repurchase-dispatch-daily`) também foram desagendados na mesma migration —
+> o módulo Vendas & Recompra está sendo removido do projeto (ver
+> `PLANEJAMENTO.md`), e os jobs continuavam ativos disparando mensagens de
+> recompra reais.
 
 Os jobs invocam Edge Functions via `pg_net.http_post`. URL do projeto e
 service role key vêm de Vault entries (`whatsapp_hub_supabase_url`,
@@ -370,75 +453,123 @@ service role key vêm de Vault entries (`whatsapp_hub_supabase_url`,
 
 ## Estrutura de pastas (frontend)
 
+> A rota `/templates` não existe mais como página própria — redireciona pra
+> `/campaigns?tab=templates` (`router.tsx`). `settings/sections/` cresceu de
+> 5 para 11 arquivos com a fase de hierarquia/departamentos/Evolution.
+
 ```
 src/
 ├── app/
 │   ├── routes/
 │   │   ├── setup/            Bootstrap Supabase (URL + anon key → localStorage)
-│   │   ├── auth/             Login, signup
+│   │   ├── auth/              Login, signup
+│   │   ├── invite/            aceite de convite (Supabase Auth nativo)
 │   │   ├── dashboard/
 │   │   ├── inbox/
-│   │   ├── campaigns/
-│   │   ├── templates/
+│   │   ├── campaigns/         inclui a aba Templates (rota própria removida)
+│   │   ├── mass-dispatch/     Disparo em massa via Evolution (abas Disparos/Arquivos, módulo `disparo_massa`)
 │   │   ├── contacts/
 │   │   ├── knowledge/
 │   │   ├── follow-ups/
+│   │   ├── funil/             pipeline/CRM (deals, estágios, arquivar/restaurar)
+│   │   ├── agenda/            calendários (whatsapp_hub.calendars/calendar_events)
+│   │   ├── ai-agent/          config do agente de IA (system_prompt, mídia, canais)
+│   │   ├── vendas/            Vendas & Recompra — saindo do projeto (ver PLANEJAMENTO.md)
 │   │   └── settings/
 │   │       ├── SettingsPage.tsx
+│   │       ├── CredentialsPage.tsx
 │   │       └── sections/
 │   │           ├── AccountSettings.tsx
 │   │           ├── AIAgentSettings.tsx
+│   │           ├── AgentMediaSettings.tsx
+│   │           ├── BrandingSettings.tsx
 │   │           ├── BusinessHoursSettings.tsx
-│   │           ├── SupabaseSettings.tsx
+│   │           ├── DepartmentsSettings.tsx
+│   │           ├── EvolutionCard.tsx
+│   │           ├── InstagramCard.tsx
+│   │           ├── LeadAssignmentSettings.tsx
+│   │           ├── ProductsSettings.tsx
 │   │           └── TeamSettings.tsx
-│   ├── layout/               AppLayout, Sidebar, Header
+│   ├── layout/               AppLayout, Sidebar, Header, nav-config.ts (canSeeAdminNav)
 │   ├── router.tsx            RequireSetup → RequireSession → AppLayout
 │   └── providers/
 │       ├── SupabaseProvider.tsx
 │       ├── AuthProvider.tsx
-│       └── AppUserProvider.tsx   (consome app_users, expõe role)
+│       └── AppUserProvider.tsx   (consome app_users, expõe role + heartbeat de presença)
 ├── components/
 │   ├── ui/                   primitives shadcn
-│   ├── inbox/                ChatBubble, ConversationList, NoteInput, …
+│   ├── inbox/                ChatBubble, ConversationList, MessageThread, …
 │   ├── campaigns/            CampaignWizard, VariableMapper, AudienceSelector
 │   ├── templates/            TemplateEditor, TemplatePreview, AIGenerator
-│   ├── contacts/             ContactTable, CSVUploader, TagManager
+│   ├── contacts/             ContactTable, ImportContactsDialog, TagManager
+│   ├── crm/                  componentes do funil/pipeline
+│   ├── funil/                board de deals, arquivar/restaurar
+│   ├── dashboard/             widgets, AttendancePanel
+│   ├── credentials/           campos de credenciais (CredentialField, …)
+│   ├── origin/                atribuição UTM/tracking
 │   └── NotificationsDropdown.tsx
 ├── hooks/                    useCampaigns, useConversations, useTemplates,
 │                             useContacts, useKnowledgeBase, useDashboardMetrics,
 │                             useFollowUpRules, useMessages, useNotifications,
-│                             useTags, useSupabase
-├── lib/                      supabase.ts (dynamic client), phone.ts (E.164)
+│                             useTags, useSupabase, useOperators, useDepartments
+├── lib/                      supabase.ts (dynamic client), phone.ts (E.164), chunk.ts (chunkArray)
 ├── types/                    db, inbox, campaigns, templates, knowledge
 └── styles/globals.css        Tailwind v4 + dark glassmorphism tokens
 ```
 
 ## Edge Functions
 
+> Lista completa das 24 funções em `supabase/functions/` (versões anteriores
+> deste documento listavam só 14 — conferir aqui antes de assumir que uma
+> função não existe). `_shared/` cresceu bastante desde a migração
+> Zernio → Zernio+Evolution; ver `_shared/whatsapp/` para a camada agnóstica
+> de provedor.
+
 ```
 supabase/functions/
 ├── _shared/
-│   ├── auth.ts               requireCaller, requireAdmin (JWT validation)
+│   ├── auth.ts               requireCaller/requireAdmin/requireSupervisor/requireServiceRole
+│   ├── roles.ts               CallerRole, ADMIN_ROLES, canOperate()
 │   ├── cors.ts               jsonResponse, preflight
-│   ├── llm.ts                multi-provider adapter (OpenAI/Claude/Gemini)
+│   ├── llm.ts                multi-provider adapter (OpenAI/Claude/Gemini, texto + visão)
 │   ├── supabase-admin.ts     service role client
 │   ├── credentials.ts        getCredential()/setCredential() sobre public.app_settings (SSOT)
 │   ├── tenant-credentials.ts loadAppCredentials() → wrapper tipado de getCredential
-│   └── zernio.ts             client Zernio (inbox, broadcasts, templates, mídia, number-info)
+│   ├── zernio.ts             client Zernio (inbox, broadcasts, templates, mídia, number-info)
+│   ├── ai-reply.ts           pós-processamento da resposta do LLM ([HANDOFF], [MEDIA:...])
+│   ├── auto-move-lead.ts     IA move o lead pelo funil quando o critério do estágio bate
+│   ├── business-hours.ts     variáveis de horário de atendimento pro prompt da IA
+│   └── whatsapp/             camada agnóstica de provedor (Zernio × Evolution)
+│       ├── types.ts          NormalizedInbound, WhatsAppProvider, helpers de parsing
+│       ├── zernio-provider.ts
+│       ├── evolution-provider.ts
+│       ├── department-routing.ts  número que recebeu → departamento/conexão dona
+│       └── outbound.ts       envio pela rota Evolution (a rota Zernio não passa por aqui)
 ├── zernio-webhook/           ingestão (X-Zernio-Signature) de statuses + inbound; idempotência via webhook_events
+├── whatsapp-inbound/         webhook Evolution (HMAC) — fecha atribuição de lead + roteia por departamento
 ├── dispatch-campaign/        consumido por pg_cron 30s — cria Broadcasts no Zernio
+├── dispatch-mass-message/    consumido por pg_cron 30s — disparo em massa via Evolution (texto livre, timing randômico; módulo `disparo_massa`, paralelo a campaigns)
 ├── check-follow-ups/         consumido por pg_cron 15min
-├── process-ai-message/       RAG → LLM → resposta via Zernio (inbox 1:1)
-├── process-knowledge/        upload → chunk → embed → store
-├── transcribe-audio/         baixa áudio da URL do attachment (Zernio) → Whisper
+├── sync-broadcast-status/    consumido por pg_cron 2min — reconcilia entrega de broadcasts
+├── sync-template-status/     sincroniza status de templates direto da Meta (fallback manual ao webhook)
+├── process-ai-message/       RAG → LLM → resposta via Zernio ou Evolution (inbox 1:1)
+├── process-knowledge/        upload → chunk → embed → store (+ fallback de OCR por visão)
+├── transcribe-audio/         baixa áudio → Whisper → grava content → aciona process-ai-message
 ├── generate-template/        prompt → LLM → JSON estruturado de template
 ├── submit-template/          POST p/ Zernio `/whatsapp/templates`
 ├── send-operator-message/    operador envia texto / nota privada pela inbox
 ├── send-operator-media/      operador envia mídia (upload-direct → attachmentUrl)
+├── send-operator-template/   operador reabre conversa fora da janela de 24h com template aprovado
+├── interact-message/         presence (composing/paused) e reação — só rota Evolution
+├── resolve-inbound-media/    repara URL de mídia Evolution que falhou no player
 ├── zernio-number-status/     status cacheado do número (tier/quality/health) p/ dashboard
+├── ingest-lead/               (público) captação de lead via snippet de landing page
+├── redirect-tracker/         (público) redirecionador de link com rastreio de clique
+├── repurchase-dispatch/      dispara mensagens de recompra — cron desagendado em 21/08/2026, módulo saindo
 ├── simulate-inbound/         dev only — finge mensagem inbound
 ├── test-zernio-connection/   valida a conexão Zernio (GET /whatsapp/number-info)
-└── invite-team-member/       convite nativo do Supabase Auth (inviteUserByEmail + invited_role)
+├── invite-team-member/       convite nativo do Supabase Auth (inviteUserByEmail + invited_role)
+└── delete-team-member/       admin remove membro (Auth + app_users)
 ```
 
 ---
@@ -477,8 +608,14 @@ supabase/functions/
 
 ## Design System — Dark Mode Glassmorphism (OBRIGATÓRIO)
 
-A plataforma é **dark mode only**. Não implementar light mode. Não criar
-toggle de tema.
+> **Desatualizado neste ponto e corrigido em 21/08/2026**: esta seção dizia
+> "dark mode only, sem toggle", mas `src/components/ThemeToggle.tsx` existe e
+> o `CHANGELOG.md` documenta "Light/dark theme selection" como já entregue —
+> a plataforma hoje tem os dois temas via `document.documentElement.dataset.theme`
+> (`localStorage` key `megacrm-theme`). Os tokens abaixo continuam sendo o
+> tema dark padrão; um tema light equivalente foi adicionado sem substituir
+> este documento — vale conferir `styles/globals.css` para os tokens do modo
+> claro antes de assumir que só o dark existe.
 
 ### Tokens de cor
 
@@ -567,8 +704,10 @@ fallback default.
 ## Notas de migração e variáveis não-triviais
 
 - `tenant_members` foi renomeada para `app_users` na Fase 4 da migração SaaS
-  → OSS. O enum `whatsapp_hub.tenant_role` manteve o nome por inércia, mas
-  hoje só aceita `'admin' | 'operator'`.
+  → OSS. O enum `whatsapp_hub.tenant_role` manteve o nome por inércia; hoje
+  aceita 4 valores (`super_admin`/`admin`/`supervisor`/`operator`, ver seção
+  "Auth & Roles") — `super_admin` foi removido nessa mesma migração e
+  reintroduzido depois, na fase de hierarquia/departamentos.
 - A fonte de verdade das credenciais de aplicação é `public.app_settings`
   (KV criptografado), acessada por `getCredential`/`setCredential`.
   `_shared/tenant-credentials.ts` mantém o nome histórico, mas hoje é só um

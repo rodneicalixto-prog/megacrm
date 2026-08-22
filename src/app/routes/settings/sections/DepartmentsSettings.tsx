@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Building2, ChevronDown, KeyRound, Loader2, Plus, QrCode, RefreshCw, Smartphone, Trash2, UserPlus, UserRoundPlus, X } from 'lucide-react';
+import { Building2, ChevronDown, Clock, KeyRound, Loader2, Plus, QrCode, RefreshCw, Smartphone, Trash2, UserPlus, UserRoundPlus, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { getSupabase } from '@/lib/supabase';
 import { operatorLabel, useOperators } from '@/hooks/useOperators';
 import { LoadErrorBanner } from '@/components/LoadErrorBanner';
 import { Avatar } from '@/components/ui/Avatar';
+import { BusinessHoursEditor, type BusinessHours } from '@/components/settings/BusinessHoursEditor';
 
 interface Departamento {
   id: string;
@@ -27,6 +28,14 @@ interface Linha {
   phone_number: string | null;
   label: string | null;
   server_url: string | null;
+}
+
+interface Cobertura {
+  id: string;
+  position_id: string;
+  covering_user_id: string;
+  ends_at: string | null;
+  reason: string | null;
 }
 
 interface LinhaStatus {
@@ -56,6 +65,11 @@ export function DepartmentsSettings() {
   const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
   const [cargos, setCargos] = useState<Cargo[]>([]);
   const [linhas, setLinhas] = useState<Linha[]>([]);
+  const [coberturas, setCoberturas] = useState<Cobertura[]>([]);
+  const [coberturaAberta, setCoberturaAberta] = useState<string | null>(null);
+  const [coberturaDraft, setCoberturaDraft] = useState<Record<string, {
+    userId: string; endsAt: string; reason: string;
+  }>>({});
   const [statusLinhas, setStatusLinhas] = useState<Record<string, LinhaStatus>>({});
   const [loadingStatus, setLoadingStatus] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -120,20 +134,24 @@ export function DepartmentsSettings() {
     setLoading(true);
     setError(null);
     const supabase = getSupabase().schema('whatsapp_hub');
-    const [d, c, l] = await Promise.all([
+    const [d, c, l, cob] = await Promise.all([
       supabase.from('departments').select('id, name, is_default').order('name'),
       supabase.from('department_positions').select('id, department_id, name, user_id').order('name'),
       supabase.from('department_connections')
         .select('id, department_id, position_id, instance, phone_number, label, server_url')
         .order('created_at'),
+      supabase.from('position_coverage')
+        .select('id, position_id, covering_user_id, ends_at, reason')
+        .is('ended_at', null),
     ]);
-    const loadError = d.error ?? c.error ?? l.error;
+    const loadError = d.error ?? c.error ?? l.error ?? cob.error;
     if (loadError) {
       setError(loadError.message);
     } else {
       setDepartamentos((d.data ?? []) as Departamento[]);
       setCargos((c.data ?? []) as Cargo[]);
       setLinhas((l.data ?? []) as Linha[]);
+      setCoberturas((cob.data ?? []) as Cobertura[]);
       void carregarStatus();
     }
     setLoading(false);
@@ -213,6 +231,47 @@ export function DepartmentsSettings() {
     const { error } = await getSupabase().schema('whatsapp_hub')
       .from('department_positions').delete().eq('id', id);
     if (error) return toast.error('Falha ao excluir', { description: error.message });
+    void carregar();
+  };
+
+  const alterarCoberturaDraft = (
+    cargoId: string,
+    field: 'userId' | 'endsAt' | 'reason',
+    value: string,
+  ) => {
+    setCoberturaDraft((previous) => {
+      const current = previous[cargoId] ?? { userId: '', endsAt: '', reason: '' };
+      return { ...previous, [cargoId]: { ...current, [field]: value } };
+    });
+  };
+
+  const iniciarCobertura = async (cargoId: string) => {
+    const draft = coberturaDraft[cargoId];
+    if (!draft?.userId) return toast.error('Selecione quem vai cobrir.');
+    setBusy(true);
+    const { error } = await getSupabase().schema('whatsapp_hub')
+      .from('position_coverage')
+      .insert({
+        position_id: cargoId,
+        covering_user_id: draft.userId,
+        ends_at: draft.endsAt ? new Date(draft.endsAt).toISOString() : null,
+        reason: draft.reason.trim() || null,
+      });
+    setBusy(false);
+    if (error) return toast.error('Falha ao iniciar cobertura', { description: error.message });
+    toast.success('Cobertura iniciada — mensagens novas dessa linha vão para quem está cobrindo.');
+    setCoberturaAberta(null);
+    setCoberturaDraft((previous) => ({ ...previous, [cargoId]: { userId: '', endsAt: '', reason: '' } }));
+    void carregar();
+  };
+
+  const encerrarCobertura = async (coverageId: string) => {
+    const { error } = await getSupabase().schema('whatsapp_hub')
+      .from('position_coverage')
+      .update({ ended_at: new Date().toISOString() })
+      .eq('id', coverageId);
+    if (error) return toast.error('Falha ao encerrar cobertura', { description: error.message });
+    toast.success('Cobertura encerrada. A linha volta a ser do titular.');
     void carregar();
   };
 
@@ -398,8 +457,18 @@ export function DepartmentsSettings() {
     });
     setBusy(false);
     if (error) return toast.error('Falha ao cadastrar', { description: error.message });
+
+    // create_user (RPC) não define senha de propósito — quem cria a senha é a
+    // própria pessoa. Sem este passo, ela precisaria descobrir sozinha que
+    // tem conta e ir em "Esqueci minha senha"; disparamos o e-mail de
+    // redefinição automaticamente, mesmo fluxo do LoginPage.tsx.
+    const { error: resetError } = await getSupabase().auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/invite`,
+    });
     toast.success('Usuário cadastrado.', {
-      description: 'A senha é definida pela própria pessoa em "Esqueci minha senha".',
+      description: resetError
+        ? 'Cadastro feito, mas o e-mail de senha não foi enviado — peça pra pessoa usar "Esqueci minha senha" na tela de login.'
+        : `Enviamos um e-mail para ${email.trim()} definir a senha.`,
     });
     setNome(''); setEmail(''); setCargoNovo('');
     void carregar();
@@ -737,11 +806,48 @@ export function DepartmentsSettings() {
                   </div>
                 </section>
 
+                <section className="mb-5 rounded-xl border border-[rgba(59,130,246,0.12)] bg-white/[0.02] p-4">
+                  <div className="mb-3 flex items-start gap-2">
+                    <Clock className="mt-0.5 h-4 w-4 text-[var(--accent-secondary)]" />
+                    <div>
+                      <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">Horário de atendimento do setor</h3>
+                    </div>
+                  </div>
+                  <BusinessHoursEditor
+                    title=""
+                    description=""
+                    nullable
+                    inheritLabel="Usar o horário padrão da instância"
+                    load={async () => {
+                      const { data } = await getSupabase()
+                        .schema('whatsapp_hub')
+                        .from('departments')
+                        .select('business_hours, out_of_hours_message')
+                        .eq('id', d.id)
+                        .maybeSingle();
+                      return data ?? null;
+                    }}
+                    save={async (patch: { business_hours: BusinessHours | null; out_of_hours_message: string | null }) => {
+                      const { error } = await getSupabase()
+                        .schema('whatsapp_hub')
+                        .from('departments')
+                        .update({ business_hours: patch.business_hours, out_of_hours_message: patch.out_of_hours_message })
+                        .eq('id', d.id);
+                      return { error: error?.message };
+                    }}
+                  />
+                </section>
+
                 <div className="space-y-3">
                   {doSetor.map((c) => {
                     const pessoa = operators.find((o) => o.user_id === c.user_id);
+                    const temLinhaPessoal = linhasDoSetor.some((linha) => linha.position_id === c.id);
+                    const cobertura = coberturas.find((cov) => cov.position_id === c.id);
+                    const cobrindo = cobertura ? operators.find((o) => o.user_id === cobertura.covering_user_id) : null;
+                    const draft = coberturaDraft[c.id] ?? { userId: '', endsAt: '', reason: '' };
                     return (
-                    <div key={c.id} className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <div key={c.id} className="flex flex-col gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                       <span className="flex items-center gap-2 text-sm font-medium text-[var(--color-text-primary)] sm:w-36 sm:shrink-0">
                         {pessoa && <Avatar name={operatorLabel(pessoa)} size="sm" />}
                         <span className="truncate">{c.name}</span>
@@ -757,6 +863,15 @@ export function DepartmentsSettings() {
                             <option key={o.user_id} value={o.user_id}>{operatorLabel(o)}</option>
                           ))}
                         </select>
+                        {c.user_id && temLinhaPessoal ? (
+                          <button
+                            type="button"
+                            onClick={() => setCoberturaAberta(coberturaAberta === c.id ? null : c.id)}
+                            className="h-9 shrink-0 rounded-lg border border-[rgba(59,130,246,0.2)] px-3 text-xs font-medium text-[var(--color-text-primary)] whitespace-nowrap"
+                          >
+                            {cobertura ? 'Cobertura ativa' : 'Cobertura'}
+                          </button>
+                        ) : null}
                         <button
                           type="button"
                           onClick={() => void excluirCargo(c.id)}
@@ -766,6 +881,71 @@ export function DepartmentsSettings() {
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
+                    </div>
+
+                    {cobertura ? (
+                      <div className="ml-0 flex flex-wrap items-center gap-2 rounded-lg border border-[rgba(16,185,129,0.25)] bg-[rgba(16,185,129,0.06)] px-3 py-2 sm:ml-36">
+                        {cobrindo && <Avatar name={operatorLabel(cobrindo)} size="sm" />}
+                        <span className="text-xs text-[var(--color-text-primary)]">
+                          {cobrindo ? operatorLabel(cobrindo) : 'Alguém'} está cobrindo esta linha
+                          {cobertura.ends_at ? ` até ${new Date(cobertura.ends_at).toLocaleString('pt-BR')}` : ' — sem previsão de volta'}
+                          {cobertura.reason ? ` · ${cobertura.reason}` : ''}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => void encerrarCobertura(cobertura.id)}
+                          className="ml-auto h-7 shrink-0 rounded-lg border border-[rgba(239,68,68,0.3)] px-2.5 text-[11px] font-medium text-[var(--color-error)]"
+                        >
+                          Encerrar cobertura
+                        </button>
+                      </div>
+                    ) : coberturaAberta === c.id ? (
+                      <div className="ml-0 grid gap-2 rounded-lg border border-[rgba(59,130,246,0.15)] bg-white/[0.02] p-3 sm:ml-36 sm:grid-cols-3">
+                        <select
+                          value={draft.userId}
+                          onChange={(e) => alterarCoberturaDraft(c.id, 'userId', e.target.value)}
+                          className={inputCls}
+                        >
+                          <option value="">Quem vai cobrir…</option>
+                          {operators.filter((o) => o.user_id !== c.user_id).map((o) => (
+                            <option key={o.user_id} value={o.user_id}>{operatorLabel(o)}</option>
+                          ))}
+                        </select>
+                        <input
+                          type="datetime-local"
+                          value={draft.endsAt}
+                          onChange={(e) => alterarCoberturaDraft(c.id, 'endsAt', e.target.value)}
+                          title="Previsão de volta (opcional — encerra sozinha nesse horário)"
+                          className={inputCls}
+                        />
+                        <input
+                          value={draft.reason}
+                          onChange={(e) => alterarCoberturaDraft(c.id, 'reason', e.target.value)}
+                          placeholder="Motivo (opcional)"
+                          className={inputCls}
+                        />
+                        <div className="flex justify-end gap-2 sm:col-span-3">
+                          <button
+                            type="button"
+                            onClick={() => setCoberturaAberta(null)}
+                            className="h-9 rounded-lg px-3 text-xs text-[var(--color-text-secondary)]"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void iniciarCobertura(c.id)}
+                            disabled={busy || !draft.userId}
+                            className="h-9 rounded-lg bg-[var(--accent-primary)] px-4 text-xs font-semibold text-white disabled:opacity-40"
+                          >
+                            Iniciar cobertura
+                          </button>
+                        </div>
+                        <p className="text-xs text-[var(--color-text-secondary)] sm:col-span-3">
+                          Mensagens novas nessa linha vão para quem está cobrindo, sem tirar a linha própria dele. O titular não perde o cargo — a cobertura só decide o roteamento enquanto durar.
+                        </p>
+                      </div>
+                    ) : null}
                     </div>
                     );
                   })}

@@ -95,9 +95,24 @@ export async function connectionForInstance(instance: string): Promise<Departmen
     if (!conn) return null;
     const positionId = (data as { position_id: string | null }).position_id;
     if (positionId) {
-      const { data: pos } = await getAdminClient()
-        .from('department_positions').select('user_id').eq('id', positionId).maybeSingle();
-      conn.assignToUserId = (pos as { user_id: string | null } | null)?.user_id ?? null;
+      // Cobertura ativa (colega ausente) tem prioridade sobre o titular do
+      // cargo: enquanto durar, mensagens NOVAS nessa linha vão pro cobridor,
+      // sem tocar no vínculo cargo->titular (volta a valer sozinho quando a
+      // cobertura acaba). Ver 20260822120000_position_coverage_and_multi_line.sql.
+      const { data: coverage } = await getAdminClient()
+        .from('position_coverage')
+        .select('covering_user_id')
+        .eq('position_id', positionId)
+        .is('ended_at', null)
+        .maybeSingle();
+      const covering = (coverage as { covering_user_id: string } | null)?.covering_user_id ?? null;
+      if (covering) {
+        conn.assignToUserId = covering;
+      } else {
+        const { data: pos } = await getAdminClient()
+          .from('department_positions').select('user_id').eq('id', positionId).maybeSingle();
+        conn.assignToUserId = (pos as { user_id: string | null } | null)?.user_id ?? null;
+      }
     }
     return conn;
   }

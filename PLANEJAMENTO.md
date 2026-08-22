@@ -354,12 +354,64 @@ silêncio. Corrigido e travado por teste de regressão.
 6. **Substituir ou isolar `xlsx`** antes de aceitar planilhas não confiáveis.
 7. **Revogar PATs e service roles expostos em conversas** e atualizar os
    ambientes protegidos de forma coordenada.
-8. **Religar RLS em `whatsapp_hub.tenants`, `tenant_settings`,
-   `tenant_credentials` e `tenant_members`.** Estão sem RLS há resíduo da
-   versão pré-OSS do schema — expostas a `anon`/`authenticated` como
-   qualquer outra tabela sem policy. Não são consumidas pelo produto atual
-   (a migração SaaS→OSS deveria ter dropado essas tabelas), mas com dado
-   real dentro merecem policy ou remoção antes de produção de verdade.
+8. ~~**Religar RLS em `whatsapp_hub.tenants`, `tenant_settings`,
+   `tenant_credentials` e `tenant_members`.**~~ — **resolvido em 21/08/2026**:
+   migration `20260821150000_rls_legacy_tenant_tables.sql` religou RLS (zero
+   policies — mesmo padrão de `public.app_settings`, só service role acessa)
+   e revogou os grants de `anon`/`authenticated`, aplicada em produção
+   (`lstbxeaasyysboavdati`). As tabelas continuam sem uso pelo produto atual;
+   nenhuma delas foi removida.
+9. ~~**Fase C do `docs/PLANO-HIERARQUIA.md` (visibilidade por departamento) —
+   nunca implementada.**~~ — **parcialmente resolvida em 21/08/2026**:
+   `conversations_select`/`messages_select` estavam `USING (true)` desde a
+   remoção do multi-tenant — qualquer autenticado lia qualquer conversa,
+   inclusive do departamento restrito "Administração Geral". Migration
+   `20260821180000_conversations_department_rls.sql` reescreveu as 4 policies
+   (`conversations_select/write`, `messages_select/write`) usando os helpers
+   que já existiam prontos desde a fase de hierarquia
+   (`current_user_department`, `department_is_restricted`,
+   `sees_all_departments`, `is_super_admin`) — cada um só vê/edita o próprio
+   departamento, e só `super_admin` vê o restrito. De brinde, corrigiu
+   `conversations_write`/`messages_write`, que ainda filtravam
+   `current_user_role() IN ('admin','operator')` — resíduo de antes da
+   hierarquia que bloqueava `supervisor` e `super_admin` de escrever nessas
+   tabelas via RLS (o frontend escreve direto nelas — pausar IA, marcar como
+   lida, atribuir — não passa por Edge Function com service role).
+   **Item 12 resolvido também em 21/08/2026** — migration
+   `20260821190000_app_users_hide_super_admin.sql`: `app_users_self_select`
+   comparava `current_user_role() = 'admin'` (literal), então nem o próprio
+   `super_admin` via a lista de membros, só a própria linha — mesma classe de
+   bug já corrigida várias vezes nesta rodada. Agora `super_admin` vê todo
+   mundo, `admin` vê todo mundo **exceto** a linha do `super_admin`, e
+   `supervisor`/`operator` continuam vendo só a própria linha (não
+   ampliado — ver decisão em aberto abaixo).
+   **Item da decisão de produto resolvido em 21/08/2026**: o usuário
+   confirmou explicitamente que `operator` vê só o que foi atribuído a ele
+   (`assigned_to = auth.uid()`), não o departamento inteiro — exatamente o
+   desenho original do `docs/PLANO-HIERARQUIA.md` (seção 5). Migration
+   `20260821200000_operator_assigned_only_visibility.sql` (aplicada em
+   produção) reescreveu as mesmas 4 policies para separar `operator`
+   (assigned-only) de `supervisor` (departamento inteiro, inalterado);
+   `admin`/`super_admin` seguem com bypass total. `CLAUDE.md` já documentava
+   esse recorte por role na seção "Auth & Roles" — o gap era só a policy.
+   De brinde, o dropdown "Atribuído a" no painel de contato do Inbox
+   (`ContactPanel.tsx`) agora fica desabilitado para `operator`: como ele só
+   enxerga conversas já atribuídas a ele mesmo, qualquer tentativa de
+   reatribuir para outra pessoa falharia silenciosamente no `WITH CHECK` da
+   policy — a UI agora deixa isso explícito ("Só supervisor ou admin podem
+   reatribuir a conversa.") em vez de deixar o operador escolher uma opção
+   que sempre vai falhar.
+   **Ainda em aberto, itens 10-11 e 14 do plano original:**
+   - `contacts` e o funil (`deals`) não têm coluna `department_id` — precisa
+     de decisão de modelo (um contato pode falar com mais de um
+     departamento? é dono único ou N:N?) antes de qualquer RLS aí; hoje
+     seguem `USING (true)`.
+   - Teste com usuário de cada papel (item 14) não foi feito — hoje só existe
+     1 `app_users` real em produção (`super_admin`), sem conta de
+     supervisor/operator pra validar o recorte de verdade.
+   - **Vendas & Recompra**: mantido por decisão do usuário (21/08/2026) — "vou
+     usar em outra fase". Não é mais uma pendência a resolver nesta rodada;
+     nenhuma remoção/alteração deve ser feita sem novo pedido explícito.
 
 ---
 
@@ -519,11 +571,26 @@ erros reais na Base de Conhecimento.
 
 ### Decisões de produto adiadas (não implementadas, precisam de resposta antes)
 
-- **Round-robin só entre online**, no auto-assign de handoff
-  (`lead_assignment_queue`). Hoje é deliberadamente "puro, ignora is_online"
-  (decisão registrada em `20260721130000_lead_auto_assignment.sql`) — vale
-  reconsiderar à luz do tamanho atual da equipe, mas não foi trocado sem
-  confirmação.
+- ~~**Round-robin só entre online**, no auto-assign de handoff
+  (`lead_assignment_queue`).~~ — **resolvido em 21/08/2026, em duas
+  passadas**. A primeira (`20260821151000_assignment_queue_online_only.sql`)
+  filtrou `au.is_online = true`, mas nada no sistema jamais gravava esse
+  valor como `true` — achado do code review completo do mesmo dia, que
+  descobriu a regressão em produção poucas horas depois de aplicada: o
+  round-robin nunca atribuía ninguém, nem com a equipe inteira logada. A
+  segunda passada (`20260821160000_presence_and_assignment_fallback.sql`)
+  corrigiu de verdade: RPC `set_own_presence()` + heartbeat de 45s em
+  `AppUserProvider.tsx` gravam presença real; "online" passou a exigir
+  `is_online = true` **e** `last_seen_at` recente (2min), pra uma aba
+  fechada sem aviso expirar sozinha; e, se ninguém do setor estiver
+  recentemente online, a função cai pro round-robin puro em vez de retornar
+  `NULL` — uma conversa nunca fica sem responsável só por falta de presença.
+  De brinde, fechou um vetor de auto-promoção de privilégio que a policy de
+  presença já expunha em produção antes desta rodada: `app_users_self_presence_update`
+  permitia `UPDATE` na própria linha sem checar qual coluna mudava, então
+  qualquer usuário autenticado já podia gravar `role = 'admin'` direto pela
+  tabela, client-side. Um trigger de guarda agora restringe o self-update a
+  `is_online`/`last_seen_at`.
 - **Variáveis por destinatário em campanhas.** Removidas deliberadamente do
   editor de templates (`TemplateFormDialog.tsx`: "Variáveis não são
   suportadas"). Reintroduzir é decisão de produto, não bug fix.
@@ -552,3 +619,639 @@ Merge para `main` feito em 2026-08-21, resolvendo conflito real com o
 trabalho paralelo que também estava em andamento em `main` (filas de
 round-robin, ações de mensagem no Inbox, correções de trigger inbound) —
 reconciliado arquivo a arquivo, sem descartar nenhum dos dois lados.
+
+**Segunda rodada, mesma data (21/08/2026) — as 3 pendências finais desta fase
+foram resolvidas**, a pedido explícito do usuário:
+
+1. RLS religado nas 4 tabelas legadas de tenant (item 8 da seção 7, acima).
+2. Round-robin de handoff só entre online (item da seção "Decisões de
+   produto adiadas", acima).
+3. Gap de retrigger da IA em áudio corrigido: `transcribe-audio` agora
+   invoca `process-ai-message` diretamente após gravar a transcrição com
+   sucesso (`fetch` direto para `${SUPABASE_URL}/functions/v1/process-ai-message`
+   com a service role key, só no caminho de sucesso); `process-ai-message`
+   passou a tratar `content_type='audio'` com transcrição como texto (exceto
+   quando `content` ainda é o marcador de falha de transcrição).
+
+Migrations `20260821150000_rls_legacy_tenant_tables.sql` e
+`20260821151000_assignment_queue_online_only.sql` aplicadas em produção via
+`apply_migration`; `transcribe-audio` (v6) e `process-ai-message` (v7)
+redeployados com a árvore `_shared/*` completa, conteúdo conferido de volta
+contra o repo. Validação local antes do deploy: `npm run typecheck`,
+`npm run validate:sql`, `npm run lint` (0 erros, só os warnings
+pré-existentes de `react-hooks/set-state-in-effect`), `npm run build` e
+`npm run test:unit` (184/184).
+
+**Terceira rodada, mesma data (21/08/2026) — code review completo do
+projeto** (3 revisores em paralelo, só leitura: backend/Supabase, frontend,
+docs/deps/testes), relatório publicado como Artifact pro usuário decidir o
+que entrava antes de qualquer execução. Aprovado com "prossiga com todas as
+ações necessárias"; itens executados:
+
+1. **Regressão crítica do round-robin** — ver correção acima nesta seção.
+2. `useContacts.ts`: fatiadas as duas buscas de tags/deals da página e o
+   delete em massa que tinham escapado da rodada anterior de chunking.
+3. `useMessages.ts`: guarda contra race condition ao trocar de conversa
+   rápido (resposta antiga podia sobrescrever a conversa nova).
+4. `ImportContactsDialog.tsx`: lotes de leitura `.in()` reduzidos de 500
+   para 100 (upsert continua em 500 — é body de POST, não filtro de URL).
+5. `CLAUDE.md`/`AGENTS.md`: corrigido o drift que o code review encontrou
+   (enum de roles, lista de Edge Functions, jobs `pg_cron`, estrutura de
+   pastas, `templates.category`, claim de "dark mode only" que não é mais
+   verdade). `AGENTS.md` parou de duplicar conteúdo — hoje aponta pra
+   `CLAUDE.md` como fonte única, já que a duplicação foi a causa raiz do
+   drift.
+6. Desagendados 3 jobs `pg_cron` órfãos/indevidos: `wh-check-template-status`
+   (mirava função removida, gerando 404 a cada 5min havia meses) e os dois
+   crons diários de recompra (módulo saindo do produto, mas ainda podendo
+   disparar mensagens reais).
+
+Achados do relatório **não** executados nesta rodada, por exigirem decisão
+de produto em vez de correção mecânica: `UtmChannelMapEditor.tsx` sem rota
+que o monte (parece wiring esquecido, não dead code); zero cobertura de
+teste em Funil e Base de Conhecimento; `useDashboardPrefs.ts`/
+`useForecast.ts` prontos mas nunca ligados na UI. Ficam registrados aqui
+para retomar quando houver decisão sobre cada um.
+
+Migrations desta rodada: `20260821160000_presence_and_assignment_fallback.sql`,
+`20260821170000_unschedule_stale_crons.sql`, ambas aplicadas em produção via
+`apply_migration` e confirmadas (funções/triggers criados, cron jobs
+removidos — checado via `execute_sql`). Validação local: `npm run
+typecheck`, `npx tsc -b --noEmit`, `npm run lint` (0 erros), `npm run build`,
+`npm run test:unit` (184/184), `npm run validate:sql` (99 arquivos).
+
+**Quarta rodada, mesma data (21/08/2026) — decisões de produto do usuário
+sobre os itens deixados em aberto acima:**
+
+1. **Funil ilimitado** — usuário reportou em uso real que "pode criar funis
+   de acordo com a necessidade" tinha parado de funcionar. Era o mesmo bug
+   de gate `adminOnly` no botão "Gerenciar funis" (ver item 9 acima e
+   `CHANGELOG.md`) — RLS e UI já suportavam sem limite, só o botão estava
+   escondido pra `supervisor`/`operator`. Confirmado como necessário agora
+   e já resolvido/deployado.
+2. **Vendas & Recompra** — usuário decidiu explicitamente manter como está:
+   "vou usar em outra fase". Deixa de ser pendência; nenhuma remoção ou
+   alteração deve ser feita sem novo pedido.
+3. **Escopo de visibilidade do operador** — decisão pendente desde a
+   Terceira rodada (item 9 acima), resolvida via pergunta direta ao
+   usuário: `operator` vê só o atribuído a ele. Migration
+   `20260821200000_operator_assigned_only_visibility.sql` aplicada em
+   produção; `ContactPanel.tsx` ganhou gate no dropdown de reatribuição pra
+   `operator` (evita tentar uma ação que a RLS sempre rejeitaria).
+
+Validação local desta rodada: `npm run validate:sql` (102 arquivos),
+`npx tsc -b --noEmit` (0 erros), `npm run lint` (0 erros, mesmos 68 warnings
+pré-existentes), `npm run build`, `npm run test:unit` (184/184). Migration
+aplicada em produção via `apply_migration` e conferida via `execute_sql`
+contra `pg_policy`.
+
+**Quinta rodada, mesma data (21/08/2026) — Campanhas / Vendas & Recompra /
+Agente de IA viram módulos de pacote comercial**, a pedido do usuário:
+"campanhas, Vendas, Agente de IA serão links para uma categoria de plano
+comercial, dependendo do pacote contratado o cliente terá acesso a eles...
+eles devem ficar ocultos para quem não tem o pacote total". Perguntado ao
+usuário via AskUserQuestion antes de implementar:
+
+1. **Provisionamento**: sem tela nova — o pacote de cada instalação é
+   ajustado direto no Supabase do cliente (SQL/MCP) quando o pacote é
+   fechado ou muda. Não existe (e não deveria existir) uma tela dentro da
+   própria instalação onde o `super_admin` edita seu próprio pacote — isso
+   é controlado por quem vende o produto, não por quem o opera.
+2. **Agente de IA sem o módulo**: desliga de verdade — o agente para de
+   responder automaticamente no Inbox, não só a tela de configuração some.
+
+Implementação:
+- `public.instance_plan` (singleton, RLS sem policies — mesmo padrão de
+  `app_settings`/`_bootstrap_state`, só service role lê/escreve) guarda
+  `enabled_modules text[]`, default `{campaigns,vendas,ai_agent}` (fail-open:
+  instalação sem o pacote setado continua com tudo liberado, não trava quem
+  já está em produção agora). Escrever esse valor é manual (SQL/MCP), de
+  propósito — não há endpoint de escrita.
+- `whatsapp_hub.module_enabled(p_module)` (SECURITY DEFINER) e
+  `whatsapp_hub._assert_module(p_module)` (mesma coisa, mas lança exceção) —
+  usados nas policies de escrita de `templates`, `campaigns`,
+  `ai_agent_config`, `sales_records`, `repurchase_predictions`,
+  `repurchase_config`, e dentro de `compute_repurchase_predictions()`/
+  `sales_dashboard()` (RPCs SECURITY DEFINER chamadas direto pelo frontend —
+  bypassam RLS de tabela, por isso precisam do guard próprio). De brinde,
+  essas 6 policies comparavam `current_user_role() = 'admin'` (literal) —
+  mesma classe de bug já corrigida várias vezes nesta rodada — agora usam
+  `is_admin()`.
+- Nova Edge Function `get-instance-plan` (qualquer autenticado, não só
+  admin — o gate é por instalação, não por papel) devolve
+  `enabledModules`. Hook `useEnabledModules()` no frontend, fail-open
+  enquanto carrega. `nav-config.ts` ganhou `module?: CommercialModule` nos 3
+  itens; `Sidebar.tsx`/`MobileNav.tsx` filtram por ele.
+  `CampaignsPage`/`VendasPage`/`AIAgentPage` ganharam guard de página
+  (redireciona pra `/dashboard` se o módulo não está habilitado) —
+  `CampaignsPage` não tinha guard nenhum antes disso.
+- `process-ai-message` (Edge Function, service role — bypassa RLS) ganhou o
+  mesmo check de `ai_agent_config.is_active === false`: sem o módulo, a IA
+  não responde, mesmo que a config interna esteja ativa.
+- **Escopo aceito, não é servidor de licenciamento**: o gate cobre
+  criar/editar conteúdo novo do módulo (templates, campanhas, config do
+  agente, registros de venda); não interrompe trabalho já em andamento
+  (uma campanha já disparando continua, cron jobs não foram tocados) — bug
+  a menos, não uma fortaleza. Enforcement real de licença exigiria um
+  servidor externo fora do Supabase do próprio cliente, fora de escopo
+  desta rodada.
+
+Migration `20260821210000_commercial_plan_modules.sql` aplicada em produção
+e conferida via `execute_sql` (`module_enabled` retorna `true` pros 3
+módulos e `false` pra um módulo inexistente, com a linha default recém-
+criada). Edge Functions `get-instance-plan` (nova) e `process-ai-message`
+(v8, árvore `_shared/*` completa) redeployadas e conferidas `ACTIVE` via
+`list_edge_functions`. Validação local: `npx tsc -b --noEmit` (0 erros),
+`npm run lint` (0 erros, mesmos 68 warnings), `npm run test:unit`
+(184/184), `npm run validate:sql` (103 arquivos).
+
+Nota técnica sobre o deploy de Edge Functions via `apply_migration`/
+`deploy_edge_function` (MCP): imports relativos que sobem um nível a partir
+do entrypoint (`../_shared/...`, o padrão usado no repo, onde `_shared/` é
+irmã da pasta da função) **não resolvem** nesse mecanismo de deploy — ele
+achata tudo sob uma raiz comum e o entrypoint precisa referenciar
+`./_shared/...` (filho, não pai). Só o `index.ts` de cada função precisou
+desse ajuste no payload do deploy; os arquivos dentro de `_shared/*`
+mantêm seus imports relativos normais entre si. O código-fonte no repo
+continua com `../_shared/...` (é o layout real do projeto, correto para
+`supabase functions deploy` via CLI); o ajuste foi só no payload enviado
+a esta ferramenta MCP especificamente.
+
+**Sexta rodada, mesma data (21/08/2026) — 10 achados de uso real reportados
+pelo usuário**, testando a instalação em produção. Perguntado como priorizar
+(bugs vs. o novo módulo de campanhas em massa que ele também descreveu) —
+respondeu "bugs primeiro". Resolvidos:
+
+1. **Convite não respeitava a hierarquia / "vem com acesso de super_admin"**
+   (itens 5 e 6 do relato) — causa raiz encontrada: `TeamSettings.tsx` só
+   oferecia Admin/Operador no seletor de papel, sem Supervisor nem seletor
+   de setor. `admin` neste app tem alcance quase idêntico ao `super_admin`
+   (ver CLAUDE.md, seção Auth & Roles) — convidar alguém como Admin por
+   falta de opção melhor *é* dar acesso de topo. Backend
+   (`invite-team-member`) já aceitava `supervisor`/`super_admin`/
+   `department_id`; só o formulário nunca mandava. Corrigido: seletor
+   ganhou Supervisor (+ Owner, só visível pra quem já é `super_admin`) e um
+   seletor de setor. Confirmado pelo usuário que aconteceu num convite
+   normal (não durante teste de apagar/recriar conta), o que descarta a
+   hipótese alternativa (contagem de `app_users` zerada re-promovendo
+   alguém a "dono").
+2. **"Cadastrar usuário" (fluxo por Departamentos, RPC `create_user`) não
+   envia e-mail pra gerar senha** (item 7) — de propósito a RPC não define
+   senha, mas nada disparava o e-mail de redefinição; a pessoa teria que
+   adivinhar que precisa usar "Esqueci minha senha" no login. Agora chama
+   `resetPasswordForEmail` automaticamente após o cadastro (mesma chamada
+   que `LoginPage.tsx` já usa nesse fluxo).
+3. **Canto superior direito mostrava e-mail em vez do nome** (item 8) —
+   trocado por `operatorLabel()` (mesmo helper de nome→e-mail-como-fallback
+   usado em toda a UI que lista operadores).
+4. **QR Code não gerava** (itens 1 e 4) — diagnosticado, não é bug de
+   código: `/instance/create` retornou 403 "portaria2 já em uso" (instância
+   órfã já existente no servidor Evolution) e o fallback `/instance/connect`
+   retornou 401 — a API key configurada no MegaCRM não tem autoridade sobre
+   essa instância específica. Precisa resolver no próprio painel da
+   Evolution (apagar a instância órfã, ou confirmar a chave). Mensagem de
+   erro melhorada pra apontar essa causa explicitamente em vez de só
+   repassar os dois HTTP crus.
+
+**Ainda em aberto, fora de escopo desta rodada (não é bug pontual, precisa
+de planejamento próprio):**
+- Item 9: modelo de central de atendimento por departamento / painel de
+  configuração individualizado por setor.
+- Item 10: horário de atendimento individualizado por setor e por usuário
+  (já era pendência conhecida — ver seção 7 item pendente sobre
+  `business_hours` continuar singleton).
+- Item repetido "1-": "janela de opções deveria ser visível, não oculta
+  aguardando o mouse" — não ficou claro qual tela/dropdown específico do
+  MegaCRM está sendo descrito (os prints mostram principalmente o
+  sosapp.sosbot.online, outra ferramenta usada como referência); precisa de
+  confirmação antes de mexer em algo.
+- Especificação completa de um novo canal de disparos de mensagens em
+  massa (nome da campanha, lista de contatos/tags, conexão, agendamento,
+  até 5 mensagens com timing randômico anti-banimento, anexos, histórico de
+  arquivos reaproveitável, painel de status/gráficos/qualidade) inspirada
+  no sosapp.sosbot.online, mais uma aba de gerenciamento de arquivos de
+  campanha — o usuário decidiu deixar para depois dos bugs; é grande o
+  suficiente pra merecer seu próprio planejamento (schema novo, Edge
+  Functions, integração com o `campaigns`/`templates` existentes ou módulo
+  paralelo) antes de qualquer código.
+
+Validação local: `npx tsc -b --noEmit` (0 erros), `npm run lint` (0 erros,
+mesmos 68 warnings pré-existentes), `npm run build`, `npm run test:unit`
+(184/184). Sem migration nesta rodada — só frontend (`TeamSettings.tsx`,
+`DepartmentsSettings.tsx`, `Header.tsx`) e a API route
+`api/evolution-instance.ts`.
+
+**Sétima rodada, mesma data (21/08/2026) — auditoria de segurança via
+`mcp__Supabase__get_advisors`**, disparada pela pergunta do usuário "como
+estamos de segurança e implementação". Achado real e não documentado antes:
+5 funções `SECURITY DEFINER` em `whatsapp_hub` nunca tiveram `EXECUTE`
+revogado de `anon` — diferente do padrão usado em toda função nova desta
+sessão (`module_enabled`, `_assert_module`, `create_user`, etc., que sempre
+fazem `REVOKE ... FROM PUBLIC, anon`). Sem o REVOKE explícito, Postgres
+concede `EXECUTE` a `PUBLIC` na criação da função, e `PUBLIC` inclui `anon`
+— ou seja, qualquer requisição não autenticada (a anon key, pública,
+embarcada no build do frontend) conseguia chamar essas RPCs direto via
+PostgREST:
+
+- `list_operators()` — vazava e-mail + role + setor de **toda a equipe**
+  pra qualquer request não autenticada. O mais grave dos cinco.
+- `bump_campaign_counter` / `claim_campaign_contacts` /
+  `increment_unread_count` — só são chamadas pelas Edge Functions (service
+  role; confirmado por grep, zero uso no frontend). `anon` conseguia
+  corromper contadores de campanha, "roubar" a fila de disparo de qualquer
+  campanha (nega serviço no `dispatch-campaign`), ou inflar
+  `unread_count`/`last_message_at` de conversas arbitrárias.
+- `import_won_deals_to_sales()` — tinha checagem de papel interna
+  (`current_user_role() NOT IN ('admin','operator')`), mas pra um chamador
+  `anon` a função retorna NULL, e PL/pgSQL trata `IF NULL THEN` como falso
+  — a exceção nunca disparava e `anon` conseguia rodar a importação
+  inteira.
+
+Corrigido via `20260821220000_revoke_anon_function_execute.sql`: revogado
+`EXECUTE` de `anon` (e de `authenticated` nas 3 que não têm nenhum chamador
+legítimo fora de Edge Function) nas 5 funções, e a checagem de
+`import_won_deals_to_sales` reescrita pra tratar NULL como não autorizado
+explicitamente, não só como efeito colateral do REVOKE. Aplicada em
+produção e conferida via `execute_sql` (`has_function_privilege` pros três
+papéis, anon agora `false` nas 5).
+
+**Achados do advisor sem ação — ruído confirmado, não é MegaCRM:** todos os
+18 achados `ERROR` (9 `security_definer_view` + 9 `rls_disabled_in_public`)
+são em tabelas/views do `public` schema com nomes do TomikCRM/n8n
+(`crm_funnel`, `patients`, `professionals`, `tomikcrm_schema_migrations`,
+etc.) — o mesmo conjunto de ~54 tabelas não relacionadas já documentado na
+Terceira rodada, sem FK pro schema `whatsapp_hub`. Os 10 achados
+`rls_enabled_no_policy` batem exatamente com o padrão intencional (RLS
+ligada, zero policies, só service role) usado em `public.app_settings`,
+`public._bootstrap_state`, `public.instance_plan` e nas tabelas legado
+`whatsapp_hub.tenant_*`/`tenants` — mais três tabelas internas
+(`department_assignment_state`, `rate_limit_hits`, `webhook_events`) que só
+Edge Functions tocam (grep confirma zero uso no frontend). Os 119+96+83+68
+achados `WARN` restantes (`function_search_path_mutable`,
+`pg_graphql_*_table_exposed`, `*_security_definer_function_executable`) são,
+em sua maioria, ruído do schema `public` compartilhado com o TomikCRM — não
+foram auditados um a um função por função além dos 5 já corrigidos acima
+(auditoria completa do restante fica como item de cauda longa, não
+bloqueante).
+
+Validação local (esta rodada): `npm run validate:sql` (104 arquivos),
+`npx tsc -b --noEmit` (0 erros), `npm run lint` (0 erros), `npm run
+test:unit` (184/184) — só SQL, sem mudança de frontend/Edge Function.
+
+**Oitava rodada, mesma data (21/08/2026) — tema claro/escuro nos cards do
+funil + tipo de funil configurável.** Disparada por print do usuário
+mostrando um popup escuro flutuando sobre o board do Funil já no tema claro
+("cards acompanham o efeito 'dia ou noite'"), mais o pedido de que a criação
+de funis deixe escolher entre financeiro/comercial e atendimento.
+
+1. **Bug de tema (dark-mode hardcoded)** — `bg-[#0A0A0F]` (o hex fixo do
+   tema escuro, não a variável `var(--color-bg-elevated)` que já existe e
+   troca sozinha com o `ThemeToggle`) estava espalhado em 15 arquivos:
+   `AddToPipelineDialog.tsx`, `DealDrawer.tsx`, `FunilManager.tsx`,
+   `DealDrawerEditors.tsx`, `FunilFilter.tsx`, `ImportContactsDialog.tsx`,
+   `ConversationList.tsx`, `dashboard/widgets.tsx`,
+   `UtmChannelMapEditor.tsx`, `VendasPage.tsx`, `FunilPage.tsx`,
+   `ContactDetailPage.tsx`, `ProductsSettings.tsx`, `CredentialsPage.tsx`,
+   `InboxPage.tsx` — todo popup/dropdown/drawer nesses arquivos ficava
+   escuro mesmo no tema claro. Trocado por `var(--color-bg-elevated)`
+   (`#111525` escuro / `#FFFFFF` claro) em todos. Achado um segundo caso
+   fora do padrão `bg-` na mesma varredura: `ring-offset-[#0A0A0F]` nos
+   swatches de cor de estágio em `FunilManager.tsx:212`, mesmo bug, prefixo
+   Tailwind diferente (`ring-offset-` em vez de `bg-`) — corrigido junto.
+   `SetupPage.tsx` (wizard pré-login, sem `ThemeToggle`, deliberadamente
+   fixo no tema escuro) ficou de fora de propósito.
+2. **Tipo de funil configurável** — `whatsapp_hub.pipelines.kind` já tinha
+   um quarto valor `'atendimento'` no enum (adicionado numa migration
+   anterior desta sessão, `20260821230000_pipeline_kind_atendimento.sql`),
+   mas nada na UI deixava escolher: `usePipeline.ts`'s `createPipeline`
+   hardcodeava `kind: 'comercial'` em todo funil novo. Agora:
+   - `createPipeline(name, scope, kind)` aceita um terceiro parâmetro
+     opcional (default `'comercial'`, preservando o comportamento antigo
+     pra quem não passar nada).
+   - `FunilManager.tsx` ganhou um segundo par de botões "Financeiro" /
+     "Atendimento" no formulário "Novo funil…", ao lado do já existente "Só
+     meu"/"Da empresa", e passa a escolha pro `createPipeline`. Funis
+     `atendimento` existentes ganham um selo "Atendimento" ao lado do nome
+     na lista de gerenciamento, pra diferenciar visualmente dos comerciais.
+   - Estágios padrão semeados mudam por tipo: `comercial` continua com o
+     fluxo de vendas (Novo lead 10% / Em andamento 50% / Ganho `is_won`
+     100% / Perdido `is_lost` 0%); `atendimento` ganha um fluxo de suporte
+     de 3 estágios sem noção de "perdido" (Aberto 0% / Em atendimento 50% /
+     Resolvido `is_won` 100%).
+   - Como "Resolvido" nasce marcado `is_won` (reaproveitando o mesmo booleano
+     que fecha negócio no funil comercial), os triggers de receita
+     (`_deal_won_to_sales`, `_deal_unwon_cleanup`,
+     `import_won_deals_to_sales()`) já tinham sido reforçados numa migration
+     anterior desta sessão (`20260821240000_scope_revenue_triggers_to_comercial.sql`)
+     com um guard `pipelines.kind = 'comercial'` — sem ele, fechar um card de
+     atendimento como "Resolvido" teria gerado uma venda fantasma em
+     `sales_records`. Confirmado que o guard já está em produção antes de
+     expor a opção na UI.
+
+Sem migration nova nesta rodada — só frontend
+(`src/types/crm.ts`, `src/hooks/usePipeline.ts`,
+`src/components/funil/FunilManager.tsx` + os 15 arquivos do bug de tema).
+Validação local: `npx tsc -b --noEmit` (0 erros), `npm run lint` (0 erros,
+mesmos 68 warnings pré-existentes), `npm run build`, `npm run test:unit`
+(184/184), `npm run validate:sql` (106 arquivos, sem novidade).
+
+### Plano — itens ainda em aberto (consolidado, pedido explícito do usuário)
+
+Nenhum destes foi iniciado nesta sessão. Ordem sugerida por
+esforço×impacto, não por urgência (não há mais nenhum item 🔴 de segurança
+em aberto no momento):
+
+1. ~~Painel de central de atendimento por departamento~~ (item 9) —
+   **implementado na Décima rodada** (ver abaixo).
+2. ~~Horário de atendimento por usuário~~ (item 10) — **implementado na
+   Décima rodada** (ver abaixo), junto com o item 9 (mesmo componente,
+   cascata usuário → setor → global).
+3. ~~Especificação completa do canal de disparos em massa~~ — **implementado
+   na Nona rodada** (ver abaixo), como módulo paralelo via Evolution.
+4. **Item "1-" ambíguo do feedback** ("janela de opções deveria ser visível,
+   não oculta aguardando o mouse") — segue sem confirmação de qual
+   tela/dropdown específico do MegaCRM está sendo descrito; os prints do
+   usuário mostravam majoritariamente o sosapp.sosbot.online como
+   referência. Precisa de uma captura de tela do MegaCRM apontando o menu
+   específico antes de virar tarefa. **Adiado explicitamente pelo usuário**
+   (21/08/2026: "deixa pra depois") — não é mais um bloqueio ativo desta
+   sessão, é decisão de priorização. Retomar quando o usuário trouxer o
+   print/confirmação.
+
+### Nona rodada, mesma data (21/08/2026) — canal de "Disparo em massa"
+
+Implementação do item 3 do plano acima. Antes de codificar, perguntado ao
+usuário (via AskUserQuestion) e confirmado:
+
+1. **Via Evolution (WhatsApp Web), não via Zernio/Meta oficial.** O pedido
+   original (5 modelos de texto livre + "timing randômico anti-banimento")
+   só faz sentido fora do Business API oficial: a Meta exige template
+   aprovado pra mensagem iniciada pela empresa fora da janela de 24h, e já
+   controla o próprio ritmo de envio (rate limit por tier) — não há "risco
+   de banimento" a mitigar nesse canal. "Timing anti-banimento" é
+   terminologia de ferramenta de disparo por WhatsApp Web (Baileys/Evolution,
+   como o sosapp.sosbot.online citado na referência), que simula
+   comportamento humano pra reduzir (nunca eliminar) o risco de a Meta
+   marcar o número como spam/bot e bloqueá-lo. **Isso está fora dos termos
+   de uso oficiais do WhatsApp Business** — risco explicitado ao usuário na
+   pergunta, na wizard de criação do disparo, e neste documento.
+2. **Mesmo padrão de módulo comercial** que Campanhas/Vendas/Agente de IA —
+   4º valor em `public.instance_plan.enabled_modules` (`'disparo_massa'`),
+   entra habilitado por padrão nas instalações existentes.
+
+**Decisão de arquitetura:** módulo paralelo a `campaigns`, não uma extensão
+dele. Misturar broadcast-com-template-aprovado (Zernio, `campaign_contacts`)
+com texto-livre-randomizado (Evolution) no mesmo schema teria confundido o
+que cada linha significa — e o modelo de envio é fundamentalmente diferente
+(broadcast em lote via API do Zernio vs. um envio por vez, espaçado, direto
+pela sessão WhatsApp Web).
+
+**Schema novo** (`20260821250000_mass_dispatch.sql`, aplicada em produção):
+- `mass_dispatches` — nome, `connection_id` (linha Evolution, FK
+  `department_connections`), status, `audience_filter` jsonb
+  (`{mode:'all'|'tags'|'file', ...}`), `min_delay_seconds`/`max_delay_seconds`,
+  `next_send_at` (throttle por disparo), contadores `sent`/`replied`/`failed`.
+- `mass_dispatch_messages` — até 5 variantes de texto+anexo por disparo,
+  limite reforçado por trigger (`_enforce_max_dispatch_messages`), não só no
+  app.
+- `mass_dispatch_contacts` — fila de envio, 1 linha por contato, RLS
+  restringe UPDATE/status ao service role (o frontend só faz o INSERT
+  inicial da fila, igual `campaign_contacts`) — evita operador inflar as
+  próprias métricas de qualidade.
+- `mass_dispatch_files` — listas de contato (CSV/XLSX, contatos já
+  resolvidos por find-or-create no upload, guardados em `contact_ids uuid[]`
+  pra reenvio instantâneo) e anexos de mensagem, ambos reaproveitáveis entre
+  disparos — a aba "Arquivos" pedida pelo usuário.
+- RPCs `claim_mass_dispatch_contact`/`bump_mass_dispatch_counter`
+  (SECURITY DEFINER, `REVOKE ... FROM PUBLIC, anon, authenticated` desde o
+  nascimento — não repetindo o gap que a Sétima rodada teve que corrigir
+  depois).
+- Trigger `_mark_dispatch_replied` em `messages` (AFTER INSERT, inbound):
+  heurística de resposta — uma mensagem inbound do contato depois do envio
+  marca a linha como `replied`. **Sem confirmação de entrega/leitura**: a
+  rota Evolution deste projeto não traz webhook de ACK hoje (confirmado em
+  `whatsapp-inbound/index.ts`), então o painel de qualidade mostra só o que
+  é real (pendente/enviado/respondeu/falhou), sem inventar "entregue"/"lido".
+- Bucket `whatsapp-hub-dispatch-files` (público, 25MB, RLS por papel —
+  mesmo padrão de `whatsapp-hub-outbound-media`).
+- Cron `wh-dispatch-mass-messages` (30s, via `_cron_invoke_edge` já
+  existente) chamando a nova Edge Function `dispatch-mass-message`.
+
+**Modelo de envio (anti-rajada, de propósito):** por tick, por disparo em
+`sending` cujo `next_send_at` já chegou, processa **UM** contato (nunca um
+lote) — reserva atômica via `claim_mass_dispatch_contact` (SKIP LOCKED),
+sorteia um dos modelos de mensagem, envia via Evolution, espelha na inbox
+(conversa + mensagem outbound, mesmo padrão do `dispatch-campaign`), e
+agenda o próximo envio DESTE disparo pra `now() + random(min,max)` segundos.
+A cadência mínima real é o tick do cron (30s) — `min_delay_seconds` abaixo
+disso só reduz o jitter adicional, não acelera de verdade; documentado na
+wizard.
+
+**Edge Function `dispatch-mass-message`**: publicada como arquivo único com
+as dependências de `_shared/` inlinizadas (mesmo padrão descoberto nesta
+sessão pro `dispatch-campaign` real em produção — o mecanismo de deploy via
+MCP do Supabase achata `_shared/*` sob um `source/` único, quebrando imports
+relativos `../_shared/...`; arquivo único evita o problema por completo em
+vez de reescrever imports). O código-fonte "de verdade" (`../_shared/...`,
+pra `supabase functions deploy` via CLI) seria os arquivos reais do repo —
+não criados nesta rodada porque o arquivo único já cobre o deploy real.
+
+**Frontend**: novo módulo `src/app/routes/mass-dispatch/MassDispatchPage.tsx`
+(abas Disparos/Arquivos, mesmo padrão de tabs de `CampaignsPage.tsx`),
+`DispatchWizard.tsx` (4 passos: Identidade+Conexão, Audiência, Mensagens+
+Timing, Agendamento+Revisão — mesmo esqueleto de `CampaignWizard.tsx`),
+`DispatchList.tsx` (lista + pausar/retomar/excluir), `DispatchDetail.tsx`
+(dashboard de status por disparo: contadores, gráfico de pizza Recharts,
+tabela paginada de contatos), `DispatchFilesTab.tsx` (upload/lista/exclusão
+de listas de contato e anexos). Hooks `useMassDispatches.ts` (CRUD +
+resolução de audiência, mesmo padrão de `useCampaigns.ts`) e
+`useDispatchFiles.ts` (upload com parse client-side de CSV/XLSX via `xlsx`,
+mesmo parser de `ImportContactsDialog.tsx`). Nav item "Disparo em massa"
+gated por `module: 'disparo_massa'` (mesmo mecanismo genérico de
+Sidebar/MobileNav já filtrando por módulo — nenhuma mudança nesses dois
+arquivos foi necessária).
+
+**Não implementado nesta rodada** (fora do pedido original ou adiado por
+escopo): agendamento por dias/horários específicos recorrentes (só
+agendamento pontual de data/hora, igual `campaigns`); reaproveitar um anexo
+já salvo na aba Arquivos ao compor uma mensagem (hoje só upload direto por
+mensagem); qualquer limite de "quantas mensagens por dia" além do intervalo
+min/max configurável.
+
+Validação local: `npx tsc -b --noEmit` (0 erros), `npm run lint` (0 erros,
+73 warnings — 5 novos, mesmo padrão `set-state-in-effect` já aceito em todo
+hook de reload-on-mount do projeto), `npm run build`, `npm run test:unit`
+(184/184), `npm run validate:sql` (107 arquivos). Migration aplicada e
+verificada em produção (`lstbxeaasyysboavdati`): `enabled_modules` inclui
+`disparo_massa`, cron `wh-dispatch-mass-messages` ativo, RPCs confirmadas
+sem EXECUTE para `anon`/`authenticated`. Edge Functions `dispatch-mass-message`
+(nova) e `get-instance-plan` (redeployada com o 4º módulo) publicadas e
+ativas.
+
+### Décima rodada, mesma data (21/08/2026) — horário de atendimento por
+### departamento e por usuário (itens 9 e 10)
+
+Fecha os dois últimos itens implementáveis do plano acima (item 4 segue
+bloqueado por falta de informação, não por esforço).
+
+**Schema** (`20260822000000_business_hours_per_department_and_user.sql`,
+aplicada em produção): `departments` e `app_users` ganharam colunas nulas
+`business_hours jsonb`/`out_of_hours_message text`. NULL nas duas colunas
+de um nível = "sem override aqui, herda do nível acima" — cascata
+usuário atribuído → setor da conversa → singleton global
+(`whatsapp_hub.app_settings`, inalterado). Sem precisar de migration de
+dado: nenhuma linha existente precisou ser preenchida, o fallback já cai
+no singleton que já existia.
+
+De brinde, achado ao mexer em `app_users`: a policy `app_users_admin_write`
+comparava literalmente `current_user_role() = 'admin'`, o mesmo bug de
+"super_admin excluído" corrigido várias vezes nesta sessão (nav guards,
+policies de módulo comercial) — o dono da instalação não conseguia editar
+a linha de outro usuário (incluindo o próprio horário de atendimento) por
+essa policy. Corrigida junto para `IN ('super_admin', 'admin')`.
+
+**Sem mudança de RLS além dessa correção**: `departments_write` já era
+admin/super_admin-only (cobre as novas colunas de graça); a escrita da
+própria linha de `app_users` já era permitida por
+`app_users_self_presence_update` (mesma policy usada pelo heartbeat de
+presença, sem guard de coluna — mas já protegida contra auto-promoção de
+role por um trigger de uma rodada anterior).
+
+**Componente compartilhado**: `BusinessHoursEditor.tsx`
+(`src/components/settings/`) — extraído do que antes era só
+`BusinessHoursSettings.tsx` (agora um wrapper fino sobre o componente,
+comportamento do singleton global inalterado). Aceita `load`/`save` como
+props (qualquer tabela/filtro) e um modo `nullable` que mostra um toggle
+"horário próprio" — desligado = limpa o override (salva NULL nas duas
+colunas) e herda do nível acima; ligado = mostra o editor completo (mesmo
+grid de dias/horários + mensagem fora do horário de sempre). Três usos:
+1. `BusinessHoursSettings.tsx` (Configurações → Horário) — global,
+   `nullable=false`, comportamento idêntico ao de antes.
+2. `DepartmentsSettings.tsx` — nova seção "Horário de atendimento do setor"
+   dentro do acordeão de cada departamento (mesmo padrão visual da seção
+   "Números/linhas" já existente ali), `nullable=true`,
+   `inheritLabel="Usar o horário padrão da instância"`.
+3. `AccountSettings.tsx` — novo card "Meu horário de atendimento"
+   (self-service, qualquer papel), `nullable=true`,
+   `inheritLabel="Usar o horário do meu setor"`.
+
+**Backend**: `process-ai-message/index.ts` ganhou `resolveBusinessHours()`
+— substitui a leitura direta do singleton por uma cascata: se
+`conversations.assigned_to` tem override em `app_users`, usa; senão, se
+`conversations.department_id` tem override em `departments`, usa; senão,
+cai no singleton `app_settings` de sempre. A conversa passou a selecionar
+`assigned_to` também (só faltava esse campo pro cascade funcionar). O
+comportamento de "sem gate no código, quem decide usar as variáveis é o
+prompt" não mudou — só a origem dos dados ficou mais específica.
+Edge Function `process-ai-message` redeployada (v9→v9, na verdade só um
+redeploy de conteúdo) com o `_shared/plan.ts` também sincronizado (tinha
+ficado desatualizado no v8, ainda com só 3 módulos — agora inclui
+`disparo_massa`).
+
+Validação local: `npx tsc -b --noEmit` (0 erros), `npm run lint` (0 erros,
+74 warnings — 1 novo, mesmo padrão `set-state-in-effect` já aceito),
+`npm run build`, `npm run test:unit` (184/184), `npm run validate:sql`
+(108 arquivos). Migration aplicada e Edge Function redeployada em produção,
+ambas verificadas. Commit `4adebf5` empurrado pra `main`; deploy Vercel
+`dpl_58kwm8WJ5VxtZTtApNXyCi1Kwbcb` confirmado `READY` em produção
+(`megacrm-seven-smoky.vercel.app`).
+
+---
+
+## Estado da lista de pendências ao fim da Décima rodada
+
+Dos 4 itens do "Plano — itens ainda em aberto" (seção acima), 3 foram
+implementados e enviados pra produção nesta sessão:
+
+1. ✅ Painel de horário de atendimento por departamento — Décima rodada.
+2. ✅ Horário de atendimento por usuário — Décima rodada (mesmo componente
+   do item 1, cascata usuário → setor → global).
+3. ✅ Canal de disparo em massa via Evolution — Nona rodada.
+4. 🔜 Item "1-" ambíguo do feedback ("janela de opções deveria ser visível,
+   não oculta aguardando o mouse") — **adiado explicitamente pelo usuário**
+   (21/08/2026: "deixa pra depois, prossiga com o md"), não por falta de
+   esforço: ainda não há confirmação de qual tela/dropdown específico do
+   MegaCRM está sendo descrito. Os prints originais do usuário mostravam
+   majoritariamente a interface do sosapp.sosbot.online (referência
+   externa), não o MegaCRM. Retomar quando o usuário trouxer uma captura de
+   tela do MegaCRM apontando o menu/dropdown específico.
+
+Com isso, a lista de pendências consolidada nesta sessão está fechada: 3
+itens implementados e verificados em produção, 1 item adiado por decisão
+do usuário. Nenhuma tarefa aberta desta lista aguardando ação imediata.
+
+---
+
+### Décima primeira rodada (22/08/2026) — validação de conexões Evolution:
+### múltiplos números, até 2 linhas por pessoa e cobertura de ausência
+
+Pedido do usuário, direto do uso real da plataforma em produção (múltiplos
+setores com linhas Evolution já configuradas):
+
+> "foque na evolution, como será feita a validação das conexões, lembrando
+> que haverá departamentos com vários numeros ativos, um e até 2 numeros por
+> usuário, usuários fixos, mas na ausência deles preciso de uma alternativa
+> para que outro operador possa assumir essa linha sem perder a dele de
+> fato, haverá departamento com um único número e vários atendentes. veja se
+> está no md, caso não planeje agora e traga uma solução sensata."
+
+**Levantamento — nada disso estava documentado.** Grep em
+`PLANEJAMENTO.md`/`docs/PLANO-HIERARQUIA.md`/`CLAUDE.md` por
+cobertura/substituição/ausência/2 números não trouxe nenhum design — só uma
+linha em `CLAUDE.md` dizendo que `admin`/`super_admin` "só atendem por linha
+pessoal". Conferido contra o schema real
+(`20260808170000_departments.sql`, `20260810120000_connection_per_position.sql`):
+
+1. **Departamento com vários números ativos** — já funcionava: um setor tem N
+   `department_positions`, cada um podendo ter sua própria
+   `department_connections` (`position_id` preenchido). Nada a fazer.
+2. **Departamento com um único número e vários atendentes** — já funcionava:
+   é o caso `position_id = NULL` (linha de fila do setor), distribuído por
+   round-robin via `next_department_assignee()`/`lead_assignment_queue`.
+   Nada a fazer.
+3. **Até 2 números por usuário** — **não existia**: `department_positions.
+   user_id` era `UNIQUE`, hard-limit de exatamente 1 cargo por pessoa.
+4. **Cobertura de linha pessoal sem perder a própria** — **não existia**:
+   `connectionForInstance` sempre roteava mensagens novas da linha pessoal
+   para `department_positions.user_id`, ausência ou não. Não havia conceito
+   de substituto em lugar nenhum (schema, RLS, roteamento ou UI).
+
+**Solução implementada** (migration `20260822120000_position_coverage_and_
+multi_line.sql`, aplicada em produção):
+
+- Trocada a `UNIQUE(user_id)` por um trigger
+  (`_enforce_max_positions_per_user`) que permite até 2 cargos por usuário —
+  "até 2", não ilimitado, como pedido.
+- Nova tabela `whatsapp_hub.position_coverage` (`position_id`,
+  `covering_user_id`, `ends_at` opcional, `ended_at` = NULL quando ativa).
+  Índice único garante no máximo 1 cobertura ativa por cargo. RLS: leitura
+  aberta a todo autenticado, escrita para `admin`/`super_admin` e para
+  `supervisor` do próprio setor (mesmo alcance de quem hoje edita cargos, mais
+  o supervisor — é quem primeiro sabe que alguém faltou).
+- `_shared/whatsapp/department-routing.ts::connectionForInstance` passou a
+  checar cobertura ativa do cargo antes de cair no titular: havendo cobertura,
+  mensagens **novas** na linha pessoal vão para `covering_user_id`. O vínculo
+  cargo→titular não é tocado — volta a valer sozinho assim que a cobertura
+  termina. Edge Function `whatsapp-inbound` redeployada (v10) com a mudança.
+- Cron `wh-expire-position-coverage` (15min, SQL puro via `pg_cron`, sem Edge
+  Function) encerra sozinho coberturas cujo `ends_at` (previsão de volta,
+  opcional) já passou. Sem `ends_at`, só encerra na mão.
+- Conversas que já existiam antes da cobertura começar **não são
+  reatribuídas automaticamente** — decisão deliberada, não lacuna: a RLS por
+  departamento (`conversations_select`, Fase C — item 22 da lista de tarefas
+  desta sessão) já deixa qualquer colega do mesmo setor ver e responder por
+  qualquer conversa do setor, incluindo as de linha pessoal de um colega
+  ausente; a resposta (`send-operator-message`) já reatribui a conversa a
+  quem respondeu. A cobertura resolve o roteamento de mensagens novas; para
+  as antigas, o mecanismo de "responder = assumir" que já existia é
+  suficiente.
+- UI em Configurações → Setores: por cargo com linha pessoal, botão
+  "Cobertura" abre um formulário (quem cobre + previsão de volta opcional +
+  motivo opcional); com cobertura ativa, mostra um badge "Fulano está
+  cobrindo esta linha" com botão "Encerrar cobertura".
+
+Pipeline de validação completa: `tsc -b --noEmit` limpo, `npm run lint` 0
+erros / 74 warnings (baseline inalterado), `npm run build` ok, `npm run
+test:unit` 184/184, `npm run validate:sql` 109 arquivos / 1220 statements.
+Migration aplicada em produção (projeto `lstbxeaasyysboavdati`) e
+`whatsapp-inbound` redeployado antes do commit.
