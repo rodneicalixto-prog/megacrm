@@ -979,26 +979,121 @@ em aberto no momento):
    departamento quando presente; decisão de produto pendente: se ausência
    de override individual cai no horário do setor ou direto no singleton
    global.
-3. **Especificação completa do canal de disparos em massa estilo
-   sosapp.sosbot.online** — o item mais grande do backlog. Campos: nome da
-   campanha, lista de contatos (de lista pré-definida), lista de tags
-   (puxar contatos via tag), conexão (linha WhatsApp do operador
-   responsável), agendamento (dias/horários específicos), até 5 modelos de
-   mensagem com timing randômico entre envios (anti-banimento, sem lógica
-   fixa), anexo de arquivos, confirmação de agendamento/disparo, painel de
-   acompanhamento com gráficos e relatórios de qualidade, mais uma aba
-   separada de gerenciamento/reaproveitamento de listas de arquivos de
-   campanha. Isso é maior que uma issue pontual — parece ou (a) uma extensão
-   do módulo `campaigns`/`templates` existente (reaproveitando
-   `campaign_contacts`, tags, e o `dispatch-campaign` já rodando via
-   pg_cron) ou (b) um módulo paralelo novo, dependendo de quanto o operador
-   quer misturar isso com o fluxo de Templates aprovados pela Meta que
-   `campaigns` já assume hoje. Merece seu próprio planejamento de
-   schema/Edge Functions antes de qualquer linha de código — não
-   comprometido nesta sessão.
+3. ~~Especificação completa do canal de disparos em massa~~ — **implementado
+   na Nona rodada** (ver abaixo), como módulo paralelo via Evolution.
 4. **Item "1-" ambíguo do feedback** ("janela de opções deveria ser visível,
    não oculta aguardando o mouse") — segue sem confirmação de qual
    tela/dropdown específico do MegaCRM está sendo descrito; os prints do
    usuário mostravam majoritariamente o sosapp.sosbot.online como
    referência. Precisa de uma captura de tela do MegaCRM apontando o menu
    específico antes de virar tarefa.
+
+### Nona rodada, mesma data (21/08/2026) — canal de "Disparo em massa"
+
+Implementação do item 3 do plano acima. Antes de codificar, perguntado ao
+usuário (via AskUserQuestion) e confirmado:
+
+1. **Via Evolution (WhatsApp Web), não via Zernio/Meta oficial.** O pedido
+   original (5 modelos de texto livre + "timing randômico anti-banimento")
+   só faz sentido fora do Business API oficial: a Meta exige template
+   aprovado pra mensagem iniciada pela empresa fora da janela de 24h, e já
+   controla o próprio ritmo de envio (rate limit por tier) — não há "risco
+   de banimento" a mitigar nesse canal. "Timing anti-banimento" é
+   terminologia de ferramenta de disparo por WhatsApp Web (Baileys/Evolution,
+   como o sosapp.sosbot.online citado na referência), que simula
+   comportamento humano pra reduzir (nunca eliminar) o risco de a Meta
+   marcar o número como spam/bot e bloqueá-lo. **Isso está fora dos termos
+   de uso oficiais do WhatsApp Business** — risco explicitado ao usuário na
+   pergunta, na wizard de criação do disparo, e neste documento.
+2. **Mesmo padrão de módulo comercial** que Campanhas/Vendas/Agente de IA —
+   4º valor em `public.instance_plan.enabled_modules` (`'disparo_massa'`),
+   entra habilitado por padrão nas instalações existentes.
+
+**Decisão de arquitetura:** módulo paralelo a `campaigns`, não uma extensão
+dele. Misturar broadcast-com-template-aprovado (Zernio, `campaign_contacts`)
+com texto-livre-randomizado (Evolution) no mesmo schema teria confundido o
+que cada linha significa — e o modelo de envio é fundamentalmente diferente
+(broadcast em lote via API do Zernio vs. um envio por vez, espaçado, direto
+pela sessão WhatsApp Web).
+
+**Schema novo** (`20260821250000_mass_dispatch.sql`, aplicada em produção):
+- `mass_dispatches` — nome, `connection_id` (linha Evolution, FK
+  `department_connections`), status, `audience_filter` jsonb
+  (`{mode:'all'|'tags'|'file', ...}`), `min_delay_seconds`/`max_delay_seconds`,
+  `next_send_at` (throttle por disparo), contadores `sent`/`replied`/`failed`.
+- `mass_dispatch_messages` — até 5 variantes de texto+anexo por disparo,
+  limite reforçado por trigger (`_enforce_max_dispatch_messages`), não só no
+  app.
+- `mass_dispatch_contacts` — fila de envio, 1 linha por contato, RLS
+  restringe UPDATE/status ao service role (o frontend só faz o INSERT
+  inicial da fila, igual `campaign_contacts`) — evita operador inflar as
+  próprias métricas de qualidade.
+- `mass_dispatch_files` — listas de contato (CSV/XLSX, contatos já
+  resolvidos por find-or-create no upload, guardados em `contact_ids uuid[]`
+  pra reenvio instantâneo) e anexos de mensagem, ambos reaproveitáveis entre
+  disparos — a aba "Arquivos" pedida pelo usuário.
+- RPCs `claim_mass_dispatch_contact`/`bump_mass_dispatch_counter`
+  (SECURITY DEFINER, `REVOKE ... FROM PUBLIC, anon, authenticated` desde o
+  nascimento — não repetindo o gap que a Sétima rodada teve que corrigir
+  depois).
+- Trigger `_mark_dispatch_replied` em `messages` (AFTER INSERT, inbound):
+  heurística de resposta — uma mensagem inbound do contato depois do envio
+  marca a linha como `replied`. **Sem confirmação de entrega/leitura**: a
+  rota Evolution deste projeto não traz webhook de ACK hoje (confirmado em
+  `whatsapp-inbound/index.ts`), então o painel de qualidade mostra só o que
+  é real (pendente/enviado/respondeu/falhou), sem inventar "entregue"/"lido".
+- Bucket `whatsapp-hub-dispatch-files` (público, 25MB, RLS por papel —
+  mesmo padrão de `whatsapp-hub-outbound-media`).
+- Cron `wh-dispatch-mass-messages` (30s, via `_cron_invoke_edge` já
+  existente) chamando a nova Edge Function `dispatch-mass-message`.
+
+**Modelo de envio (anti-rajada, de propósito):** por tick, por disparo em
+`sending` cujo `next_send_at` já chegou, processa **UM** contato (nunca um
+lote) — reserva atômica via `claim_mass_dispatch_contact` (SKIP LOCKED),
+sorteia um dos modelos de mensagem, envia via Evolution, espelha na inbox
+(conversa + mensagem outbound, mesmo padrão do `dispatch-campaign`), e
+agenda o próximo envio DESTE disparo pra `now() + random(min,max)` segundos.
+A cadência mínima real é o tick do cron (30s) — `min_delay_seconds` abaixo
+disso só reduz o jitter adicional, não acelera de verdade; documentado na
+wizard.
+
+**Edge Function `dispatch-mass-message`**: publicada como arquivo único com
+as dependências de `_shared/` inlinizadas (mesmo padrão descoberto nesta
+sessão pro `dispatch-campaign` real em produção — o mecanismo de deploy via
+MCP do Supabase achata `_shared/*` sob um `source/` único, quebrando imports
+relativos `../_shared/...`; arquivo único evita o problema por completo em
+vez de reescrever imports). O código-fonte "de verdade" (`../_shared/...`,
+pra `supabase functions deploy` via CLI) seria os arquivos reais do repo —
+não criados nesta rodada porque o arquivo único já cobre o deploy real.
+
+**Frontend**: novo módulo `src/app/routes/mass-dispatch/MassDispatchPage.tsx`
+(abas Disparos/Arquivos, mesmo padrão de tabs de `CampaignsPage.tsx`),
+`DispatchWizard.tsx` (4 passos: Identidade+Conexão, Audiência, Mensagens+
+Timing, Agendamento+Revisão — mesmo esqueleto de `CampaignWizard.tsx`),
+`DispatchList.tsx` (lista + pausar/retomar/excluir), `DispatchDetail.tsx`
+(dashboard de status por disparo: contadores, gráfico de pizza Recharts,
+tabela paginada de contatos), `DispatchFilesTab.tsx` (upload/lista/exclusão
+de listas de contato e anexos). Hooks `useMassDispatches.ts` (CRUD +
+resolução de audiência, mesmo padrão de `useCampaigns.ts`) e
+`useDispatchFiles.ts` (upload com parse client-side de CSV/XLSX via `xlsx`,
+mesmo parser de `ImportContactsDialog.tsx`). Nav item "Disparo em massa"
+gated por `module: 'disparo_massa'` (mesmo mecanismo genérico de
+Sidebar/MobileNav já filtrando por módulo — nenhuma mudança nesses dois
+arquivos foi necessária).
+
+**Não implementado nesta rodada** (fora do pedido original ou adiado por
+escopo): agendamento por dias/horários específicos recorrentes (só
+agendamento pontual de data/hora, igual `campaigns`); reaproveitar um anexo
+já salvo na aba Arquivos ao compor uma mensagem (hoje só upload direto por
+mensagem); qualquer limite de "quantas mensagens por dia" além do intervalo
+min/max configurável.
+
+Validação local: `npx tsc -b --noEmit` (0 erros), `npm run lint` (0 erros,
+73 warnings — 5 novos, mesmo padrão `set-state-in-effect` já aceito em todo
+hook de reload-on-mount do projeto), `npm run build`, `npm run test:unit`
+(184/184), `npm run validate:sql` (107 arquivos). Migration aplicada e
+verificada em produção (`lstbxeaasyysboavdati`): `enabled_modules` inclui
+`disparo_massa`, cron `wh-dispatch-mass-messages` ativo, RPCs confirmadas
+sem EXECUTE para `anon`/`authenticated`. Edge Functions `dispatch-mass-message`
+(nova) e `get-instance-plan` (redeployada com o 4º módulo) publicadas e
+ativas.

@@ -7,9 +7,9 @@
 // não vamos travar instalações existentes que nunca tiveram o pacote setado.
 import { getAdminClient } from './supabase-admin.ts';
 
-export type CommercialModule = 'campaigns' | 'vendas' | 'ai_agent';
+export type CommercialModule = 'campaigns' | 'vendas' | 'ai_agent' | 'disparo_massa';
 
-const ALL_MODULES: CommercialModule[] = ['campaigns', 'vendas', 'ai_agent'];
+const ALL_MODULES: CommercialModule[] = ['campaigns', 'vendas', 'ai_agent', 'disparo_massa'];
 
 export async function getEnabledModules(): Promise<CommercialModule[]> {
   const admin = getAdminClient();

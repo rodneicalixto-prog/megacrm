@@ -187,6 +187,27 @@ follow_up_rules
 ├── sequence_order INT
 ├── is_active BOOLEAN
 
+mass_dispatches  (módulo "Disparo em massa" — via Evolution, paralelo a campaigns/Zernio)
+├── id, name, connection_id (FK department_connections)
+├── status ENUM('draft','scheduled','sending','paused','completed','failed')
+├── audience_filter JSONB ({mode:'all'|'tags'|'file', tag_ids?, file_id?})
+├── min_delay_seconds, max_delay_seconds, next_send_at  (throttle: 1 envio/tick/disparo)
+├── total_contacts, sent, replied, failed  INT
+
+mass_dispatch_messages  (até 5 modelos por disparo, sorteados a cada envio)
+├── id, dispatch_id, content, media_url, media_type, position
+
+mass_dispatch_contacts  (fila de envio; UPDATE só por service role)
+├── id, dispatch_id, contact_id
+├── status ENUM('pending','sent','replied','failed')  -- sem 'delivered'/'read': Evolution não manda ACK aqui
+├── message_id_used, error_message, evolution_message_id
+├── claimed_at, sent_at, replied_at
+
+mass_dispatch_files  (listas de contato + anexos, reaproveitáveis entre disparos)
+├── id, name, file_type ENUM('contact_list','attachment')
+├── storage_path, media_type, file_size_bytes
+├── contact_ids UUID[]  (só contact_list — resolvido no upload, find-or-create por telefone)
+
 conversations
 ├── id, contact_id (UNIQUE)
 ├── status ENUM('ai_active','human_active','closed')
@@ -292,9 +313,10 @@ public._bootstrap_state           <- checkpoints idempotentes do wizard /setup
 
 | Job                        | Cadência     | Função                    |
 |----------------------------|--------------|----------------------------|
-| `wh-dispatch-campaigns`    | 30 segundos  | `dispatch-campaign`       |
-| `wh-check-follow-ups`      | a cada 15min | `check-follow-ups`        |
-| `wh-sync-broadcast-status` | a cada 2min  | `sync-broadcast-status`   |
+| `wh-dispatch-campaigns`      | 30 segundos  | `dispatch-campaign`       |
+| `wh-dispatch-mass-messages`  | 30 segundos  | `dispatch-mass-message`   |
+| `wh-check-follow-ups`        | a cada 15min | `check-follow-ups`        |
+| `wh-sync-broadcast-status`   | a cada 2min  | `sync-broadcast-status`   |
 
 > O antigo `wh-check-template-status` (polling 5min) apontava pra uma Edge
 > Function já removida (`check-template-status` → renomeada
@@ -414,6 +436,7 @@ src/
 │   │   ├── dashboard/
 │   │   ├── inbox/
 │   │   ├── campaigns/         inclui a aba Templates (rota própria removida)
+│   │   ├── mass-dispatch/     Disparo em massa via Evolution (abas Disparos/Arquivos, módulo `disparo_massa`)
 │   │   ├── contacts/
 │   │   ├── knowledge/
 │   │   ├── follow-ups/
@@ -465,7 +488,7 @@ src/
 
 ## Edge Functions
 
-> Lista completa das 23 funções em `supabase/functions/` (versões anteriores
+> Lista completa das 24 funções em `supabase/functions/` (versões anteriores
 > deste documento listavam só 14 — conferir aqui antes de assumir que uma
 > função não existe). `_shared/` cresceu bastante desde a migração
 > Zernio → Zernio+Evolution; ver `_shared/whatsapp/` para a camada agnóstica
@@ -494,6 +517,7 @@ supabase/functions/
 ├── zernio-webhook/           ingestão (X-Zernio-Signature) de statuses + inbound; idempotência via webhook_events
 ├── whatsapp-inbound/         webhook Evolution (HMAC) — fecha atribuição de lead + roteia por departamento
 ├── dispatch-campaign/        consumido por pg_cron 30s — cria Broadcasts no Zernio
+├── dispatch-mass-message/    consumido por pg_cron 30s — disparo em massa via Evolution (texto livre, timing randômico; módulo `disparo_massa`, paralelo a campaigns)
 ├── check-follow-ups/         consumido por pg_cron 15min
 ├── sync-broadcast-status/    consumido por pg_cron 2min — reconcilia entrega de broadcasts
 ├── sync-template-status/     sincroniza status de templates direto da Meta (fallback manual ao webhook)

@@ -4,4 +4,4 @@
 // que está habilitado nesta instalação via a Edge Function
 // get-instance-plan). Ver supabase/functions/_shared/plan.ts para a mesma
 // lista do lado do backend.
-export type CommercialModule = 'campaigns' | 'vendas' | 'ai_agent';
+export type CommercialModule = 'campaigns' | 'vendas' | 'ai_agent' | 'disparo_massa';

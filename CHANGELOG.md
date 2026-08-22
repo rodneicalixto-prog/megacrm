@@ -82,6 +82,22 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - Light/dark theme selection, navigable dashboard cards, and on-demand contact
   details in the Inbox.
 - Notification grouping by contact and pending-action type.
+- **Disparo em massa** (new module, gated by `public.instance_plan` like
+  Campanhas/Vendas/Agente de IA): free-text bulk WhatsApp sends over the
+  Evolution (WhatsApp Web) connection, distinct from the Zernio/Meta
+  `campaigns` module which requires an approved template. Up to 5 message
+  variants per dispatch, picked at random per send; a randomized delay
+  between sends (`min_delay_seconds`/`max_delay_seconds`, floored at the
+  30s cron cadence); audience by tags, an imported contact-list file, or all
+  contacts; a reusable "Arquivos" tab for contact lists (CSV/XLSX, parsed
+  into contacts on upload) and message attachments. New tables
+  (`mass_dispatches`, `mass_dispatch_messages`, `mass_dispatch_contacts`,
+  `mass_dispatch_files`), a `wh-dispatch-mass-messages` cron (30s) driving
+  a new `dispatch-mass-message` Edge Function, and a reply-detection trigger
+  on inbound messages (no delivery/read ACK available on this route today,
+  so the quality dashboard only shows what's real: sent/failed/replied).
+  This sits outside official WhatsApp Business terms — same ban risk as any
+  WhatsApp Web automation tool; the randomized timing only reduces it.
 - Pipeline "kind" is now user-chosen at creation time instead of hardcoded to
   `comercial`: `FunilManager.tsx`'s "Novo funil" form gained a
   Financeiro/Atendimento toggle next to the existing Só meu/Da empresa scope

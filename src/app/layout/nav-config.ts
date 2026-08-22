@@ -9,6 +9,7 @@ import {
   type LucideIcon,
   SquareKanban,
   CalendarDays,
+  Send,
 } from 'lucide-react';
 import type { CommercialModule } from '@/lib/plan';
 
@@ -47,6 +48,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/agenda', label: 'Agenda', icon: CalendarDays },
   { to: '/contacts', label: 'Contatos', icon: Users },
   { to: '/campaigns', label: 'Campanhas', icon: Megaphone, module: 'campaigns' },
+  { to: '/disparo-massa', label: 'Disparo em massa', icon: Send, module: 'disparo_massa' },
   { to: '/vendas', label: 'Vendas & Recompra', icon: BarChart3, module: 'vendas' },
   { to: '/ai-agent', label: 'Agente de IA', icon: Bot, adminOnly: true, module: 'ai_agent' },
   { to: '/settings/profile', label: 'Configurações', icon: Settings },

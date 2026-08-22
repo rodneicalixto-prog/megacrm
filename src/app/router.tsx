@@ -12,6 +12,7 @@ const InvitePage = lazy(() => import('./routes/invite/InvitePage'));
 const DashboardPage = lazy(() => import('./routes/dashboard/DashboardPage'));
 const InboxPage = lazy(() => import('./routes/inbox/InboxPage'));
 const CampaignsPage = lazy(() => import('./routes/campaigns/CampaignsPage'));
+const MassDispatchPage = lazy(() => import('./routes/mass-dispatch/MassDispatchPage'));
 const ContactsPage = lazy(() => import('./routes/contacts/ContactsPage'));
 const ContactDetailPage = lazy(() => import('./routes/contacts/ContactDetailPage'));
 const FunilPage = lazy(() => import('./routes/funil/FunilPage'));
@@ -139,6 +140,7 @@ export function AppRouter() {
           <Route path="/campaigns" element={<CampaignsPage />} />
           {/* Templates virou aba dentro de Campanhas (Módulo 1) — preserva links salvos. */}
           <Route path="/templates" element={<Navigate to="/campaigns?tab=templates" replace />} />
+          <Route path="/disparo-massa" element={<MassDispatchPage />} />
           <Route path="/contacts" element={<ContactsPage />} />
           <Route path="/contacts/:id" element={<ContactDetailPage />} />
           <Route path="/funil" element={<FunilPage />} />
