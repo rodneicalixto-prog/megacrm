@@ -1326,3 +1326,108 @@ validate:sql` 110 arquivos / 1246 statements. Migration aplicada em produção
 (`cannot change return type of existing function`, `list_operators()`
 precisava de `DROP FUNCTION` antes do `CREATE`) e foi corrigida e reaplicada
 com sucesso antes do commit.
+
+## 10. Reuniões (Google Meet + gravação/resumo) — 22/08/2026
+
+Pedido do usuário: "deixar um gmail fixo para os departamentos agendarem o
+meeting... agendar reunião via meeting e algum modelo de resumidor de
+reunião, gravação automática e banco de dados para fácil acesso a este
+acervo". Antes de implementar, esclareci duas decisões técnicas via
+`AskUserQuestion` que mudam a arquitetura por completo:
+
+- **Tipo de conta Google**: confirmado Gmail pessoal/gratuito (sem
+  Workspace) → descarta domain-wide delegation (só existe em Workspace
+  pago); a rota viável é UMA conta conectada via OAuth (client id/secret +
+  refresh token), usada por todos os departamentos — nenhum setor tem
+  credencial própria, exatamente o "Gmail fixo" pedido.
+- **Gravação automática**: confirmado bot de terceiros (não gravação nativa
+  do Workspace, que exigiria plano pago). Escolhido **Recall.ai** em vez de
+  Fireflies/Otter — esses são produtos fechados com UI própria, sem API
+  pública pra plugar num CRM próprio; a Recall.ai é API-first (cria um bot
+  que entra na chamada via `POST /bot/`, grava, transcreve, avisa por
+  webhook).
+
+Usuário pediu explicitamente pra "deixar pronta e deixar os campos a serem
+preenchidos na aba configuração" — implementado o módulo inteiro assumindo
+os formatos documentados das APIs (Google Calendar API e Recall.ai), com as
+credenciais reais a serem coladas depois em `/settings/credentials`.
+
+**Implementado** (migration `20260822170000_meetings.sql`, aplicada em
+produção):
+
+- `whatsapp_hub.meetings` — título, descrição, `department_id` nullable
+  (reunião pode ser geral ou de um setor), `starts_at`/`ends_at`,
+  `attendees` JSONB (e-mails), `status` (enum: scheduled → recording →
+  processing → completed, ou failed/canceled), campos do lado Google
+  (`google_event_id`, `meet_link`) e do lado Recall.ai, opcionais
+  (`recall_bot_id`, `recording_url`, `transcript`, `summary`,
+  `error_message`).
+- RLS: SELECT aberto a `authenticated` (acervo compartilhado e pesquisável,
+  sem recorte por departamento — coerente com a própria ideia de UMA conta
+  Google única, não departamentalizada). **Sem policy de INSERT** — criar
+  reunião exige chamar a Calendar API pro link do Meet primeiro, então só a
+  Edge Function `schedule-meeting` (service role) grava; um INSERT direto
+  pelo client criaria uma linha fantasma sem `meet_link`. UPDATE/DELETE só
+  para quem criou ou admin/super_admin.
+- `_shared/google-calendar.ts` — troca refresh token por access token
+  (`POST oauth2.googleapis.com/token`), cria evento com
+  `conferenceData.createRequest` (Meet automático, funciona em conta Google
+  comum), apaga evento (best-effort, usado no cancelamento).
+- `_shared/recall.ts` — cria/cancela bot, busca status (`GET /bot/{id}/`) e
+  transcrição (`GET /bot/{id}/transcript/`). Marcado **ASSUMIDO**: o shape
+  exato do payload de webhook e da resposta da API não foi validado contra
+  uma conta real da Recall.ai — só testável de verdade quando o usuário
+  configurar as credenciais.
+- `schedule-meeting` — cria o evento no Google (obrigatório: sem credencial
+  Google configurada, erro claro, reunião não é criada pela metade) +
+  agenda o bot da Recall.ai (**best-effort**: se falhar, a reunião segue
+  criada, só sem gravação — `recall_warning` no retorno avisa o operador).
+  `cancel-meeting` — apaga evento + cancela bot, marca `canceled` (sem hard
+  delete, mantém o histórico no acervo).
+- `recall-webhook` (público, `?token=` shared secret como o webhook
+  Evolution) — só lê o `bot_id` do corpo do evento recebido; busca o
+  status/gravação de verdade via `GET /bot/{id}/` em vez de confiar no
+  payload do webhook, pra isolar o handler de variações de formato entre
+  versões da API. Ao concluir, busca a transcrição e gera o resumo via o
+  mesmo adapter multi-LLM do resto do CRM (`_shared/llm.ts`,
+  `loadAppCredentials()` — reaproveita `llm_provider`/`llm_api_key` já
+  configurados, sem credencial de resumo separada).
+- 5 credenciais novas em `setup.config.ts` (todas opcionais, todas com
+  `helpText` explicando onde conseguir): `google_oauth_client_id`,
+  `google_oauth_client_secret`, `google_oauth_refresh_token` (gerado uma vez
+  no OAuth Playground), `recall_api_key`, `recall_webhook_secret` (inventado
+  pelo usuário, colado também no painel da Recall.ai como parte da URL do
+  webhook). Renderizadas automaticamente em `/settings/credentials` — sem
+  UI nova, o mecanismo já existente (`CredentialField` + `api/credentials`)
+  cobre.
+- Frontend: `useMeetings.ts` (lista com realtime + `schedule`/`cancel` via
+  Edge Functions), `MeetingsPage.tsx` em `/meetings` (novo item de nav
+  "Reuniões", logo depois de Agenda) — busca por título/resumo/transcrição,
+  diálogo de agendamento (título, descrição, departamento opcional,
+  horários, convidados), cartão por reunião com status, link "Entrar",
+  cancelar (só quem criou/admin) e uma seção expansível com gravação,
+  resumo e transcrição completa quando prontos.
+
+**Decisão consciente de não construir**: fluxo interativo de OAuth
+("Conectar com Google" com redirect + callback) — exigiria uma tela de
+consentimento OAuth publicada e um callback público testado ao vivo, que
+não dá pra validar sem a conta real. Em vez disso, as 3 credenciais Google
+são coladas manualmente, geradas uma vez via OAuth Playground — mesmo
+espírito de "sem BYOK complexo" que o resto do projeto já segue (Zernio via
+API key colada, não app OAuth completo).
+
+**Pendências reais, fora do meu controle**: o usuário precisa (1) criar um
+projeto no Google Cloud, habilitar a Calendar API, criar uma credencial
+OAuth 2.0 e gerar o refresh token via OAuth Playground; (2) criar conta na
+Recall.ai e pegar a API key; (3) colar as 5 credenciais em
+`/settings/credentials`; (4) cadastrar a URL do `recall-webhook` (com
+`?token=`) no painel da Recall.ai. Nada disso funciona de ponta a ponta até
+essas 4 etapas serem feitas — o código está pronto e implantado, mas
+inerte sem credencial.
+
+Pipeline de validação completa: `tsc -b --noEmit` limpo, `npm run lint` 0
+erros / 77 warnings (+1 do mesmo padrão `void reload()` já aceito em todo
+hook do projeto), `npm run build` ok, `npm run test:unit` 189/189, `npm run
+validate:sql` 111 arquivos / 1264 statements. Migration aplicada em
+produção (`lstbxeaasyysboavdati`) e as 3 Edge Functions novas deployadas e
+`ACTIVE`.

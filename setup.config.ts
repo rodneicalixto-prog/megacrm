@@ -209,5 +209,77 @@ export const setupConfig: SetupConfig = {
         return v.length >= 8 ? ok : { ok: false, message: 'Token muito curto.' };
       },
     },
+    // ---- Reuniões (Google Meet + gravação/resumo via Recall.ai) ----------
+    // Uma conta Google ÚNICA e compartilhada entre todos os departamentos —
+    // não há OAuth interativo aqui (exigiria uma tela de consentimento
+    // publicada e testada ao vivo). O refresh token é gerado uma vez fora do
+    // app, via https://developers.google.com/oauthplayground.
+    {
+      key: 'google_oauth_client_id',
+      label: 'Google OAuth Client ID',
+      placeholder: '...apps.googleusercontent.com',
+      inputType: 'text',
+      docsUrl: 'https://console.cloud.google.com/apis/credentials',
+      helpText:
+        'Opcional (ativa Reuniões). Crie um projeto no Google Cloud, habilite a Calendar API e crie uma credencial OAuth 2.0 (tipo "App da Web").',
+      validate: async (value) => {
+        const v = value.trim();
+        if (!v) return ok;
+        return v.length >= 20 ? ok : { ok: false, message: 'Client ID muito curto.' };
+      },
+    },
+    {
+      key: 'google_oauth_client_secret',
+      label: 'Google OAuth Client Secret',
+      placeholder: 'GOCSPX-...',
+      inputType: 'password',
+      helpText: 'Opcional. Gerado junto com o Client ID no Google Cloud Console.',
+      validate: async (value) => {
+        const v = value.trim();
+        if (!v) return ok;
+        return v.length >= 10 ? ok : { ok: false, message: 'Client Secret muito curto.' };
+      },
+    },
+    {
+      key: 'google_oauth_refresh_token',
+      label: 'Google OAuth Refresh Token',
+      placeholder: '1//...',
+      inputType: 'password',
+      docsUrl: 'https://developers.google.com/oauthplayground',
+      helpText:
+        'Opcional. Gere uma vez no OAuth Playground: nas engrenagens, marque "Use your own OAuth credentials" com o Client ID/Secret acima; escolha o escopo https://www.googleapis.com/auth/calendar; autorize com a conta Gmail fixa que vai organizar as reuniões; copie o refresh token gerado.',
+      validate: async (value) => {
+        const v = value.trim();
+        if (!v) return ok;
+        return v.length >= 15 ? ok : { ok: false, message: 'Refresh token muito curto.' };
+      },
+    },
+    {
+      key: 'recall_api_key',
+      label: 'Recall.ai API Key',
+      placeholder: '...',
+      inputType: 'password',
+      docsUrl: 'https://www.recall.ai',
+      helpText:
+        'Opcional. Bot que entra na chamada pra gravar/transcrever automaticamente. Sem esta chave, as reuniões ainda são criadas com link do Meet, só sem gravação/resumo.',
+      validate: async (value) => {
+        const v = value.trim();
+        if (!v) return ok;
+        return v.length >= 10 ? ok : { ok: false, message: 'API key muito curta.' };
+      },
+    },
+    {
+      key: 'recall_webhook_secret',
+      label: 'Recall.ai Webhook Secret',
+      placeholder: 'invente uma string aleatória',
+      inputType: 'password',
+      helpText:
+        'Opcional (só com Recall.ai API Key preenchida). Invente uma string qualquer aqui e cadastre no painel da Recall.ai a URL de webhook: <sua-url-do-supabase>/functions/v1/recall-webhook?token=<esta-string>.',
+      validate: async (value) => {
+        const v = value.trim();
+        if (!v) return ok;
+        return v.length >= 8 ? ok : { ok: false, message: 'Use pelo menos 8 caracteres.' };
+      },
+    },
   ],
 };

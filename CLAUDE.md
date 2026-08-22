@@ -273,6 +273,13 @@ notifications
 ├── id, user_id, type ENUM('new_message','handoff','mention')
 ├── conversation_id, message_id
 ├── title, body, is_read
+
+meetings  (Reuniões — Google Meet numa conta única compartilhada entre setores)
+├── id, title, description, department_id (nullable), created_by
+├── starts_at, ends_at, attendees JSONB (e-mails)
+├── status ENUM('scheduled','recording','processing','completed','failed','canceled')
+├── google_event_id, meet_link           (lado Google Calendar)
+├── recall_bot_id, recording_url, transcript, summary, error_message  (lado Recall.ai, opcional)
 ```
 
 ### Extensions (schema `public`)
@@ -456,6 +463,39 @@ service role key vêm de Vault entries (`whatsapp_hub_supabase_url`,
 - Realtime nos dois canais (`internal_conversations`, `internal_messages`),
   mesmo padrão do Inbox.
 
+### Reuniões (Google Meet)
+
+- Uma única conta Google ("Gmail fixo") compartilhada entre todos os
+  departamentos — não há credencial por setor. Qualquer operador agenda pelo
+  CRM; a reunião nasce na agenda dessa conta única, com link do Meet gerado
+  automaticamente via Calendar API (funciona em Gmail comum, sem Workspace).
+- Sem fluxo de "Conectar com Google" na UI: as credenciais
+  (`google_oauth_client_id`/`client_secret`/`refresh_token`) são coladas
+  manualmente em `/settings/credentials` — o refresh token é gerado uma vez
+  via [OAuth Playground](https://developers.google.com/oauthplayground)
+  (escopo `https://www.googleapis.com/auth/calendar`).
+- Gravação/transcrição/resumo são **opcionais** e dependem de um bot de
+  terceiros, [Recall.ai](https://www.recall.ai) (`recall_api_key`) — sem essa
+  credencial a reunião ainda é criada normalmente, só sem gravação. O bot
+  entra na chamada no horário agendado, grava, transcreve (via legendas da
+  própria chamada) e avisa por webhook (`recall-webhook`, autenticado por
+  `recall_webhook_secret` na query string `?token=`, mesmo padrão do webhook
+  Evolution). O resumo é gerado pelo mesmo adapter multi-LLM do resto do CRM
+  (`_shared/llm.ts`, respeitando `llm_provider`/`llm_api_key`).
+- `schedule-meeting` cria o evento no Google + agenda o bot (best-effort: se
+  a Recall.ai falhar, a reunião segue criada, só sem gravação).
+  `cancel-meeting` apaga o evento e cancela o bot (se ainda não tiver
+  entrado), marcando `status = 'canceled'` — sem hard delete, o acervo
+  mantém o histórico.
+- `whatsapp_hub.meetings` não tem policy de INSERT para `authenticated`: só a
+  service role (dentro de `schedule-meeting`) grava, porque criar a linha
+  exige o `meet_link` do Google primeiro — um INSERT direto pelo client
+  criaria uma reunião "fantasma" sem link nenhum.
+- Payload do webhook da Recall.ai é tratado como **ASSUMIDO** (não validado
+  contra uma conta real) — `recall-webhook` só lê o `bot_id` do corpo do
+  evento e busca o status/gravação de verdade via `GET /bot/{id}/`, o que
+  isola o handler de variações no formato exato do payload.
+
 ### Dashboard
 
 - Cards de métricas (mensagens enviadas / entregues / lidas / respondidas,
@@ -493,6 +533,7 @@ src/
 │   │   ├── follow-ups/
 │   │   ├── funil/             pipeline/CRM (deals, estágios, arquivar/restaurar)
 │   │   ├── agenda/            calendários (whatsapp_hub.calendars/calendar_events)
+│   │   ├── meetings/          Reuniões — Google Meet + gravação/resumo via Recall.ai (opcional)
 │   │   ├── ai-agent/          config do agente de IA (system_prompt, mídia, canais)
 │   │   ├── vendas/            Vendas & Recompra — saindo do projeto (ver PLANEJAMENTO.md)
 │   │   └── settings/
@@ -539,7 +580,7 @@ src/
 
 ## Edge Functions
 
-> Lista completa das 24 funções em `supabase/functions/` (versões anteriores
+> Lista completa das 27 funções em `supabase/functions/` (versões anteriores
 > deste documento listavam só 14 — conferir aqui antes de assumir que uma
 > função não existe). `_shared/` cresceu bastante desde a migração
 > Zernio → Zernio+Evolution; ver `_shared/whatsapp/` para a camada agnóstica
@@ -583,6 +624,9 @@ supabase/functions/
 ├── interact-message/         presence (composing/paused) e reação — só rota Evolution
 ├── resolve-inbound-media/    repara URL de mídia Evolution que falhou no player
 ├── zernio-number-status/     status cacheado do número (tier/quality/health) p/ dashboard
+├── schedule-meeting/          cria reunião no Google Calendar (Meet automático) + agenda bot de gravação (Recall.ai, opcional)
+├── cancel-meeting/            apaga evento no Google + cancela bot; marca a reunião como canceled (sem hard delete)
+├── recall-webhook/            (público) ingere status do bot Recall.ai; ao concluir, transcreve e resume via _shared/llm.ts
 ├── ingest-lead/               (público) captação de lead via snippet de landing page
 ├── redirect-tracker/         (público) redirecionador de link com rastreio de clique
 ├── repurchase-dispatch/      dispara mensagens de recompra — cron desagendado em 21/08/2026, módulo saindo

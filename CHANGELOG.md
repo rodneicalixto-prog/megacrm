@@ -7,6 +7,24 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ## [Unreleased]
 
+### Added
+
+- **Reuniões (Google Meet + gravação/transcrição/resumo automáticos)**: novo
+  módulo `/meetings`. Uma única conta Google compartilhada entre todos os
+  departamentos ("Gmail fixo") agenda reuniões com link do Meet gerado
+  automaticamente (Calendar API, funciona em Gmail comum sem Workspace) —
+  qualquer operador agenda, ninguém precisa da própria credencial Google.
+  Gravação/transcrição são opcionais via um bot de terceiros (Recall.ai);
+  quando configurado, o resumo é gerado automaticamente pelo mesmo adapter
+  multi-LLM já usado no resto do CRM. Acervo compartilhado e pesquisável
+  (título, resumo, transcrição) — sem recorte por departamento, por design.
+  Credenciais (`google_oauth_client_id/client_secret/refresh_token`,
+  `recall_api_key`, `recall_webhook_secret`) ficam prontas para preencher em
+  `/settings/credentials`; sem elas configuradas, o agendamento retorna erro
+  claro em vez de criar uma reunião pela metade.
+  Nova tabela `whatsapp_hub.meetings` + 3 Edge Functions novas
+  (`schedule-meeting`, `cancel-meeting`, `recall-webhook`).
+
 ### Fixed
 
 - **Certos tipos de mensagem do WhatsApp chegavam como bolha em branco no

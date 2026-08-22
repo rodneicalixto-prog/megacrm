@@ -18,6 +18,7 @@ const ContactsPage = lazy(() => import('./routes/contacts/ContactsPage'));
 const ContactDetailPage = lazy(() => import('./routes/contacts/ContactDetailPage'));
 const FunilPage = lazy(() => import('./routes/funil/FunilPage'));
 const AgendaPage = lazy(() => import('./routes/agenda/AgendaPage'));
+const MeetingsPage = lazy(() => import('./routes/meetings/MeetingsPage'));
 const VendasPage = lazy(() => import('./routes/vendas/VendasPage'));
 const AIAgentPage = lazy(() => import('./routes/ai-agent/AIAgentPage'));
 const SettingsPage = lazy(() => import('./routes/settings/SettingsPage'));
@@ -147,6 +148,7 @@ export function AppRouter() {
           <Route path="/contacts/:id" element={<ContactDetailPage />} />
           <Route path="/funil" element={<FunilPage />} />
           <Route path="/agenda" element={<AgendaPage />} />
+          <Route path="/meetings" element={<MeetingsPage />} />
           <Route path="/vendas" element={<VendasPage />} />
           {/* /projetos (Entrega) e /educacao removidos — redirecionam pro funil */}
           <Route path="/projetos" element={<Navigate to="/funil" replace />} />

@@ -11,6 +11,7 @@ import {
   CalendarDays,
   Send,
   MessageCircle,
+  Video,
 } from 'lucide-react';
 import type { CommercialModule } from '@/lib/plan';
 
@@ -48,6 +49,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/team-chat', label: 'Chat interno', icon: MessageCircle },
   { to: '/funil', label: 'Funil', icon: SquareKanban },
   { to: '/agenda', label: 'Agenda', icon: CalendarDays },
+  { to: '/meetings', label: 'Reuniões', icon: Video },
   { to: '/contacts', label: 'Contatos', icon: Users },
   { to: '/campaigns', label: 'Campanhas', icon: Megaphone, module: 'campaigns' },
   { to: '/disparo-massa', label: 'Disparo em massa', icon: Send, module: 'disparo_massa' },
