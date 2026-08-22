@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/card';
 import { getSupabase } from '@/lib/supabase';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { isNotifSoundEnabled, setNotifSoundEnabled } from '@/lib/soundPrefs';
+import { BusinessHoursEditor, type BusinessHours } from '@/components/settings/BusinessHoursEditor';
 
 export function AccountSettings() {
   const { user } = useAuth();
@@ -118,6 +119,41 @@ export function AccountSettings() {
           </label>
         </div>
       </Card>
+
+      {user?.id && (
+        <Card>
+          <div className="space-y-1 mb-4">
+            <h2 className="text-lg font-bold">Meu horário de atendimento</h2>
+            <p className="text-sm text-[var(--color-text-secondary)]">
+              Sobrescreve o horário do seu setor (e o padrão da instância) só para
+              as conversas atribuídas a você.
+            </p>
+          </div>
+          <BusinessHoursEditor
+            title=""
+            description=""
+            nullable
+            inheritLabel="Usar o horário do meu setor"
+            load={async () => {
+              const { data } = await getSupabase()
+                .schema('whatsapp_hub')
+                .from('app_users')
+                .select('business_hours, out_of_hours_message')
+                .eq('user_id', user.id)
+                .maybeSingle();
+              return data ?? null;
+            }}
+            save={async (patch: { business_hours: BusinessHours | null; out_of_hours_message: string | null }) => {
+              const { error } = await getSupabase()
+                .schema('whatsapp_hub')
+                .from('app_users')
+                .update({ business_hours: patch.business_hours, out_of_hours_message: patch.out_of_hours_message })
+                .eq('user_id', user.id);
+              return { error: error?.message };
+            }}
+          />
+        </Card>
+      )}
 
       <Card>
         <form onSubmit={handleEmailUpdate} className="space-y-4">

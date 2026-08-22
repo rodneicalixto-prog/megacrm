@@ -961,24 +961,11 @@ Nenhum destes foi iniciado nesta sessão. Ordem sugerida por
 esforço×impacto, não por urgência (não há mais nenhum item 🔴 de segurança
 em aberto no momento):
 
-1. **Painel de central de atendimento por departamento** (item 9 do
-   feedback do usuário) — hoje `business_hours`/`out_of_hours_message`
-   vivem em `whatsapp_hub.app_settings`, um singleton único pra toda a
-   instância. Pedido é um painel de configuração individualizado por setor
-   (cada `department` com seu próprio horário/mensagem de fora do horário,
-   possivelmente também sua própria fila de round-robin visível). Precisa
-   de: nova coluna/tabela (`departments.business_hours jsonb` ou uma tabela
-   `department_business_hours` 1:1), migration de dado (copiar o singleton
-   atual como default de todo departamento existente), tela nova em
-   `settings/sections/DepartmentsSettings.tsx` (ou uma aba dedicada), e
-   decidir onde a IA/fluxo de resposta automática lê o horário de qual
-   setor quando uma conversa ainda não tem departamento resolvido.
-2. **Horário de atendimento por usuário** (item 10, metade que ainda falta
-   depois do item acima resolver a metade "por setor") — provavelmente uma
-   tabela `app_users_business_hours` opcional que sobrescreve o horário do
-   departamento quando presente; decisão de produto pendente: se ausência
-   de override individual cai no horário do setor ou direto no singleton
-   global.
+1. ~~Painel de central de atendimento por departamento~~ (item 9) —
+   **implementado na Décima rodada** (ver abaixo).
+2. ~~Horário de atendimento por usuário~~ (item 10) — **implementado na
+   Décima rodada** (ver abaixo), junto com o item 9 (mesmo componente,
+   cascata usuário → setor → global).
 3. ~~Especificação completa do canal de disparos em massa~~ — **implementado
    na Nona rodada** (ver abaixo), como módulo paralelo via Evolution.
 4. **Item "1-" ambíguo do feedback** ("janela de opções deveria ser visível,
@@ -986,7 +973,9 @@ em aberto no momento):
    tela/dropdown específico do MegaCRM está sendo descrito; os prints do
    usuário mostravam majoritariamente o sosapp.sosbot.online como
    referência. Precisa de uma captura de tela do MegaCRM apontando o menu
-   específico antes de virar tarefa.
+   específico antes de virar tarefa — **único item da lista original que
+   permanece em aberto**, bloqueado por falta de informação, não por
+   esforço de implementação.
 
 ### Nona rodada, mesma data (21/08/2026) — canal de "Disparo em massa"
 
@@ -1097,3 +1086,69 @@ verificada em produção (`lstbxeaasyysboavdati`): `enabled_modules` inclui
 sem EXECUTE para `anon`/`authenticated`. Edge Functions `dispatch-mass-message`
 (nova) e `get-instance-plan` (redeployada com o 4º módulo) publicadas e
 ativas.
+
+### Décima rodada, mesma data (21/08/2026) — horário de atendimento por
+### departamento e por usuário (itens 9 e 10)
+
+Fecha os dois últimos itens implementáveis do plano acima (item 4 segue
+bloqueado por falta de informação, não por esforço).
+
+**Schema** (`20260822000000_business_hours_per_department_and_user.sql`,
+aplicada em produção): `departments` e `app_users` ganharam colunas nulas
+`business_hours jsonb`/`out_of_hours_message text`. NULL nas duas colunas
+de um nível = "sem override aqui, herda do nível acima" — cascata
+usuário atribuído → setor da conversa → singleton global
+(`whatsapp_hub.app_settings`, inalterado). Sem precisar de migration de
+dado: nenhuma linha existente precisou ser preenchida, o fallback já cai
+no singleton que já existia.
+
+De brinde, achado ao mexer em `app_users`: a policy `app_users_admin_write`
+comparava literalmente `current_user_role() = 'admin'`, o mesmo bug de
+"super_admin excluído" corrigido várias vezes nesta sessão (nav guards,
+policies de módulo comercial) — o dono da instalação não conseguia editar
+a linha de outro usuário (incluindo o próprio horário de atendimento) por
+essa policy. Corrigida junto para `IN ('super_admin', 'admin')`.
+
+**Sem mudança de RLS além dessa correção**: `departments_write` já era
+admin/super_admin-only (cobre as novas colunas de graça); a escrita da
+própria linha de `app_users` já era permitida por
+`app_users_self_presence_update` (mesma policy usada pelo heartbeat de
+presença, sem guard de coluna — mas já protegida contra auto-promoção de
+role por um trigger de uma rodada anterior).
+
+**Componente compartilhado**: `BusinessHoursEditor.tsx`
+(`src/components/settings/`) — extraído do que antes era só
+`BusinessHoursSettings.tsx` (agora um wrapper fino sobre o componente,
+comportamento do singleton global inalterado). Aceita `load`/`save` como
+props (qualquer tabela/filtro) e um modo `nullable` que mostra um toggle
+"horário próprio" — desligado = limpa o override (salva NULL nas duas
+colunas) e herda do nível acima; ligado = mostra o editor completo (mesmo
+grid de dias/horários + mensagem fora do horário de sempre). Três usos:
+1. `BusinessHoursSettings.tsx` (Configurações → Horário) — global,
+   `nullable=false`, comportamento idêntico ao de antes.
+2. `DepartmentsSettings.tsx` — nova seção "Horário de atendimento do setor"
+   dentro do acordeão de cada departamento (mesmo padrão visual da seção
+   "Números/linhas" já existente ali), `nullable=true`,
+   `inheritLabel="Usar o horário padrão da instância"`.
+3. `AccountSettings.tsx` — novo card "Meu horário de atendimento"
+   (self-service, qualquer papel), `nullable=true`,
+   `inheritLabel="Usar o horário do meu setor"`.
+
+**Backend**: `process-ai-message/index.ts` ganhou `resolveBusinessHours()`
+— substitui a leitura direta do singleton por uma cascata: se
+`conversations.assigned_to` tem override em `app_users`, usa; senão, se
+`conversations.department_id` tem override em `departments`, usa; senão,
+cai no singleton `app_settings` de sempre. A conversa passou a selecionar
+`assigned_to` também (só faltava esse campo pro cascade funcionar). O
+comportamento de "sem gate no código, quem decide usar as variáveis é o
+prompt" não mudou — só a origem dos dados ficou mais específica.
+Edge Function `process-ai-message` redeployada (v9→v9, na verdade só um
+redeploy de conteúdo) com o `_shared/plan.ts` também sincronizado (tinha
+ficado desatualizado no v8, ainda com só 3 módulos — agora inclui
+`disparo_massa`).
+
+Validação local: `npx tsc -b --noEmit` (0 erros), `npm run lint` (0 erros,
+74 warnings — 1 novo, mesmo padrão `set-state-in-effect` já aceito),
+`npm run build`, `npm run test:unit` (184/184), `npm run validate:sql`
+(108 arquivos). Migration aplicada e Edge Function redeployada em produção,
+ambas verificadas.

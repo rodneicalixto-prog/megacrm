@@ -82,6 +82,21 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - Light/dark theme selection, navigable dashboard cards, and on-demand contact
   details in the Inbox.
 - Notification grouping by contact and pending-action type.
+- **Horário de atendimento por departamento e por usuário**: `departments`
+  and `app_users` each gained nullable `business_hours`/`out_of_hours_message`
+  columns that override the global singleton (`app_settings`) when set —
+  NULL means "inherit the level above" (user → department → global), so no
+  existing row needed backfilling. A shared `BusinessHoursEditor` component
+  (extracted from the existing global-settings screen) now renders in three
+  places: unchanged on the global Settings tab, an "override" toggle inside
+  each department's panel in DepartmentsSettings.tsx, and a self-service
+  "Meu horário de atendimento" card in AccountSettings.tsx. `process-ai-message`
+  resolves the cascade (assigned user → conversation's department → global)
+  before building the `{dentro_do_horario}`/`{mensagem_fora_horario}` prompt
+  variables. Drive-by fix: `app_users_admin_write` compared literally against
+  `'admin'`, the same "super_admin excluded" bug pattern fixed repeatedly
+  this session — `super_admin` couldn't edit another user's row (including
+  their business hours) through that policy.
 - **Disparo em massa** (new module, gated by `public.instance_plan` like
   Campanhas/Vendas/Agente de IA): free-text bulk WhatsApp sends over the
   Evolution (WhatsApp Web) connection, distinct from the Zernio/Meta

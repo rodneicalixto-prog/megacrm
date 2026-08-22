@@ -57,6 +57,42 @@ interface ConversationRow {
   connection_id: string | null;
   channel: string | null;
   zernio_conversation_id: string | null;
+  assigned_to: string | null;
+}
+
+// Cascata de horário de atendimento: usuário atribuído > setor da conversa >
+// padrão global da instância. NULL nas duas colunas de um nível = "sem
+// override aqui, sobe pro próximo" (ver 20260822000000_business_hours_per_department_and_user.sql).
+async function resolveBusinessHours(
+  admin: ReturnType<typeof getAdminClient>,
+  assignedTo: string | null,
+  departmentId: string | null,
+): Promise<{ business_hours: unknown; out_of_hours_message: string | null }> {
+  if (assignedTo) {
+    const { data } = await admin
+      .from('app_users')
+      .select('business_hours, out_of_hours_message')
+      .eq('user_id', assignedTo)
+      .maybeSingle();
+    const row = data as { business_hours: unknown; out_of_hours_message: string | null } | null;
+    if (row?.business_hours || row?.out_of_hours_message) return row;
+  }
+  if (departmentId) {
+    const { data } = await admin
+      .from('departments')
+      .select('business_hours, out_of_hours_message')
+      .eq('id', departmentId)
+      .maybeSingle();
+    const row = data as { business_hours: unknown; out_of_hours_message: string | null } | null;
+    if (row?.business_hours || row?.out_of_hours_message) return row;
+  }
+  const { data: settingsRow } = await admin
+    .from('app_settings')
+    .select('business_hours, out_of_hours_message')
+    .eq('id', 1)
+    .maybeSingle();
+  return (settingsRow as { business_hours: unknown; out_of_hours_message: string | null } | null)
+    ?? { business_hours: null, out_of_hours_message: null };
 }
 
 interface AgentConfig {
@@ -176,7 +212,7 @@ Deno.serve(async (req) => {
   const [{ data: convRow }, { data: agentRow }] = await Promise.all([
     admin
       .from('conversations')
-      .select('id, contact_id, status, ai_paused, channel, zernio_conversation_id, department_id, connection_id')
+      .select('id, contact_id, status, ai_paused, channel, zernio_conversation_id, department_id, connection_id, assigned_to')
       .eq('id', message.conversation_id)
       .maybeSingle(),
     admin
@@ -283,15 +319,12 @@ Deno.serve(async (req) => {
 
   // Variáveis automáticas de horário (horário atual, dentro/fora do expediente,
   // mensagem de fora-do-horário já preenchida) — o prompt decide quando usar.
-  const { data: settingsRow } = await admin
-    .from('app_settings')
-    .select('business_hours, out_of_hours_message')
-    .eq('id', 1)
-    .maybeSingle();
+  // Cascata: usuário atribuído > setor da conversa > padrão global.
+  const businessHoursRow = await resolveBusinessHours(admin, conversation.assigned_to, conversation.department_id);
   const scheduleVars = buildScheduleVars(
     agent.timezone ?? 'America/Sao_Paulo',
-    (settingsRow as { business_hours?: unknown } | null)?.business_hours,
-    (settingsRow as { out_of_hours_message?: string | null } | null)?.out_of_hours_message ?? null,
+    businessHoursRow.business_hours,
+    businessHoursRow.out_of_hours_message,
   );
 
   // Mídias do agente: lista para o prompt ({midias_disponiveis}) e mapa

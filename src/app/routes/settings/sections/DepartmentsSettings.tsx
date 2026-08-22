@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Building2, ChevronDown, KeyRound, Loader2, Plus, QrCode, RefreshCw, Smartphone, Trash2, UserPlus, UserRoundPlus, X } from 'lucide-react';
+import { Building2, ChevronDown, Clock, KeyRound, Loader2, Plus, QrCode, RefreshCw, Smartphone, Trash2, UserPlus, UserRoundPlus, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { getSupabase } from '@/lib/supabase';
 import { operatorLabel, useOperators } from '@/hooks/useOperators';
 import { LoadErrorBanner } from '@/components/LoadErrorBanner';
 import { Avatar } from '@/components/ui/Avatar';
+import { BusinessHoursEditor, type BusinessHours } from '@/components/settings/BusinessHoursEditor';
 
 interface Departamento {
   id: string;
@@ -745,6 +746,38 @@ export function DepartmentsSettings() {
                       <QrCode className="h-4 w-4" /> Criar e conectar número
                     </button>
                   </div>
+                </section>
+
+                <section className="mb-5 rounded-xl border border-[rgba(59,130,246,0.12)] bg-white/[0.02] p-4">
+                  <div className="mb-3 flex items-start gap-2">
+                    <Clock className="mt-0.5 h-4 w-4 text-[var(--accent-secondary)]" />
+                    <div>
+                      <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">Horário de atendimento do setor</h3>
+                    </div>
+                  </div>
+                  <BusinessHoursEditor
+                    title=""
+                    description=""
+                    nullable
+                    inheritLabel="Usar o horário padrão da instância"
+                    load={async () => {
+                      const { data } = await getSupabase()
+                        .schema('whatsapp_hub')
+                        .from('departments')
+                        .select('business_hours, out_of_hours_message')
+                        .eq('id', d.id)
+                        .maybeSingle();
+                      return data ?? null;
+                    }}
+                    save={async (patch: { business_hours: BusinessHours | null; out_of_hours_message: string | null }) => {
+                      const { error } = await getSupabase()
+                        .schema('whatsapp_hub')
+                        .from('departments')
+                        .update({ business_hours: patch.business_hours, out_of_hours_message: patch.out_of_hours_message })
+                        .eq('id', d.id);
+                      return { error: error?.message };
+                    }}
+                  />
                 </section>
 
                 <div className="space-y-3">
