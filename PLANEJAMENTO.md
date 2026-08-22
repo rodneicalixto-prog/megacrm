@@ -1151,4 +1151,27 @@ Validação local: `npx tsc -b --noEmit` (0 erros), `npm run lint` (0 erros,
 74 warnings — 1 novo, mesmo padrão `set-state-in-effect` já aceito),
 `npm run build`, `npm run test:unit` (184/184), `npm run validate:sql`
 (108 arquivos). Migration aplicada e Edge Function redeployada em produção,
-ambas verificadas.
+ambas verificadas. Commit `4adebf5` empurrado pra `main`; deploy Vercel
+`dpl_58kwm8WJ5VxtZTtApNXyCi1Kwbcb` confirmado `READY` em produção
+(`megacrm-seven-smoky.vercel.app`).
+
+---
+
+## Estado da lista de pendências ao fim da Décima rodada
+
+Dos 4 itens do "Plano — itens ainda em aberto" (seção acima), 3 foram
+implementados e enviados pra produção nesta sessão:
+
+1. ✅ Painel de horário de atendimento por departamento — Décima rodada.
+2. ✅ Horário de atendimento por usuário — Décima rodada (mesmo componente
+   do item 1, cascata usuário → setor → global).
+3. ✅ Canal de disparo em massa via Evolution — Nona rodada.
+4. ⏳ Item "1-" ambíguo do feedback ("janela de opções deveria ser visível,
+   não oculta aguardando o mouse") — **único item que segue sem
+   implementação**, e não por falta de esforço: ainda não há confirmação de
+   qual tela/dropdown específico do MegaCRM está sendo descrito. Os prints
+   originais do usuário mostravam majoritariamente a interface do
+   sosapp.sosbot.online (referência externa), não o MegaCRM. Pra desbloquear,
+   precisa de uma captura de tela do MegaCRM apontando o menu/dropdown
+   específico que deveria ficar sempre visível em vez de aparecer só no
+   hover do mouse.
