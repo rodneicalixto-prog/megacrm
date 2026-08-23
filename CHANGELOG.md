@@ -27,6 +27,15 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ### Fixed
 
+- **Mensagem de template (botões) do WhatsApp Business chegava como
+  `[Mensagem não suportada: templateMessage]`**: mensagens enviadas via app
+  oficial do WhatsApp Business (fora do CRM) chegam como echo inbound no
+  formato `templateMessage`, com o texto real embrulhado em
+  `hydratedTemplate`/`hydratedFourRowTemplate`; `decodeBaileysContent` ainda
+  não sabia desembrulhar esse tipo e caía no fallback genérico. Agora extrai
+  `hydratedContentText` e devolve o texto legível; a resposta do contato a um
+  botão de template (`templateButtonReplyMessage`) também passou a ser
+  decodificada (`selectedDisplayText`). `whatsapp-inbound` redeployado (v14).
 - **Certos tipos de mensagem do WhatsApp chegavam como bolha em branco no
   Inbox** (relatado como "não visualizo o que chegou"): confirmado no banco
   que as duas mensagens do caso tinham `content_type: 'text'` e `content:
