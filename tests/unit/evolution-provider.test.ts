@@ -93,6 +93,36 @@ test('figurinha (stickerMessage) vira contentType image', () => {
   assert.equal(got?.mediaUrl, 'https://cdn.example.com/sticker.webp');
 });
 
+test('templateMessage (hydratedTemplate) vira texto legível', () => {
+  const got = provider.parseInboundWebhook({
+    event: 'messages.upsert',
+    data: {
+      key: { remoteJid: '5511999998888@s.whatsapp.net', fromMe: true, id: 'TPL1' },
+      message: {
+        templateMessage: {
+          hydratedTemplate: { hydratedContentText: 'Seu pedido saiu para entrega' },
+        },
+      },
+    },
+  });
+  assert.equal(got?.contentType, 'text');
+  assert.equal(got?.text, 'Seu pedido saiu para entrega');
+});
+
+test('templateButtonReplyMessage vira o texto do botão escolhido', () => {
+  const got = provider.parseInboundWebhook({
+    event: 'messages.upsert',
+    data: {
+      key: { remoteJid: '5511999998888@s.whatsapp.net', fromMe: false, id: 'TPLR1' },
+      message: {
+        templateButtonReplyMessage: { selectedDisplayText: 'Confirmar' },
+      },
+    },
+  });
+  assert.equal(got?.contentType, 'text');
+  assert.equal(got?.text, 'Confirmar');
+});
+
 test('tipo de mensagem desconhecido nunca vira bolha em branco (rótulo genérico com a chave real)', () => {
   const got = provider.parseInboundWebhook({
     event: 'messages.upsert',

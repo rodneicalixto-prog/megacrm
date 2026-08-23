@@ -196,6 +196,20 @@ export function decodeBaileysContent(msg: Record<string, unknown>): {
   if (Object.keys(contactCard).length) {
     return { contentType: 'text', content: `👤 Contato compartilhado: ${str(contactCard, ['displayName']) ?? 'sem nome'}`, mediaUrl: null };
   }
+  // Mensagem de template (botões) enviada pelo próprio número via app oficial
+  // do WhatsApp Business (fora do CRM) — chega como echo inbound. O texto
+  // real fica embrulhado em hydratedTemplate/hydratedFourRowTemplate.
+  const template = asObject(msg.templateMessage);
+  if (Object.keys(template).length) {
+    const hydrated = asObject(template.hydratedTemplate ?? template.hydratedFourRowTemplate ?? template.interactiveMessageTemplate);
+    const text = str(hydrated, ['hydratedContentText']) ?? str(template, ['hydratedContentText']);
+    return { contentType: 'text', content: text ?? '[Modelo de mensagem]', mediaUrl: null };
+  }
+  // Resposta do contato a um botão de template.
+  const templateReply = asObject(msg.templateButtonReplyMessage);
+  if (Object.keys(templateReply).length) {
+    return { contentType: 'text', content: str(templateReply, ['selectedDisplayText']) ?? '[Resposta de botão]', mediaUrl: null };
+  }
   // Tipo não mapeado (enquete, resposta de botão/lista, cartão de visita
   // múltiplo, etc.) — melhor um rótulo genérico com a chave real (ajuda a
   // identificar o tipo quando aparecer em produção) do que uma bolha em
