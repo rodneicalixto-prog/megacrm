@@ -64,6 +64,7 @@ interface CampaignContactRow {
   campaign_id: string;
   contact_id: string;
   template_id_override: string | null;
+  variant_id: string | null;
 }
 
 // Espelha cada destinatario do broadcast na inbox: garante uma conversa por
@@ -299,6 +300,17 @@ Deno.serve(async (req) => {
           .in('id', groupRows.map((r) => r.id));
         campaignSent += groupRows.length;
         lastBroadcastId = broadcastId;
+
+        // Contador por variante (teste A/B) — cada linha do grupo já carrega o
+        // variant_id sorteado na criação da fila (useCampaigns.createAndQueue).
+        const sentByVariant = new Map<string, number>();
+        for (const r of groupRows) {
+          if (!r.variant_id) continue;
+          sentByVariant.set(r.variant_id, (sentByVariant.get(r.variant_id) ?? 0) + 1);
+        }
+        for (const [variantId, count] of sentByVariant) {
+          await admin.rpc('bump_campaign_variant_counter', { p_variant_id: variantId, p_column: 'sent', p_delta: count });
+        }
 
         // Espelha o disparo na inbox (apenas contatos efetivamente no broadcast,
         // i.e. com telefone resolvido). Falha aqui nao deve reverter o envio.
