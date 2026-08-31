@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
-import { ChevronDown, Instagram, Loader2, MessageCircle, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, History, Instagram, Loader2, MessageCircle, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -43,6 +43,16 @@ const AUTO_VARS = [
 
 type VarRow = { key: string; value: string };
 
+// Versionamento de prompt (PLANEJAMENTO.md Onda 3) — snapshot gravado pela
+// trigger _snapshot_ai_agent_config a cada UPDATE em ai_agent_config.
+interface AgentHistoryRow {
+  id: string;
+  system_prompt: string | null;
+  temperature: number | null;
+  max_tokens: number | null;
+  created_at: string;
+}
+
 function toRows(obj: Record<string, string> | null | undefined): VarRow[] {
   const src = obj && Object.keys(obj).length ? obj : DEFAULT_VARIABLES;
   return Object.entries(src).map(([key, value]) => ({ key, value: String(value ?? '') }));
@@ -63,6 +73,8 @@ export function AIAgentSettings() {
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [history, setHistory] = useState<AgentHistoryRow[]>([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   // Autocomplete de variáveis ao digitar "{" no prompt.
   const promptRef = useRef<HTMLTextAreaElement>(null);
@@ -91,6 +103,24 @@ export function AIAgentSettings() {
         setLoading(false);
       });
   }, [userId]);
+
+  useEffect(() => {
+    if (!rowId) return;
+    void getSupabase()
+      .from('ai_agent_config_history')
+      .select('id, system_prompt, temperature, max_tokens, created_at')
+      .eq('config_id', rowId)
+      .order('created_at', { ascending: false })
+      .limit(10)
+      .then(({ data }) => setHistory((data ?? []) as AgentHistoryRow[]));
+  }, [rowId]);
+
+  const restoreVersion = (h: AgentHistoryRow) => {
+    setSystemPrompt(h.system_prompt ?? DEFAULT_PROMPT);
+    if (h.temperature != null) setTemperature(h.temperature);
+    if (h.max_tokens != null) setMaxTokens(h.max_tokens);
+    toast.info('Versão carregada no formulário — clique em "Salvar alterações" para aplicar.');
+  };
 
   const varKeys = useMemo(
     () => [...variables.map((v) => v.key.trim()).filter(Boolean), ...AUTO_VARS],
@@ -166,6 +196,15 @@ export function AIAgentSettings() {
       return;
     }
     toast.success('Configuração do agente salva.');
+    if (rowId) {
+      const { data } = await supabase
+        .from('ai_agent_config_history')
+        .select('id, system_prompt, temperature, max_tokens, created_at')
+        .eq('config_id', rowId)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      setHistory((data ?? []) as AgentHistoryRow[]);
+    }
   };
 
   if (loading) {
@@ -401,6 +440,42 @@ export function AIAgentSettings() {
             </div>
           )}
         </div>
+
+        {history.length > 0 && (
+          <div className="space-y-2 border-t border-[rgba(59,130,246,0.1)] pt-4">
+            <button
+              type="button"
+              onClick={() => setHistoryOpen((v) => !v)}
+              className="flex items-center gap-2 text-sm font-semibold text-[var(--accent-secondary)]"
+            >
+              <History className="h-4 w-4" />
+              Histórico de versões ({history.length})
+              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${historyOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {historyOpen && (
+              <div className="space-y-2">
+                {history.map((h) => (
+                  <div
+                    key={h.id}
+                    className="flex items-start gap-3 rounded-lg border border-[rgba(59,130,246,0.15)] bg-white/[0.02] px-3 py-2"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[10px] text-[var(--color-text-secondary)]">
+                        {new Date(h.created_at).toLocaleString('pt-BR')} · temp {h.temperature ?? '—'} · max {h.max_tokens ?? '—'} tokens
+                      </div>
+                      <div className="mt-1 line-clamp-2 text-xs text-[var(--color-text-secondary)]">
+                        {h.system_prompt || '(prompt vazio)'}
+                      </div>
+                    </div>
+                    <Button type="button" variant="outline" size="sm" onClick={() => restoreVersion(h)}>
+                      <RotateCcw className="h-3.5 w-3.5" /> Restaurar
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="flex justify-end">
           <Button type="submit" disabled={saving}>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Bot, Check, CheckCheck, ChevronDown, ChevronUp, Clock, FileText, Forward, Reply, Search, SmilePlus, StickyNote, User, X } from 'lucide-react';
+import { Bot, Check, CheckCheck, ChevronDown, ChevronUp, Clock, FileText, Forward, Reply, Search, SmilePlus, StickyNote, ThumbsDown, ThumbsUp, User, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getSupabase } from '@/lib/supabase';
 import type { Message } from '@/types/inbox';
@@ -76,6 +76,46 @@ function DaySeparator({ iso }: { iso: string }) {
       <span className="text-label rounded-full bg-[rgba(59,130,246,0.08)] px-3 py-1 text-[var(--text-secondary)]">
         {formatDaySeparator(iso)}
       </span>
+    </div>
+  );
+}
+
+// 👍/👎 numa resposta da IA (observabilidade — PLANEJAMENTO.md Onda 3).
+// Update direto via RLS de messages (operador/admin já pode escrever nela).
+function AiFeedback({ messageId, feedback }: { messageId: string; feedback: 'up' | 'down' | null | undefined }) {
+  const [value, setValue] = useState(feedback ?? null);
+  const [busy, setBusy] = useState(false);
+
+  const vote = async (next: 'up' | 'down') => {
+    if (busy) return;
+    const nextValue = value === next ? null : next; // clicar de novo desmarca
+    setBusy(true);
+    setValue(nextValue);
+    const { error } = await getSupabase().from('messages').update({ feedback: nextValue }).eq('id', messageId);
+    setBusy(false);
+    if (error) setValue(value); // reverte em caso de falha
+  };
+
+  return (
+    <div className="mt-1 flex items-center gap-1">
+      <button
+        type="button"
+        onClick={() => void vote('up')}
+        aria-label="Boa resposta"
+        aria-pressed={value === 'up'}
+        className={cn('rounded p-0.5 transition hover:bg-black/10', value === 'up' ? 'text-[#10B981]' : 'opacity-50 hover:opacity-100')}
+      >
+        <ThumbsUp className="h-3 w-3" />
+      </button>
+      <button
+        type="button"
+        onClick={() => void vote('down')}
+        aria-label="Resposta ruim"
+        aria-pressed={value === 'down'}
+        className={cn('rounded p-0.5 transition hover:bg-black/10', value === 'down' ? 'text-[var(--color-error)]' : 'opacity-50 hover:opacity-100')}
+      >
+        <ThumbsDown className="h-3 w-3" />
+      </button>
     </div>
   );
 }
@@ -463,6 +503,7 @@ export function MessageThread({ messages, loading, onRetry, onDismiss, onForward
                   )}
                 </div>
                 <ReactionBadges reactions={m.reactions} />
+                {m.sender_type === 'ai' && !m._tempId && <AiFeedback messageId={m.id} feedback={m.feedback} />}
                 {m._state === 'failed' && m._tempId && (
                   <FailedActions tempId={m._tempId} onRetry={onRetry} onDismiss={onDismiss} inverse />
                 )}

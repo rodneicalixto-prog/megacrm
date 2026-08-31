@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { LayoutDashboard } from 'lucide-react';
+import { LayoutDashboard, Sparkles } from 'lucide-react';
 import { useOperators } from '@/hooks/useOperators';
 import { useAttendanceMetrics } from '@/hooks/useAttendanceMetrics';
+import { useAiObservability } from '@/hooks/useAiObservability';
 import { lineLabel, useDepartments } from '@/hooks/useDepartments';
 import { AttendancePanel } from '@/components/dashboard/AttendancePanel';
 import { LoadErrorBanner } from '@/components/LoadErrorBanner';
@@ -13,6 +14,7 @@ export default function DashboardPage() {
   const [connectionId, setConnectionId] = useState('all');
   const { operators } = useOperators();
   const { departments, lines, loading: loadingDepartments } = useDepartments();
+  const { data: aiStats } = useAiObservability(7);
   const attendance = useAttendanceMetrics(
     departmentId === 'all' ? null : departmentId,
     connectionId === 'all' ? null : connectionId,
@@ -87,6 +89,39 @@ export default function DashboardPage() {
         </div>
       ) : (
         <AttendancePanel metrics={attendance.metrics} operators={operators} inboxScope={inboxScope.toString()} />
+      )}
+
+      {aiStats.messages > 0 && (
+        <div className="glass-card p-4">
+          <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-[var(--color-text-primary)]">
+            <Sparkles className="h-4 w-4 text-[var(--accent-primary)]" />
+            Uso da IA (últimos 7 dias)
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div>
+              <div className="text-stat text-lg font-extrabold text-[var(--color-text-primary)]">{aiStats.messages}</div>
+              <div className="text-label">Respostas</div>
+            </div>
+            <div>
+              <div className="text-stat text-lg font-extrabold text-[var(--color-text-primary)]">
+                {(aiStats.tokensInput + aiStats.tokensOutput).toLocaleString('pt-BR')}
+              </div>
+              <div className="text-label">Tokens</div>
+            </div>
+            <div>
+              <div className="text-stat text-lg font-extrabold text-[var(--color-text-primary)]">
+                {aiStats.costUsd < 0.01 ? '< US$ 0,01' : `US$ ${aiStats.costUsd.toFixed(2)}`}
+              </div>
+              <div className="text-label">Custo estimado</div>
+            </div>
+            <div>
+              <div className="text-stat text-lg font-extrabold text-[var(--color-text-primary)]">
+                {aiStats.feedbackUp}👍 / {aiStats.feedbackDown}👎
+              </div>
+              <div className="text-label">Feedback</div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

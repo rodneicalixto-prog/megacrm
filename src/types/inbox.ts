@@ -62,6 +62,13 @@ export interface Message {
   // Operadores marcados com @nome numa nota privada — dispara notificação
   // tipo 'mention' para cada um (whatsapp_hub._on_mention_notify).
   mentioned_user_ids: string[];
+  // Observabilidade da IA (só preenchido em sender_type='ai'): tokens/custo
+  // vêm de process-ai-message; feedback é o 👍/👎 do operador no ChatBubble.
+  tokens_input?: number | null;
+  tokens_output?: number | null;
+  cost_usd?: number | null;
+  feedback?: 'up' | 'down' | null;
+  ai_config_id?: string | null;
 }
 
 export interface ConversationWithContact extends Conversation {

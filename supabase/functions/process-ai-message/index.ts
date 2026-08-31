@@ -23,6 +23,7 @@
 import { getAdminClient } from '../_shared/supabase-admin.ts';
 import { loadAppCredentials } from '../_shared/tenant-credentials.ts';
 import { callLLM, type LLMProvider } from '../_shared/llm.ts';
+import { estimateCostUsd } from '../_shared/llm-cost.ts';
 import { jsonResponse, preflight } from '../_shared/cors.ts';
 import { requireServiceRole } from '../_shared/auth.ts';
 import { isModuleEnabled } from '../_shared/plan.ts';
@@ -96,6 +97,7 @@ async function resolveBusinessHours(
 }
 
 interface AgentConfig {
+  id: string;
   system_prompt: string | null;
   temperature: number;
   max_tokens: number;
@@ -217,7 +219,7 @@ Deno.serve(async (req) => {
       .maybeSingle(),
     admin
       .from('ai_agent_config')
-      .select('system_prompt, temperature, max_tokens, is_active, active_whatsapp, active_instagram, auto_move_leads, model, timezone, variables')
+      .select('id, system_prompt, temperature, max_tokens, is_active, active_whatsapp, active_instagram, auto_move_leads, model, timezone, variables')
       .maybeSingle(),
   ]);
   if (!convRow) {
@@ -362,6 +364,9 @@ Deno.serve(async (req) => {
   const userPrompt = buildUserPrompt(history, ragChunks, inboundLabel);
 
   let reply: string;
+  let tokensInput: number | null = null;
+  let tokensOutput: number | null = null;
+  let costUsd: number | null = null;
   try {
     const result = await callLLM({
       provider,
@@ -375,6 +380,9 @@ Deno.serve(async (req) => {
     });
     reply = result.content.trim();
     if (!reply) throw new Error('LLM retornou resposta vazia.');
+    tokensInput = result.usage.inputTokens;
+    tokensOutput = result.usage.outputTokens;
+    costUsd = estimateCostUsd(result.model, result.usage);
   } catch (err) {
     return jsonResponse(
       { ok: false, error: `llm: ${err instanceof Error ? err.message : String(err)}` },
@@ -423,7 +431,18 @@ Deno.serve(async (req) => {
     if (textBody) {
       const { data: ins } = await admin
         .from('messages')
-        .insert({ conversation_id: conversation.id, direction: 'outbound', sender_type: 'ai', content_type: 'text', content: textBody, is_private_note: false })
+        .insert({
+          conversation_id: conversation.id,
+          direction: 'outbound',
+          sender_type: 'ai',
+          content_type: 'text',
+          content: textBody,
+          is_private_note: false,
+          ai_config_id: agent.id,
+          tokens_input: tokensInput,
+          tokens_output: tokensOutput,
+          cost_usd: costUsd,
+        })
         .select('id').single();
       const outboundId = (ins as { id: string } | null)?.id ?? null;
       try {
@@ -439,7 +458,7 @@ Deno.serve(async (req) => {
     for (const m of mediaToSend) {
       const { data: mIns } = await admin
         .from('messages')
-        .insert({ conversation_id: conversation.id, direction: 'outbound', sender_type: 'ai', content_type: m.content_type, content: null, media_url: m.media_url, is_private_note: false })
+        .insert({ conversation_id: conversation.id, direction: 'outbound', sender_type: 'ai', content_type: m.content_type, content: null, media_url: m.media_url, is_private_note: false, ai_config_id: agent.id })
         .select('id').single();
       const mId = (mIns as { id: string } | null)?.id ?? null;
       try {
@@ -491,7 +510,18 @@ Deno.serve(async (req) => {
   if (textBody) {
     const { data: ins } = await admin
       .from('messages')
-      .insert({ conversation_id: conversation.id, direction: 'outbound', sender_type: 'ai', content_type: 'text', content: textBody, is_private_note: false })
+      .insert({
+        conversation_id: conversation.id,
+        direction: 'outbound',
+        sender_type: 'ai',
+        content_type: 'text',
+        content: textBody,
+        is_private_note: false,
+        ai_config_id: agent.id,
+        tokens_input: tokensInput,
+        tokens_output: tokensOutput,
+        cost_usd: costUsd,
+      })
       .select('id').single();
     const outboundId = (ins as { id: string } | null)?.id ?? null;
     try {
@@ -511,7 +541,7 @@ Deno.serve(async (req) => {
       (['image', 'video', 'audio'].includes(m.content_type) ? m.content_type : 'file') as 'image' | 'video' | 'audio' | 'file';
     const { data: mIns } = await admin
       .from('messages')
-      .insert({ conversation_id: conversation.id, direction: 'outbound', sender_type: 'ai', content_type: m.content_type, content: null, media_url: m.media_url, is_private_note: false })
+      .insert({ conversation_id: conversation.id, direction: 'outbound', sender_type: 'ai', content_type: m.content_type, content: null, media_url: m.media_url, is_private_note: false, ai_config_id: agent.id })
       .select('id').single();
     const mId = (mIns as { id: string } | null)?.id ?? null;
     try {
