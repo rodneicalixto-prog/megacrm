@@ -167,7 +167,8 @@ app_users
 ├── is_online  BOOLEAN
 ├── last_seen_at, accepted_at, created_at, invited_at
 
-ai_agent_config  (singleton via UNIQUE INDEX em ((true)))
+ai_agent_config  (múltiplos perfis desde 20260828120000 — teste A/B/C/D, ver "Agente IA + RAG")
+├── name, variant_key (UNIQUE), traffic_pct INT DEFAULT 100, is_control BOOLEAN
 ├── system_prompt TEXT
 ├── temperature   FLOAT DEFAULT 0.7
 ├── max_tokens    INT   DEFAULT 1000
@@ -422,8 +423,17 @@ service role key vêm de Vault entries (`whatsapp_hub_supabase_url`,
 - `process-knowledge`: extract → chunk (500 tokens, overlap 50) → embed
   (`text-embedding-3-small`, 1536d) → store em `knowledge_chunks`.
 - Mensagem inbound aciona `process-ai-message`:
+  0. Seleciona o **perfil de IA** (`ai_agent_config`, múltiplas linhas — teste
+     A/B/C/D): entre os perfis `is_active=true` habilitados para o canal da
+     conversa, escolhe um via hash determinístico (FNV-1a) de `contact_id`
+     contra `traffic_pct` acumulado — mesmo contato sempre cai no mesmo
+     perfil, evitando trocar de "personalidade" no meio da conversa. Sem
+     nenhum perfil habilitado no canal, a conversa vai para atendimento
+     humano (mesmo comportamento do antigo gate de canal). `messages.ai_config_id`
+     grava qual perfil respondeu, para comparação de métricas por variante
+     (`useAiObservabilityByProfile`, painel em `AIAgentSettings.tsx`).
   1. Busca top-5 chunks via `knowledge_search`.
-  2. Monta prompt com `system_prompt` (do `ai_agent_config`) + contexto +
+  2. Monta prompt com `system_prompt` (do perfil escolhido) + contexto +
      histórico da conversa.
   3. Chama o provider configurado na credencial `llm_provider`.
   4. Envia resposta via Zernio (mensagem 1:1 na inbox, dentro da janela de 24h).

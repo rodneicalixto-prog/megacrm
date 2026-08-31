@@ -47,3 +47,45 @@ export function useAiObservability(days = 7) {
 
   return { data, loading };
 }
+
+// Comparação por perfil de IA (PLANEJAMENTO.md Onda 4) — mesma agregação de
+// useAiObservability, mas agrupada por ai_config_id em vez de somada. Usada
+// no painel de comparação A/B/C/D de AIAgentSettings.
+export function useAiObservabilityByProfile(days = 30) {
+  const [byProfile, setByProfile] = useState<Map<string, AiObservability>>(new Map());
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    const since = new Date(Date.now() - days * 86_400_000).toISOString();
+    void getSupabase()
+      .from('messages')
+      .select('ai_config_id, tokens_input, tokens_output, cost_usd, feedback')
+      .eq('sender_type', 'ai')
+      .not('ai_config_id', 'is', null)
+      .gte('created_at', since)
+      .then(({ data: rows }) => {
+        if (cancelled) return;
+        const map = new Map<string, AiObservability>();
+        for (const r of (rows ?? []) as Array<{
+          ai_config_id: string | null; tokens_input: number | null; tokens_output: number | null; cost_usd: number | null; feedback: string | null;
+        }>) {
+          if (!r.ai_config_id) continue;
+          const acc = map.get(r.ai_config_id) ?? { ...EMPTY };
+          acc.messages += 1;
+          acc.tokensInput += r.tokens_input ?? 0;
+          acc.tokensOutput += r.tokens_output ?? 0;
+          acc.costUsd += r.cost_usd ?? 0;
+          if (r.feedback === 'up') acc.feedbackUp += 1;
+          if (r.feedback === 'down') acc.feedbackDown += 1;
+          map.set(r.ai_config_id, acc);
+        }
+        setByProfile(map);
+        setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [days]);
+
+  return { byProfile, loading };
+}
