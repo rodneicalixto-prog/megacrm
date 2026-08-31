@@ -22,6 +22,10 @@ export interface Contact {
   source?: string | null;
   // Data do primeiro registro do contato (Módulo 5) — coluna da lista.
   first_seen_at?: string | null;
+  // Preenchido pela trigger _flag_possible_duplicate (telefone parecido ou
+  // nome muito similar a outro contato já existente). Só sinaliza — não
+  // bloqueia nem mescla sozinho.
+  possible_duplicate_of?: string | null;
   custom_fields: Record<string, unknown>;
   created_at: string;
   updated_at: string;

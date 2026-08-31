@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ChevronDown, Clock, SquareKanban, Plus, Settings2, X } from 'lucide-react';
+import { toast } from 'sonner';
+import { CheckSquare, ChevronDown, Clock, SquareKanban, Plus, Settings2, Square, Tags, UserCog, X } from 'lucide-react';
 import { getSupabase } from '@/lib/supabase';
 import { usePipeline } from '@/hooks/usePipeline';
+import { useOperators, operatorLabel } from '@/hooks/useOperators';
+import { useTags } from '@/hooks/useTags';
 import { useAppUser } from '@/app/providers/AppUserProvider';
 import { canSeeAdminNav } from '@/app/layout/nav-config';
 import { LoadErrorBanner } from '@/components/LoadErrorBanner';
@@ -23,8 +26,26 @@ const STAGE_PAGE_SIZE = 20;
 
 export default function FunilPage() {
   const funil = usePipeline();
-  const { pipelines, selectedId, select, pipeline, stages, deals, loading, error, reload, moveDeal, createDeal } = funil;
+  const {
+    pipelines, selectedId, select, pipeline, stages, deals, loading, error, reload, moveDeal, createDeal,
+    bulkMoveStage, bulkAssignOwner, bulkAddTag,
+  } = funil;
   const { role } = useAppUser();
+  const { operators } = useOperators();
+  const { tags } = useTags();
+
+  // Ações em massa: seleção multipla de cards, com toolbar contextual.
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const toggleSelected = (id: string) =>
+    setSelectedIds((cur) => {
+      const next = new Set(cur);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const clearSelection = () => { setSelectedIds(new Set()); setSelectMode(false); };
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const [contacts, setContacts] = useState<ContactLite[]>([]);
   const [dragId, setDragId] = useState<string | null>(null);
@@ -141,6 +162,18 @@ export default function FunilPage() {
           >
             <Settings2 className="h-4 w-4" /> Gerenciar funis
           </button>
+          <button
+            onClick={() => { if (selectMode) clearSelection(); else setSelectMode(true); }}
+            className={[
+              'inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition',
+              selectMode
+                ? 'border-[var(--accent-primary)] bg-[rgba(59,130,246,0.12)] text-[var(--color-text-primary)]'
+                : 'border-[rgba(59,130,246,0.25)] text-[var(--color-text-secondary)] hover:border-[var(--accent-primary)]',
+            ].join(' ')}
+          >
+            {selectMode ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
+            {selectMode ? `${selectedIds.size} selecionado(s)` : 'Selecionar'}
+          </button>
           <div className="relative">
             <button
               onClick={() => setQuickAddOpen((v) => !v)}
@@ -171,6 +204,88 @@ export default function FunilPage() {
       </div>
 
       {error && <LoadErrorBanner message={error} onRetry={() => void reload()} />}
+
+      {selectMode && selectedIds.size > 0 && (
+        <div className="glass-card flex flex-wrap items-center gap-3 p-3">
+          <span className="text-sm font-semibold text-[var(--color-text-primary)]">
+            {selectedIds.size} negócio(s) selecionado(s)
+          </span>
+
+          <label className="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)]">
+            <ChevronDown className="h-3.5 w-3.5" /> Mover para
+            <select
+              defaultValue=""
+              disabled={bulkBusy}
+              onChange={async (e) => {
+                const stageId = e.target.value;
+                e.target.value = '';
+                if (!stageId) return;
+                setBulkBusy(true);
+                const res = await bulkMoveStage(Array.from(selectedIds), stageId);
+                setBulkBusy(false);
+                if (!res.ok) toast.error('Falha ao mover negócios', { description: res.error });
+                else { toast.success('Negócios movidos.'); clearSelection(); }
+              }}
+              className="rounded-md border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-2 py-1 text-xs text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)] [&>option]:bg-[var(--color-bg-elevated)]"
+            >
+              <option value="">Etapa…</option>
+              {stages.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </label>
+
+          <label className="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)]">
+            <UserCog className="h-3.5 w-3.5" /> Atribuir a
+            <select
+              defaultValue=""
+              disabled={bulkBusy}
+              onChange={async (e) => {
+                const ownerId = e.target.value;
+                e.target.value = '';
+                if (!ownerId) return;
+                setBulkBusy(true);
+                const res = await bulkAssignOwner(Array.from(selectedIds), ownerId);
+                setBulkBusy(false);
+                if (!res.ok) toast.error('Falha ao atribuir negócios', { description: res.error });
+                else { toast.success('Negócios atribuídos.'); clearSelection(); }
+              }}
+              className="rounded-md border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-2 py-1 text-xs text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)] [&>option]:bg-[var(--color-bg-elevated)]"
+            >
+              <option value="">Operador…</option>
+              {operators.map((o) => <option key={o.user_id} value={o.user_id}>{operatorLabel(o)}</option>)}
+            </select>
+          </label>
+
+          <label className="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)]">
+            <Tags className="h-3.5 w-3.5" /> Marcar com
+            <select
+              defaultValue=""
+              disabled={bulkBusy}
+              onChange={async (e) => {
+                const tagId = e.target.value;
+                e.target.value = '';
+                if (!tagId) return;
+                setBulkBusy(true);
+                const res = await bulkAddTag(Array.from(selectedIds), tagId);
+                setBulkBusy(false);
+                if (!res.ok) toast.error('Falha ao marcar negócios', { description: res.error });
+                else toast.success('Tag aplicada.');
+              }}
+              className="rounded-md border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-2 py-1 text-xs text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)] [&>option]:bg-[var(--color-bg-elevated)]"
+            >
+              <option value="">Tag…</option>
+              {tags.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+          </label>
+
+          <button
+            type="button"
+            onClick={clearSelection}
+            className="ml-auto inline-flex items-center gap-1 rounded-md border border-[rgba(59,130,246,0.2)] px-2.5 py-1 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+          >
+            <X className="h-3.5 w-3.5" /> Limpar seleção
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div className="text-label opacity-60">Carregando funil...</div>
@@ -211,7 +326,9 @@ export default function FunilPage() {
                       key={deal.id}
                       deal={deal}
                       onDragStart={() => setDragId(deal.id)}
-                      onOpen={() => setOpenDealId(deal.id)}
+                      onOpen={() => (selectMode ? toggleSelected(deal.id) : setOpenDealId(deal.id))}
+                      selectMode={selectMode}
+                      selected={selectedIds.has(deal.id)}
                     />
                   ))}
 
@@ -271,10 +388,14 @@ function DealCard({
   deal,
   onDragStart,
   onOpen,
+  selectMode,
+  selected,
 }: {
   deal: Deal;
   onDragStart: () => void;
   onOpen: () => void;
+  selectMode?: boolean;
+  selected?: boolean;
 }) {
   const draggedRef = useRef(false);
   const leadName = deal.contact?.name?.trim() || deal.contact?.phone || 'Sem nome';
@@ -282,21 +403,34 @@ function DealCard({
 
   return (
     <div
-      draggable
+      draggable={!selectMode}
       onDragStart={() => { draggedRef.current = true; onDragStart(); }}
       onDragEnd={() => { window.setTimeout(() => { draggedRef.current = false; }, 50); }}
       onClick={() => { if (!draggedRef.current) onOpen(); }}
-      className="cursor-pointer p-3 transition hover:border-[rgba(59,130,246,0.45)] active:cursor-grabbing rounded-xl border border-[rgba(59,130,246,0.25)] shadow-[0_0_20px_rgba(59,130,246,0.06),inset_0_1px_0_rgba(59,130,246,0.1)]"
+      className={[
+        'cursor-pointer p-3 transition rounded-xl border shadow-[0_0_20px_rgba(59,130,246,0.06),inset_0_1px_0_rgba(59,130,246,0.1)]',
+        selected
+          ? 'border-[var(--accent-primary)] ring-1 ring-[var(--accent-primary)]'
+          : 'border-[rgba(59,130,246,0.25)] hover:border-[rgba(59,130,246,0.45)]',
+        !selectMode && 'active:cursor-grabbing',
+      ].join(' ')}
       style={{ background: 'var(--color-bg-elevated)' }}
     >
       <div className="flex items-start justify-between gap-2">
         {/* Ajuste 3: nome do LEAD em destaque, negócio como subtítulo */}
-        <div className="min-w-0">
-          <div className="truncate text-sm font-semibold text-[var(--color-text-primary)]">{leadName}</div>
-          <div className="truncate text-xs text-[var(--color-text-secondary)]">
-            {deal.products && deal.products.length > 0
-              ? `${deal.products[0].name}${deal.products.length > 1 ? ' e outros' : ''}`
-              : deal.title}
+        <div className="flex min-w-0 items-start gap-2">
+          {selectMode && (
+            selected
+              ? <CheckSquare className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent-primary)]" />
+              : <Square className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-text-secondary)]" />
+          )}
+          <div className="min-w-0">
+            <div className="truncate text-sm font-semibold text-[var(--color-text-primary)]">{leadName}</div>
+            <div className="truncate text-xs text-[var(--color-text-secondary)]">
+              {deal.products && deal.products.length > 0
+                ? `${deal.products[0].name}${deal.products.length > 1 ? ' e outros' : ''}`
+                : deal.title}
+            </div>
           </div>
         </div>
         {temp && (

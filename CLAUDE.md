@@ -270,7 +270,7 @@ knowledge_chunks
 ├── metadata JSONB
 
 notifications
-├── id, user_id, type ENUM('new_message','handoff','mention')
+├── id, user_id, type ENUM('new_message','handoff','mention','sla_breach')
 ├── conversation_id, message_id
 ├── title, body, is_read
 
@@ -355,6 +355,7 @@ public._bootstrap_state           <- checkpoints idempotentes do wizard /setup
 | `wh-check-follow-ups`        | a cada 15min | `check-follow-ups`        |
 | `wh-sync-broadcast-status`   | a cada 2min  | `sync-broadcast-status`   |
 | `wh-expire-position-coverage`| a cada 15min | SQL puro (sem Edge Function) — encerra cobertura de linha pessoal cujo `ends_at` venceu |
+| `wh-check-sla`                | a cada 5min  | `check-sla` — avisa quando um lead espera resposta humana há mais de `app_settings.sla_minutes` (default 15) |
 
 > O antigo `wh-check-template-status` (polling 5min) apontava pra uma Edge
 > Function já removida (`check-template-status` → renomeada

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowLeft, Link2, MessageSquare, Plus, X, SquareKanban } from 'lucide-react';
+import { ArrowLeft, Link2, MessageSquare, Plus, TriangleAlert, X, SquareKanban } from 'lucide-react';
+import { getSupabase } from '@/lib/supabase';
 import { useContactProfile } from '@/hooks/useContactProfile';
 import { useContactTimeline, type DayGroup } from '@/hooks/useContactTimeline';
 import { useNextActions } from '@/hooks/useNextActions';
@@ -106,6 +107,13 @@ export default function ContactDetailPage() {
         </div>
       </div>
 
+      {contact.possible_duplicate_of && (
+        <DuplicateBanner
+          duplicateOfId={contact.possible_duplicate_of}
+          onDismiss={() => void saveField({ possible_duplicate_of: null })}
+        />
+      )}
+
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         {/* Principal: campos editáveis + timeline */}
         <div className="space-y-5">
@@ -200,6 +208,51 @@ export default function ContactDetailPage() {
           }}
         />
       )}
+    </div>
+  );
+}
+
+// Aviso de contato duplicado (PLANEJAMENTO.md, Onda 2) — só sinaliza, quem
+// opera decide mesclar manualmente ou ignorar. `possible_duplicate_of` é
+// preenchido pela trigger _flag_possible_duplicate (telefone parecido ou
+// nome muito similar), em qualquer ponto de entrada de contato.
+function DuplicateBanner({ duplicateOfId, onDismiss }: { duplicateOfId: string; onDismiss: () => void }) {
+  const [other, setOther] = useState<{ id: string; name: string | null; phone: string | null } | null | undefined>(undefined);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getSupabase()
+      .from('contacts')
+      .select('id, name, phone')
+      .eq('id', duplicateOfId)
+      .maybeSingle()
+      .then(({ data }) => { if (!cancelled) setOther((data as typeof other) ?? null); });
+    return () => { cancelled = true; };
+  }, [duplicateOfId]);
+
+  if (other === null) return null; // contato referenciado sumiu (mesclado/removido)
+
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-lg border border-[rgba(245,158,11,0.3)] bg-[rgba(245,158,11,0.06)] px-4 py-3">
+      <TriangleAlert className="h-4 w-4 shrink-0 text-[#FBBF24]" />
+      <span className="text-sm text-[var(--color-text-primary)]">
+        Possível duplicata de{' '}
+        {other ? (
+          <Link to={`/contacts/${other.id}`} className="font-semibold text-[#FBBF24] underline">
+            {other.name?.trim() || other.phone || 'outro contato'}
+          </Link>
+        ) : (
+          'outro contato'
+        )}
+        .
+      </span>
+      <button
+        type="button"
+        onClick={onDismiss}
+        className="ml-auto text-xs font-semibold text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+      >
+        Ignorar
+      </button>
     </div>
   );
 }
