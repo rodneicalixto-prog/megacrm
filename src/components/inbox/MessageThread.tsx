@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Bot, Check, CheckCheck, Clock, FileText, Forward, Reply, SmilePlus, StickyNote, User } from 'lucide-react';
+import { Bot, Check, CheckCheck, ChevronDown, ChevronUp, Clock, FileText, Forward, Reply, Search, SmilePlus, StickyNote, User, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getSupabase } from '@/lib/supabase';
 import type { Message } from '@/types/inbox';
@@ -246,6 +246,41 @@ function MessageActions({ message, onForward, onReply, onReact }: {
 
 export function MessageThread({ messages, loading, onRetry, onDismiss, onForward, onReply, onReact }: MessageThreadProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const bubbleRefs = useRef(new Map<string, HTMLDivElement>());
+
+  // Busca dentro da conversa — filtra o que já está carregado em memória
+  // (useMessages traz o histórico inteiro da conversa, sem paginação).
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeMatch, setActiveMatch] = useState(0);
+
+  const matches = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [];
+    return messages.filter((m) => (m.content ?? '').toLowerCase().includes(q));
+  }, [messages, searchQuery]);
+
+  useEffect(() => {
+    setActiveMatch(0);
+  }, [searchQuery]);
+
+  const scrollToMatch = useCallback((index: number) => {
+    const match = matches[index];
+    if (!match) return;
+    bubbleRefs.current.get(match.id)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [matches]);
+
+  useEffect(() => {
+    if (matches.length > 0) scrollToMatch(activeMatch);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeMatch, searchQuery]);
+
+  const goToMatch = (dir: 1 | -1) => {
+    if (matches.length === 0) return;
+    setActiveMatch((i) => (i + dir + matches.length) % matches.length);
+  };
+
+  const activeMatchId = matches[activeMatch]?.id;
 
   // Marca, por mensagem, se ela é a primeira do seu grupo de dia (local time)
   // — usado para inserir o separador "Hoje" / "Ontem" / data antes dela.
@@ -285,6 +320,49 @@ export function MessageThread({ messages, loading, onRetry, onDismiss, onForward
   }
 
   return (
+    <div className="relative flex flex-1 flex-col overflow-hidden">
+      <div className="absolute right-3 top-3 z-20">
+        {searchOpen ? (
+          <div className="flex items-center gap-1 rounded-lg border border-[var(--color-border-card)] bg-[var(--color-bg-elevated)] px-2 py-1.5 shadow-lg">
+            <Search className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-secondary)]" />
+            <input
+              autoFocus
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') goToMatch(e.shiftKey ? -1 : 1);
+                if (e.key === 'Escape') { setSearchOpen(false); setSearchQuery(''); }
+              }}
+              placeholder="Buscar na conversa…"
+              className="w-40 bg-transparent text-xs text-[var(--color-text-primary)] outline-none sm:w-56"
+            />
+            {searchQuery.trim() && (
+              <span className="shrink-0 text-[10px] tabular-nums text-[var(--color-text-secondary)]">
+                {matches.length > 0 ? `${activeMatch + 1}/${matches.length}` : '0/0'}
+              </span>
+            )}
+            <button type="button" onClick={() => goToMatch(-1)} disabled={matches.length === 0} aria-label="Resultado anterior" className="rounded p-0.5 hover:bg-white/10 disabled:opacity-30">
+              <ChevronUp className="h-3.5 w-3.5" />
+            </button>
+            <button type="button" onClick={() => goToMatch(1)} disabled={matches.length === 0} aria-label="Próximo resultado" className="rounded p-0.5 hover:bg-white/10 disabled:opacity-30">
+              <ChevronDown className="h-3.5 w-3.5" />
+            </button>
+            <button type="button" onClick={() => { setSearchOpen(false); setSearchQuery(''); }} aria-label="Fechar busca" className="rounded p-0.5 hover:bg-white/10">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setSearchOpen(true)}
+            aria-label="Buscar na conversa"
+            title="Buscar na conversa"
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--color-border-card)] bg-[var(--color-bg-elevated)] text-[var(--color-text-secondary)] shadow-lg hover:text-[var(--color-text-primary)]"
+          >
+            <Search className="h-4 w-4" />
+          </button>
+        )}
+      </div>
     <div className="flex-1 overflow-y-auto p-6 space-y-3">
       {messages.map((m) => {
         const isNote = m.is_private_note;
@@ -297,9 +375,11 @@ export function MessageThread({ messages, loading, onRetry, onDismiss, onForward
             <div key={m.id} className="contents">
               {showDaySeparator && <DaySeparator iso={m.created_at} />}
               <div
+                ref={(el) => { if (el) bubbleRefs.current.set(m.id, el); else bubbleRefs.current.delete(m.id); }}
                 className={cn(
                   'mx-auto max-w-[85%] rounded-lg border border-[rgba(245,158,11,0.25)] bg-[rgba(245,158,11,0.06)] p-3',
                   m._state === 'pending' && 'opacity-70',
+                  activeMatchId === m.id && 'ring-2 ring-[var(--accent-primary)]',
                 )}
               >
                 <div className="flex items-center gap-2 text-[10px] uppercase tracking-wide text-[#FBBF24] mb-1">
@@ -331,6 +411,7 @@ export function MessageThread({ messages, loading, onRetry, onDismiss, onForward
                 <MessageActions message={m} onForward={onForward} onReply={onReply} onReact={onReact} />
               )}
               <div
+                ref={(el) => { if (el) bubbleRefs.current.set(m.id, el); else bubbleRefs.current.delete(m.id); }}
                 className={cn(
                   'max-w-[70%] rounded-2xl px-4 py-2.5 text-sm shadow-sm transition-opacity',
                   isInbound
@@ -338,6 +419,7 @@ export function MessageThread({ messages, loading, onRetry, onDismiss, onForward
                     : 'bg-[var(--accent-primary)] text-white rounded-br-md',
                   m._state === 'pending' && 'opacity-70',
                   m._state === 'failed' && 'ring-1 ring-[var(--color-error)]',
+                  activeMatchId === m.id && 'ring-2 ring-offset-2 ring-offset-[var(--bg-primary)] ring-[#FBBF24]',
                 )}
               >
                 {!isInbound && m.sender_type !== 'contact' && (
@@ -393,6 +475,7 @@ export function MessageThread({ messages, loading, onRetry, onDismiss, onForward
         );
       })}
       <div ref={bottomRef} />
+    </div>
     </div>
   );
 }

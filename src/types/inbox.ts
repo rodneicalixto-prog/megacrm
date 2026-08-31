@@ -59,6 +59,9 @@ export interface Message {
   // source = reação recebida pelo webhook (contato, ou o dono reagindo pelo
   // celular em vez do CRM) — não há sessão de operador nesse caminho.
   reactions: Array<{ emoji: string; user_id?: string; source?: string; created_at: string }>;
+  // Operadores marcados com @nome numa nota privada — dispara notificação
+  // tipo 'mention' para cada um (whatsapp_hub._on_mention_notify).
+  mentioned_user_ids: string[];
 }
 
 export interface ConversationWithContact extends Conversation {
