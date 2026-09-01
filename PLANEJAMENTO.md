@@ -1536,9 +1536,9 @@ Sugeri, em ordem:
 
 1. **Detector automático de drift/RLS** (implementado nesta rodada, ver
    abaixo).
-2. Varredura preventiva nos mesmos dois bugs corrigidos na PR #33 (canal
-   Realtime sem sufixo, `data`/`error` sem checar) no resto de `src/hooks` —
-   ainda não feita.
+2. **Varredura preventiva** dos mesmos dois bugs corrigidos na PR #33 (canal
+   Realtime sem sufixo, `data`/`error` sem checar) no resto de `src/hooks`
+   (implementada nesta rodada, ver abaixo).
 3. Cobertura de teste pra `/meetings` e chat interno — o crash do canal
    Realtime não foi pego por nenhum teste existente. Ainda não feita.
 4. Zerar os 84 warnings de lint acumulados (`react-hooks/set-state-in-effect`
@@ -1565,3 +1565,39 @@ Sugeri, em ordem:
   nesta sessão) — validei a lógica reaproveitando as mesmas queries SQL que
   rodei manualmente hoje via MCP (mesmo resultado esperado: sem drift, sem
   gap de RLS, no estado atual de produção) e `node --check` pra sintaxe.
+
+### Item 2 — Varredura preventiva dos mesmos dois bugs no resto de `src/hooks`
+
+- **Canal Realtime sem sufixo por montagem:** grep em `.channel(` por todo
+  `src/hooks` + fora dele (`src/components`, `src/app`) — **nenhuma outra
+  ocorrência**. Os dois hooks que montam via variável (`useCampaigns.ts`,
+  `useMassDispatches.ts`) já sufixam (`channelName = \`x:${random}\``), só
+  não apareceram no grep literal de `.channel(\`` porque a interpolação está
+  numa variável antes. Item fechado, nada a corrigir.
+- **`data`/`error` descartado:** grep por `const { data... } = await
+  (getSupabase|supabase)` sem `error` no destructure, 17 ocorrências. A
+  maioria é `.auth.getUser()` (convenção já estabelecida no projeto, erro
+  irrelevante pra esse caso) ou leitura secundária com fallback explícito já
+  no código (`useKnowledgeBase.ts` usa `refreshed` só pra enriquecer uma
+  mensagem de erro que já tem 2 fallbacks depois). Dessas, 3 eram bug real —
+  corrigidas:
+  - **`usePipeline.ts::deletePipeline`** — a guarda "não deixa apagar funil
+    com negócios dentro" lia `count` sem checar `error`; se a query de
+    contagem falhasse, `count` vinha `undefined`, `(count ?? 0) > 0` dava
+    `false`, e o funil era apagado **mesmo tendo negócios dentro** — falha
+    aberta num guard de segurança, o mais sério dos três. Agora aborta a
+    exclusão com mensagem clara se a contagem falhar.
+  - **`useDashboardPrefs.ts`** e **`useNotifications.ts`** — mesmo padrão de
+    hoje: erro de leitura virava lista vazia sem log. Adicionado
+    `console.error`, mesmo padrão dos outros hooks já corrigidos.
+- **Revisadas e deixadas como estão** (risco menor, não é a mesma classe de
+  bug): `useCampaigns.ts` (filtro de tags de audiência de campanha) já falha
+  *fechado* — erro na query vira lista de candidatos vazia, que já é tratada
+  como "zero contatos", não dispara nada; `useContactTimeline.ts::addNoteToDay`
+  pode criar uma nota duplicada em vez de atualizar a existente se a busca
+  por nota do dia falhar (chance baixa, sem perda de dado); `useSalesDashboard.ts`
+  já cai pro caminho de métricas reais (não fake) se a config de demo mode
+  falhar ao carregar — direção segura.
+
+Verificação: `tsc --noEmit` limpo, lint 0 erros (84 warnings, mesmo
+baseline), `npm run test:unit` 192/192.

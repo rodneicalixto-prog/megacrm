@@ -322,10 +322,14 @@ export function usePipeline(): UsePipelineResult {
       // Sem piso de "um funil": com funis pessoais, o último funil de alguém é
       // dele, e proibir apagá-lo prendia a pessoa a um funil que ela não quer.
       const supabase = getSupabase();
-      const { count } = await supabase
+      const { count, error: countErr } = await supabase
         .from('deals')
         .select('id', { count: 'exact', head: true })
         .eq('pipeline_id', id);
+      if (countErr) {
+        console.error('[usePipeline] falha ao checar negócios do funil antes de excluir', countErr);
+        return { ok: false, error: 'Não foi possível confirmar se o funil está vazio. Tente novamente.' };
+      }
       if ((count ?? 0) > 0) {
         return { ok: false, error: 'Este funil tem negócios. Mova-os para outro funil antes de excluir.' };
       }

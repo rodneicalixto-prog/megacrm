@@ -71,7 +71,7 @@ export function useNotifications(): UseNotificationsResult {
     if (!userId) return;
     setLoading(true);
     const supabase = getSupabase();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .schema('whatsapp_hub')
       .from('notifications')
       .select('*')
@@ -79,6 +79,7 @@ export function useNotifications(): UseNotificationsResult {
       .eq('is_read', false)
       .order('created_at', { ascending: false })
       .limit(50);
+    if (error) console.error('[useNotifications] falha ao carregar notificações', error);
     setNotifications((data ?? []) as NotificationRow[]);
     setLoading(false);
   }, [userId]);

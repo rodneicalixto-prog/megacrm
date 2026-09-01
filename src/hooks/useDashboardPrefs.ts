@@ -22,7 +22,8 @@ export function useDashboardPrefs() {
     setLoading(true);
     const supabase = getSupabase();
     // RLS já restringe a "minhas linhas + defaults".
-    const { data } = await supabase.from('dashboard_preferences').select('*');
+    const { data, error } = await supabase.from('dashboard_preferences').select('*');
+    if (error) console.error('[useDashboardPrefs] falha ao carregar preferências', error);
     setRows((data ?? []) as PrefRow[]);
     setLoading(false);
   }, []);
