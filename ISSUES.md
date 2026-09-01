@@ -122,19 +122,24 @@ regressão. A dívida fica registrada.
   as usando. Não foi confirmado qual branch estava de fato publicada no
   Vercel antes do merge.
 
-## Tenants fantasmas no banco
+## ✅ Tenants fantasmas no banco — já continham exposição, já travados
 
-- **Status:** aberta, sem ação planejada.
-- **Severidade:** 🟢 baixa — relatado como "lixo inofensivo", sem impacto
-  funcional conhecido.
-- **O que se sabe:** existem registros de tenants órfãos/antigos sobrando no
-  Supabase, herança provável da migração SaaS → self-hosted (uma instância =
-  uma organização). Não foi investigado ainda de que tabela(s) vêm nem se
-  algum RLS/RPC assume tenant único de um jeito que esses registros
-  invalidam.
-- **Próximo passo:** mapear a origem (provavelmente uma tabela remanescente
-  do modelo multi-tenant antigo) antes de decidir entre limpar ou apenas
-  documentar como legado inofensivo.
+- **Status:** verificado e fechado em 01/09/2026. Já havia sido corrigido
+  antes (migration `20260821150000_rls_legacy_tenant_tables.sql`, no repo)
+  — esta rodada só confirmou que a correção está de fato ativa em produção.
+- **Origem confirmada:** `whatsapp_hub.tenants` (4 linhas),
+  `tenant_members` (4), `tenant_settings` (4), `tenant_credentials` (0) —
+  sobras da migração SaaS → self-hosted. `20260430120002_drop_multitenant.sql`
+  fez `DROP`/`RENAME` dessas tabelas no *código* do repositório, mas o banco
+  de produção (`lstbxeaasyysboavdati`) tinha divergido dessa migration e
+  ainda tinha as quatro tabelas de pé, **com RLS desligado** — expostas a
+  `anon`/`authenticated` via a anon key, não só "lixo inofensivo".
+- **Verificado nesta sessão** via `pg_class.relrowsecurity` +
+  `information_schema.role_table_grants`: as 4 tabelas têm
+  `relrowsecurity=true` e `open_grants=0` em produção — a migration citada
+  acima já está aplicada e efetiva. Nenhuma ação nova precisou ser tomada.
+- Não apagamos as 4 linhas remanescentes — ficam como histórico morto,
+  inacessíveis por RLS, sem risco.
 
 ## ✅ Schema `public` com outro sistema (Tomik CRM) exposto sem RLS — travado
 
