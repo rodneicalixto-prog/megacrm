@@ -41,6 +41,25 @@ tokens de bootstrap, roda migrations, deploya Edge Functions, configura as
 envs core na Vercel e persiste credenciais de aplicação criptografadas em
 `public.app_settings`.
 
+### Infraestrutura desta instância
+
+Confirmado por acesso direto via MCP em 01/09/2026 — não é genérico, é o
+projeto real usado neste repositório:
+
+- **Supabase** — project ref `lstbxeaasyysboavdati` (nome exibido no painel:
+  "calixto testesProject", região `us-east-1`, org `jfpiyugtvtuihjuqweyc`).
+  Dashboard: `https://supabase.com/dashboard/project/lstbxeaasyysboavdati`.
+  Referenciado como produção neste repo desde antes desta entrada (ver seção
+  10 do `PLANEJAMENTO.md`); o nome "testes" no painel é do próprio Supabase,
+  não indica que seja um ambiente descartável — não foi criado por mim.
+- **Vercel** — projeto `megacrm`, org/team `rodnei-calixto-s-projects`
+  (`projectId prj_1iE9MHZnppfqexTd6XN7grwOUulb`, `teamId
+  team_xCWGuCpqFbPqf4VvIFxJXrJe`). Dashboard:
+  `https://vercel.com/rodnei-calixto-s-projects/megacrm`. Cada branch/PR
+  ganha preview em `megacrm-git-<branch>-rodnei-calixto-s-projects.vercel.app`
+  — **não confirmado** qual branch está publicada no domínio de produção
+  (fora do escopo verificado até agora, ver `ISSUES.md`).
+
 ---
 
 ## Arquitetura multi-schema (Supabase compartilhado)
