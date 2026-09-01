@@ -830,6 +830,14 @@ fallback default.
 
 ## Notas de migração e variáveis não-triviais
 
+- A proposta de agentes internos por setor e memória organizacional está em
+  `docs/INTERNAL-AI-AGENTS.md`. Ela é deliberadamente separada do pipeline
+  `process-ai-message` de atendimento externo; não implementar como apenas mais
+  um perfil em `ai_agent_config` sem ACL/RLS e governança próprias.
+- Decisões consolidadas para futura segunda memória e treinamento vivem em
+  `docs/memory/`. Esses arquivos são contexto canônico revisável, não dumps de
+  conversa; `docs/memory/README.md` define status e regras de ingestão.
+
 - `tenant_members` foi renomeada para `app_users` na Fase 4 da migração SaaS
   → OSS. O enum `whatsapp_hub.tenant_role` manteve o nome por inércia; hoje
   aceita 4 valores (`super_admin`/`admin`/`supervisor`/`operator`, ver seção
