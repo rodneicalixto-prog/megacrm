@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
-import { Loader2, Mail, UserRound, Trash2 } from 'lucide-react';
+import { Loader2, Mail, Power, UserRound, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -44,6 +44,13 @@ interface MemberRow {
   user_id: string;
   email: string | null;
   accepted_at: string | null;
+  is_active: boolean;
+}
+
+function canManageMember(caller: Role | null, target: Role): boolean {
+  if (caller === 'super_admin') return target !== 'super_admin';
+  if (caller === 'admin') return target === 'supervisor' || target === 'operator';
+  return false;
 }
 
 export function TeamSettings() {
@@ -63,6 +70,7 @@ export function TeamSettings() {
   const [departmentId, setDepartmentId] = useState('');
   const [inviting, setInviting] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   const loadAll = async () => {
     if (!userId) return;
@@ -73,7 +81,7 @@ export function TeamSettings() {
     const [membersRes, opsRes] = await Promise.all([
       supabase
         .from('app_users')
-        .select('id, role, user_id, accepted_at')
+        .select('id, role, user_id, accepted_at, is_active')
         .order('invited_at', { ascending: true }),
       supabase.schema('whatsapp_hub').rpc('list_operators'),
     ]);
@@ -93,6 +101,7 @@ export function TeamSettings() {
           user_id: row.user_id as string,
           email: emailByUser.get(row.user_id as string) ?? null,
           accepted_at: (row.accepted_at as string | null) ?? null,
+          is_active: (row.is_active as boolean | null) ?? true,
         })),
       );
     }
@@ -163,6 +172,32 @@ export function TeamSettings() {
 
     toast.success(`${label} removido da equipe.`);
     void loadAll();
+  };
+
+  const handleToggleActive = async (member: MemberRow) => {
+    const nextActive = !member.is_active;
+    const label = member.email ?? member.user_id;
+    if (!nextActive && !window.confirm(
+      `Desativar ${label}? O usuário perderá o acesso, mas seus dados e histórico serão preservados.`,
+    )) return;
+
+    setTogglingId(member.user_id);
+    const { data, error } = await getSupabase().functions.invoke('set-team-member-active', {
+      body: { user_id: member.user_id, active: nextActive },
+    });
+    setTogglingId(null);
+
+    if (error || !data?.ok) {
+      toast.error(nextActive ? 'Falha ao ativar usuário' : 'Falha ao desativar usuário', {
+        description: await invokeErrorMessage(error, data),
+      });
+      return;
+    }
+
+    toast.success(`${label} foi ${nextActive ? 'ativado' : 'desativado'}.`);
+    setMembers((current) => current.map((item) => (
+      item.user_id === member.user_id ? { ...item, is_active: nextActive } : item
+    )));
   };
 
   return (
@@ -256,7 +291,7 @@ export function TeamSettings() {
               {members.map((m) => (
                 <li
                   key={m.id}
-                  className="flex items-center justify-between p-3 gap-3"
+                  className={`flex items-center justify-between p-3 gap-3 ${m.is_active ? '' : 'opacity-60'}`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     {m.email ? (
@@ -271,7 +306,9 @@ export function TeamSettings() {
                         {m.email ?? m.user_id}
                       </div>
                       <div className="text-[var(--color-text-secondary)] text-xs">
-                        {m.accepted_at
+                        {!m.is_active
+                          ? 'Acesso desativado'
+                          : m.accepted_at
                           ? `Aceitou em ${new Date(m.accepted_at).toLocaleDateString('pt-BR')}`
                           : 'Convite pendente'}
                       </div>
@@ -281,6 +318,24 @@ export function TeamSettings() {
                     <span className="text-xs uppercase tracking-wide font-semibold text-[var(--accent-primary)]">
                       {ROLE_LABEL[m.role] ?? 'Operador'}
                     </span>
+                    {canManageMember(callerRole, m.role) && m.user_id !== userId && (
+                      <button
+                        type="button"
+                        onClick={() => void handleToggleActive(m)}
+                        disabled={togglingId === m.user_id}
+                        aria-label={`${m.is_active ? 'Desativar' : 'Ativar'} ${m.email ?? m.user_id}`}
+                        title={m.is_active ? 'Desativar acesso' : 'Ativar acesso'}
+                        className={`flex h-8 w-8 items-center justify-center rounded-lg transition disabled:opacity-50 ${
+                          m.is_active
+                            ? 'text-[var(--color-text-secondary)] hover:bg-[rgba(239,68,68,0.12)] hover:text-[#EF4444]'
+                            : 'text-[var(--color-success)] hover:bg-[rgba(16,185,129,0.12)]'
+                        }`}
+                      >
+                        {togglingId === m.user_id
+                          ? <Loader2 className="h-4 w-4 animate-spin" />
+                          : <Power className="h-4 w-4" />}
+                      </button>
+                    )}
                     {isOwner && m.user_id !== userId && (
                       <button
                         type="button"
