@@ -1498,12 +1498,70 @@ de verdade.** O usuário passou o project ref de produção
 Detalhe completo em `ISSUES.md` — as duas entradas de migration drift foram
 fechadas (✅) nesta rodada.
 
+**Atualização, mesmo dia — as duas PRs foram mergeadas e o resto das
+pendências de infra foi auditado.** `main` recebeu a PR #33 (correções +
+migration retroativa) e a #34 (as 5 features órfãs), ambas com CI verde
+(`verify`: lint + typecheck + `validate:sql` + build + testes unitários +
+e2e Playwright — confirmado via `get_check_runs`, não só o status do
+Vercel). Depois do merge, pedido do usuário foi "verifique tudo... resolva
+as pendências":
+
+- **Schema `public` com outro sistema exposto** — achado maior do que o
+  esperado: 68 tabelas em `public` (não só `app_settings`/`_bootstrap_state`
+  como o `CLAUDE.md` dizia), a maioria de um sistema chamado "Tomik CRM".
+  9 delas estavam sem RLS e com `SELECT/INSERT/UPDATE/DELETE` liberado pra
+  `anon` — qualquer usuário logado em qualquer app desse Supabase
+  compartilhado conseguia ler/escrever nelas. Usuário confirmou que o Tomik
+  está em desuso e pediu pra travar — RLS ligado + grants revogados,
+  verificado depois. Ver `ISSUES.md`.
+- **Tenants fantasmas** — na verdade já tinha sido corrigido antes
+  (`20260821150000_rls_legacy_tenant_tables.sql`, já no repo); esta rodada
+  só confirmou que a correção está ativa em produção.
+- Varredura completa: nenhuma tabela de `whatsapp_hub` está sem RLS.
+
 **Em aberto, para decidir com calma (não implementado)**:
 
 - Plano de cadastro unificado (usuário + telefone + QR) — só desenho até
   aqui, sem seção própria neste documento ainda; precisa de um pedido
   explícito descrevendo o fluxo antes de virar plano de execução.
-- Tenants fantasmas no banco — registrado em `ISSUES.md`, não investigada a
-  origem.
-- Schema `public` com outros sistemas Agentise misturados — registrado em
-  `ISSUES.md`, não investigado quais tabelas são essas nem o risco real.
+- As ~59 outras tabelas do Tomik (têm RLS, mas as policies em si não foram
+  lidas) e os schemas `agentise_chat`/`prospector`/`crm_sofia` — fora do
+  escopo deste projeto, não auditados. Usuário confirmou que o Tomik "não é
+  problema ainda" — não é prioridade.
+
+## 12. Melhorias sugeridas pro megacrm, em ordem de criticidade — 01/09/2026
+
+Pedido do usuário: focar no projeto atual (não no Tomik) e listar melhorias.
+Sugeri, em ordem:
+
+1. **Detector automático de drift/RLS** (implementado nesta rodada, ver
+   abaixo).
+2. Varredura preventiva nos mesmos dois bugs corrigidos na PR #33 (canal
+   Realtime sem sufixo, `data`/`error` sem checar) no resto de `src/hooks` —
+   ainda não feita.
+3. Cobertura de teste pra `/meetings` e chat interno — o crash do canal
+   Realtime não foi pego por nenhum teste existente. Ainda não feita.
+4. Zerar os 84 warnings de lint acumulados (`react-hooks/set-state-in-effect`
+   principalmente) ou decidir suprimir a regra deliberadamente. Ainda não
+   feita.
+
+### Item 1 — Detector de drift/RLS
+
+- `scripts/check-drift.mjs` — via Supabase Management API (mesmo padrão de
+  `scripts/push-migrations.mjs`, PAT em vez de senha de DB): (a) compara
+  `supabase_migrations.schema_migrations` de produção contra os arquivos em
+  `supabase/migrations/` e falha se achar versão aplicada sem arquivo local;
+  (b) falha se achar qualquer tabela de `whatsapp_hub` com
+  `relrowsecurity=false`. Read-only.
+- `.github/workflows/drift-check.yml` — roda esse script diariamente
+  (`cron: '0 12 * * *'`) + `workflow_dispatch` manual.
+- **Pendência real, fora do meu controle:** o workflow precisa de dois repo
+  secrets que eu não tenho permissão pra criar — `SUPABASE_ACCESS_TOKEN`
+  (PAT do Supabase) e `PROJECT_REF` (`lstbxeaasyysboavdati`). Sem eles, cada
+  execução falha imediatamente com mensagem clara em vez de falhar
+  silenciosamente. O usuário precisa cadastrar os dois em Settings → Secrets
+  and variables → Actions no GitHub antes do workflow funcionar de verdade.
+- Não testei o script rodando de ponta a ponta (não tenho o PAT como env var
+  nesta sessão) — validei a lógica reaproveitando as mesmas queries SQL que
+  rodei manualmente hoje via MCP (mesmo resultado esperado: sem drift, sem
+  gap de RLS, no estado atual de produção) e `node --check` pra sintaxe.

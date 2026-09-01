@@ -4,6 +4,20 @@
 > aqui deve virar uma issue real — este arquivo é o backlog enquanto isso não
 > acontece.
 
+## Setup pendente — secrets do workflow `drift-check.yml`
+
+- **Status:** aberta — depende de ação manual do usuário no GitHub.
+- **O que é:** `.github/workflows/drift-check.yml` (adicionado 01/09/2026)
+  roda `scripts/check-drift.mjs` diariamente pra detectar os dois problemas
+  achados nesta sessão antes que virem incidente de novo: migration aplicada
+  em produção sem arquivo commitado, e tabela de `whatsapp_hub` sem RLS.
+- **Falta:** cadastrar dois repo secrets em Settings → Secrets and variables
+  → Actions — `SUPABASE_ACCESS_TOKEN` (PAT do Supabase) e `PROJECT_REF`
+  (`lstbxeaasyysboavdati`). Sem eles o workflow falha logo de cara (mensagem
+  clara, não silenciosa) em toda execução agendada.
+- **Próximo passo:** usuário cadastrar os secrets; depois disso, rodar o
+  workflow manualmente uma vez (`workflow_dispatch`) pra confirmar que passa.
+
 ## `xlsx@0.18.5` — Prototype Pollution + ReDoS, sem fix no npm
 
 - **Status:** aberta.

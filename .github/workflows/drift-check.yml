@@ -1,0 +1,30 @@
+name: Production drift check
+
+# Catches the two failure classes found on 01/09/2026: a migration applied
+# directly to Supabase with no matching file in supabase/migrations/, and any
+# whatsapp_hub table with RLS disabled. Read-only — see scripts/check-drift.mjs.
+#
+# Requires two repo secrets pointing at the production project:
+#   SUPABASE_ACCESS_TOKEN — a Supabase PAT (same one used for db:push/deploy)
+#   PROJECT_REF           — the production project ref (lstbxeaasyysboavdati)
+# Without them this workflow fails immediately with a clear message instead
+# of silently skipping.
+
+on:
+  schedule:
+    - cron: '0 12 * * *' # daily, 12:00 UTC
+  workflow_dispatch: {}
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Check migration drift and RLS gaps
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_REF: ${{ secrets.PROJECT_REF }}
+        run: node scripts/check-drift.mjs
