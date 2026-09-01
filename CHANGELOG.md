@@ -15,6 +15,10 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   suspensão preserva dados e histórico, aplica ban reversível no Supabase
   Auth e bloqueia imediatamente REST/RPC e Edge Functions, inclusive para um
   token emitido antes da suspensão.
+- **Convites de equipe de uso único**: o aceite agora usa claim atômico no
+  banco e uma Edge Function dedicada para definir a senha. Tentativas
+  concorrentes ou reutilização retornam conflito; ao concluir, a sessão criada
+  pelo link é revogada e o usuário precisa entrar com a nova senha.
 
 - **Reuniões (Google Meet + gravação/transcrição/resumo automáticos)**: novo
   módulo `/meetings`. Uma única conta Google compartilhada entre todos os

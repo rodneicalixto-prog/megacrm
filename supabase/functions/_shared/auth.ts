@@ -45,11 +45,11 @@ export async function requireCaller(req: Request): Promise<Caller> {
   // até expirar. Toda Edge Function confirma o estado atual da conta.
   const { data: member, error: memberError } = await getAdminClient()
     .from('app_users')
-    .select('is_active')
+    .select('is_active, invite_accepted_at')
     .eq('user_id', data.user.id)
     .maybeSingle();
-  if (memberError || !member || member.is_active !== true) {
-    throw new AuthError('Usuário desativado', 403);
+  if (memberError || !member || member.is_active !== true || !member.invite_accepted_at) {
+    throw new AuthError('Usuário desativado ou convite pendente', 403);
   }
 
   return {

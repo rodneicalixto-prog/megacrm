@@ -44,6 +44,7 @@ interface MemberRow {
   user_id: string;
   email: string | null;
   accepted_at: string | null;
+  invite_accepted_at: string | null;
   is_active: boolean;
 }
 
@@ -81,7 +82,7 @@ export function TeamSettings() {
     const [membersRes, opsRes] = await Promise.all([
       supabase
         .from('app_users')
-        .select('id, role, user_id, accepted_at, is_active')
+        .select('id, role, user_id, accepted_at, invite_accepted_at, is_active')
         .order('invited_at', { ascending: true }),
       supabase.schema('whatsapp_hub').rpc('list_operators'),
     ]);
@@ -101,6 +102,7 @@ export function TeamSettings() {
           user_id: row.user_id as string,
           email: emailByUser.get(row.user_id as string) ?? null,
           accepted_at: (row.accepted_at as string | null) ?? null,
+          invite_accepted_at: (row.invite_accepted_at as string | null) ?? null,
           is_active: (row.is_active as boolean | null) ?? true,
         })),
       );
@@ -308,8 +310,8 @@ export function TeamSettings() {
                       <div className="text-[var(--color-text-secondary)] text-xs">
                         {!m.is_active
                           ? 'Acesso desativado'
-                          : m.accepted_at
-                          ? `Aceitou em ${new Date(m.accepted_at).toLocaleDateString('pt-BR')}`
+                          : m.invite_accepted_at
+                          ? `Aceitou em ${new Date(m.invite_accepted_at).toLocaleDateString('pt-BR')}`
                           : 'Convite pendente'}
                       </div>
                     </div>
