@@ -9,6 +9,17 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ### Added
 
+- **Ativação e desativação hierárquica de usuários**: em Configurações →
+  Equipe, `super_admin` pode suspender/reativar admins, supervisores e
+  operadores; `admin` pode fazer o mesmo com supervisores e operadores. A
+  suspensão preserva dados e histórico, aplica ban reversível no Supabase
+  Auth e bloqueia imediatamente REST/RPC e Edge Functions, inclusive para um
+  token emitido antes da suspensão.
+- **Convites de equipe de uso único**: o aceite agora usa claim atômico no
+  banco e uma Edge Function dedicada para definir a senha. Tentativas
+  concorrentes ou reutilização retornam conflito; ao concluir, a sessão criada
+  pelo link é revogada e o usuário precisa entrar com a nova senha.
+
 - **Reuniões (Google Meet + gravação/transcrição/resumo automáticos)**: novo
   módulo `/meetings`. Uma única conta Google compartilhada entre todos os
   departamentos ("Gmail fixo") agenda reuniões com link do Meet gerado

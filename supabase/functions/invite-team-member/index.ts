@@ -12,7 +12,7 @@
 // ============================================================================
 
 import { requireAdmin, AuthError } from '../_shared/auth.ts';
-import { getAuthAdminClient } from '../_shared/supabase-admin.ts';
+import { getAdminClient, getAuthAdminClient } from '../_shared/supabase-admin.ts';
 import { getCredential } from '../_shared/credentials.ts';
 import { jsonResponse, preflight } from '../_shared/cors.ts';
 
@@ -98,9 +98,26 @@ Deno.serve(async (req) => {
       );
     }
 
+    if (!data.user?.id) {
+      return jsonResponse({ ok: false, error: 'O provedor não retornou o usuário convidado.' }, { status: 502 });
+    }
+
+    // O trigger cria app_users no momento do inviteUserByEmail. Marcamos esta
+    // conta como pendente para que apenas accept-team-invite possa definir a
+    // senha, exatamente uma vez.
+    const { error: pendingError } = await getAdminClient()
+      .from('app_users')
+      .update({ invite_accepted_at: null, invite_claim_id: null, invite_claimed_at: null })
+      .eq('user_id', data.user.id);
+    if (pendingError) {
+      // Não deixa uma conta convidada sem a proteção one-shot.
+      await admin.auth.admin.deleteUser(data.user.id);
+      throw pendingError;
+    }
+
     return jsonResponse({
       ok: true,
-      user_id: data.user?.id ?? null,
+      user_id: data.user.id,
       email,
       role,
     });
