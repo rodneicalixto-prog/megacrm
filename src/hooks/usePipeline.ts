@@ -339,7 +339,7 @@ export function usePipeline(): UsePipelineResult {
       await loadPipelines();
       return { ok: true };
     },
-    [pipelines, selectedId, loadPipelines],
+    [selectedId, loadPipelines],
   );
 
   const setDefaultPipeline = useCallback(async (id: string) => {

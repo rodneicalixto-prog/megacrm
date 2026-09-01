@@ -23,6 +23,11 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
+      // Os Providers (contexto + hook `useX` no mesmo arquivo) e o
+      // button.tsx do shadcn/ui (Button + buttonVariants) disparam isso de
+      // propósito — dividir o arquivo só pra preservar estado no Fast
+      // Refresh não vale a fragmentação, e o shadcn regeraria o padrão
+      // original a cada `npx shadcn add` de qualquer forma.
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
       // Regras da era React Compiler: sinalizam padrões legítimos e muito usados
       // nesta base (fetch em useEffect, Date.now() em useMemo). Ficam visíveis

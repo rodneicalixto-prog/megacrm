@@ -1542,9 +1542,7 @@ Sugeri, em ordem:
 3. **Cobertura de teste** pra `/meetings` e chat interno — implementada em
    escopo reduzido nesta rodada (teste estático, não montagem real do
    componente; ver justificativa abaixo).
-4. Zerar os 84 warnings de lint acumulados (`react-hooks/set-state-in-effect`
-   principalmente) ou decidir suprimir a regra deliberadamente. Ainda não
-   feita.
+4. **84 warnings de lint** — auditados nesta rodada.
 
 ### Item 1 — Detector de drift/RLS
 
@@ -1634,3 +1632,34 @@ pergunte se quiser que eu monte isso.
 
 Verificação: `tsc --noEmit` limpo, lint 0 erros, `npm run test:unit` 194/194
 (2 testes novos).
+
+### Item 4 — Auditoria dos 84 warnings de lint
+
+Contagem real por regra (`eslint --format json`, não a contagem visual do
+terminal): `react-hooks/set-state-in-effect` 69, `react-refresh/only-export-components`
+8, `react-hooks/purity` 6, `react-hooks/exhaustive-deps` **1** (não 11 como
+uma primeira leitura grosseira do output sugeriu).
+
+- **75 dos 84 (`set-state-in-effect` + `purity`) já eram decisão deliberada
+  e documentada** — `eslint.config.js` já tinha o comentário explicando que
+  são padrões legítimos e muito usados na base (fetch em `useEffect`,
+  `Date.now()` em `useMemo`), mantidos como warning visível em vez de travar
+  o gate (ver Fase 4 do `PLANEJAMENTO.md`, já existente antes de hoje). Não
+  mexi — já estava correto.
+- **`exhaustive-deps` (1 ocorrência real)** — `usePipeline.ts` tinha
+  `pipelines` na lista de deps de um `useCallback` sem usar no corpo.
+  Removida a dependência morta.
+- **`react-refresh/only-export-components` (8)** — Providers (contexto +
+  hook `useX` no mesmo arquivo: `AppUserProvider`, `AuthProvider`,
+  `SupabaseProvider`), `FunilFilter.tsx` (componente + helpers) e
+  `button.tsx` (padrão shadcn/ui: `Button` + `buttonVariants`). Decidi não
+  separar em arquivos — o ganho é só Fast Refresh preservar estado ao salvar
+  em dev, sem efeito em produção, e dividir `button.tsx` foge do padrão que
+  o próprio `npx shadcn add` regeraria. Documentei a decisão com comentário
+  em `eslint.config.js`, no mesmo padrão que já existia pras outras duas
+  regras.
+
+**Resultado:** 84 → 83 (o único fix real de código). Os 83 restantes agora
+têm rationale explícito no `eslint.config.js` pra qualquer um que abrir o
+arquivo depois — não é mais "dívida acumulada sem explicação", é decisão
+registrada.
