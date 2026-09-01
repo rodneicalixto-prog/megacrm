@@ -191,7 +191,11 @@ app_settings (singleton, id = 1)
 
 app_users
 ├── user_id  UUID  (FK auth.users, UNIQUE)
-├── role     ENUM('admin','operator')
+├── role     ENUM('super_admin','admin','supervisor','operator')
+├── is_active BOOLEAN DEFAULT true  (suspensão reversível por nível hierárquico)
+├── invite_accepted_at TIMESTAMPTZ  (NULL = convite pendente; aceite de uso único)
+├── invite_claim_id UUID            (lock efêmero contra aceite concorrente/replay)
+├── invite_claimed_at TIMESTAMPTZ   (lease de 10min; recupera crash durante aceite)
 ├── is_online  BOOLEAN
 ├── last_seen_at, accepted_at, created_at, invited_at
 
@@ -619,7 +623,8 @@ src/
 
 ## Edge Functions
 
-> Lista completa das 27 funções em `supabase/functions/` (versões anteriores
+> Lista das funções em `supabase/functions/` (32 diretórios funcionais nesta
+> revisão; versões anteriores
 > deste documento listavam só 14 — conferir aqui antes de assumir que uma
 > função não existe). `_shared/` cresceu bastante desde a migração
 > Zernio → Zernio+Evolution; ver `_shared/whatsapp/` para a camada agnóstica
@@ -672,6 +677,8 @@ supabase/functions/
 ├── simulate-inbound/         dev only — finge mensagem inbound
 ├── test-zernio-connection/   valida a conexão Zernio (GET /whatsapp/number-info)
 ├── invite-team-member/       convite nativo do Supabase Auth (inviteUserByEmail + invited_role)
+├── accept-team-invite/       consome convite uma vez, define senha e revoga a sessão do link
+├── set-team-member-active/   super_admin/admin suspende ou reativa níveis inferiores (Auth ban + app_users)
 └── delete-team-member/       admin remove membro (Auth + app_users)
 ```
 

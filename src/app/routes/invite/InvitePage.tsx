@@ -9,16 +9,30 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { getSupabase } from '@/lib/supabase';
 
+async function inviteErrorMessage(error: unknown, data: { error?: string } | null): Promise<string> {
+  if (data?.error) return data.error;
+  const response = (error as { context?: Response } | null)?.context;
+  if (response && typeof response.json === 'function') {
+    try {
+      const body = await response.json() as { error?: string };
+      if (body.error) return body.error;
+    } catch {
+      // FunctionsHttpError sem corpo JSON.
+    }
+  }
+  return (error as { message?: string } | null)?.message ?? 'Convite inválido ou expirado.';
+}
+
 // ----------------------------------------------------------------------------
 // Invite — aceite de convite nativo do Supabase.
 // ----------------------------------------------------------------------------
 // O owner convida via `invite-team-member` → o Supabase envia o e-mail de
 // convite (inviteUserByEmail). O link do e-mail aponta para esta tela com a
 // sessão já estabelecida (detectSessionInUrl). O usuário convidado apenas
-// define a senha (updateUser) — o app_user com o role correto já foi criado
-// pelo trigger handle_new_user no momento do convite (via invited_role).
-//
-// Sem token/tabela `invites` e sem Resend: o convite é 100% Supabase Auth.
+// define a senha pela Edge Function accept-team-invite — o app_user com o role
+// correto já foi criado pelo trigger handle_new_user no momento do convite.
+// O link continua sendo do Supabase Auth, mas o aceite da aplicação tem claim
+// atômico próprio para impedir replay e concorrência.
 // ----------------------------------------------------------------------------
 
 export default function InvitePage() {
@@ -42,17 +56,19 @@ export default function InvitePage() {
 
     setSubmitting(true);
     const supabase = getSupabase();
-    const { error } = await supabase.auth.updateUser({ password });
-    if (error) {
+    const { data, error } = await supabase.functions.invoke('accept-team-invite', {
+      body: { password },
+    });
+    if (error || !data?.ok) {
       setSubmitting(false);
-      toast.error('Não foi possível definir a senha', { description: error.message });
+      const message = await inviteErrorMessage(error, data);
+      toast.error('Não foi possível aceitar o convite', { description: message });
       return;
     }
-    // Garante que o JWT em uso já carrega o claim de role gravado pelo trigger.
-    await supabase.auth.refreshSession();
+    await supabase.auth.signOut({ scope: 'local' });
     setSubmitting(false);
-    toast.success('Conta ativada. Bem-vindo!');
-    navigate('/dashboard', { replace: true });
+    toast.success('Conta ativada. Entre com a senha que você acabou de criar.');
+    navigate('/auth/login', { replace: true });
   };
 
   if (loading) {

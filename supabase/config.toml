@@ -418,3 +418,8 @@ verify_jwt = false
 
 [functions.zernio-webhook]
 verify_jwt = false
+
+# Recall.ai authenticates callbacks with the per-installation shared secret
+# validated by the handler. It cannot attach a Supabase user JWT.
+[functions.recall-webhook]
+verify_jwt = false
