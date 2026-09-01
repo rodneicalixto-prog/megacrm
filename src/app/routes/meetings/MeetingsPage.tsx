@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
-import { useMeetings } from '@/hooks/useMeetings';
+import { useMeetingActions, useMeetings } from '@/hooks/useMeetings';
 import { useDepartments } from '@/hooks/useDepartments';
 import { useAppUser } from '@/app/providers/AppUserProvider';
 import type { Meeting, MeetingStatus } from '@/types/meetings';
@@ -46,7 +46,7 @@ function defaultStart(): Date {
 }
 
 function ScheduleDialog({ open, onClose, onScheduled }: { open: boolean; onClose: () => void; onScheduled: () => void }) {
-  const { schedule } = useMeetings();
+  const { schedule } = useMeetingActions();
   const { departments } = useDepartments();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');

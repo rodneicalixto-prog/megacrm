@@ -651,6 +651,23 @@ supabase/functions/
   apos o wizard `/setup`.
 - **Sempre** usar `.schema('whatsapp_hub')` no client.
 - Tipos manuais em `src/types/`. Não usamos `supabase gen types` no v1.
+- Canal Realtime (`.channel(...)`) **nunca** usa nome estático — dois
+  componentes montando o mesmo hook (ou o duplo-mount do StrictMode) colidem
+  no mesmo nome de canal e o Supabase JS derruba a subscription (crash em
+  runtime). Sempre sufixar com um id por montagem, ex.
+  `` `meetings-changes:${Math.random().toString(36).slice(2, 10)}` `` — ver
+  `useConversations.ts`, `useMessages.ts`, `useNotifications.ts`,
+  `useKnowledgeBase.ts`, `usePipeline.ts`, `useMeetings.ts` e
+  `useInternalChat.ts` (os três últimos corrigidos em 01/09/2026 — o nome do
+  canal levar a chave do recurso, tipo `internal-messages-${conversationId}`,
+  não basta: precisa do sufixo aleatório também, senão dois mounts com a
+  mesma conversa/usuário colidem do mesmo jeito).
+- Todo hook que lê/escreve no Supabase deve checar `error` do retorno —
+  nunca desestruturar só `data` e descartar o resto. Padrão do projeto:
+  `console.error('[useX] falha ao ...', error)` + expor um estado `error`
+  pro componente decidir se mostra algo. `useInternalChat.ts` e
+  `useOperators.ts` engoliam erro silenciosamente (throw nunca acontecia,
+  UI ficava com lista vazia sem indicar falha) até 01/09/2026.
 
 ### Edge Functions
 - Toda função pública passa pelos helpers `_shared/auth.ts`. Nunca pular essa

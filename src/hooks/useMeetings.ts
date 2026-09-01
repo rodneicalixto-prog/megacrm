@@ -8,34 +8,10 @@ export interface ScheduleResult {
   recall_warning?: string | null;
 }
 
-// Acervo compartilhado (sem recorte por departamento — ver RLS da tabela):
-// todo mundo lê tudo, então uma reunião marcada por qualquer setor aparece
-// pra todos, e o histórico/gravação/resumo ficam fáceis de achar depois.
-export function useMeetings() {
-  const [meetings, setMeetings] = useState<Meeting[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const reload = useCallback(async () => {
-    const { data, error } = await getSupabase()
-      .schema('whatsapp_hub')
-      .from('meetings')
-      .select('*')
-      .order('starts_at', { ascending: false });
-    if (!error) setMeetings((data ?? []) as Meeting[]);
-    setLoading(false);
-  }, []);
-
-  useEffect(() => {
-    void reload();
-    const channel = getSupabase()
-      .channel('meetings-changes')
-      .on('postgres_changes', { event: '*', schema: 'whatsapp_hub', table: 'meetings' }, () => void reload())
-      .subscribe();
-    return () => {
-      void getSupabase().removeChannel(channel);
-    };
-  }, [reload]);
-
+// schedule/cancel não dependem da listagem — telas que só precisam disparar
+// a mutação (ex.: o diálogo "Nova reunião") usam este hook em vez de
+// useMeetings(), pra não abrir uma segunda subscription Realtime ociosa.
+export function useMeetingActions() {
   const schedule = useCallback(async (input: ScheduleMeetingInput): Promise<ScheduleResult> => {
     const { data, error } = await getSupabase().functions.invoke('schedule-meeting', { body: input });
     if (error || !data?.ok) {
@@ -54,5 +30,46 @@ export function useMeetings() {
     return { ok: true };
   }, []);
 
-  return { meetings, loading, reload, schedule, cancel };
+  return { schedule, cancel };
+}
+
+// Acervo compartilhado (sem recorte por departamento — ver RLS da tabela):
+// todo mundo lê tudo, então uma reunião marcada por qualquer setor aparece
+// pra todos, e o histórico/gravação/resumo ficam fáceis de achar depois.
+export function useMeetings() {
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const { schedule, cancel } = useMeetingActions();
+
+  const reload = useCallback(async () => {
+    const { data, error: err } = await getSupabase()
+      .schema('whatsapp_hub')
+      .from('meetings')
+      .select('*')
+      .order('starts_at', { ascending: false });
+    if (err) {
+      console.error('[useMeetings] falha ao carregar reuniões', err);
+      setError(err.message);
+      setLoading(false);
+      return;
+    }
+    setError(null);
+    setMeetings((data ?? []) as Meeting[]);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    void reload();
+    const suffix = Math.random().toString(36).slice(2, 10);
+    const channel = getSupabase()
+      .channel(`meetings-changes:${suffix}`)
+      .on('postgres_changes', { event: '*', schema: 'whatsapp_hub', table: 'meetings' }, () => void reload())
+      .subscribe();
+    return () => {
+      void getSupabase().removeChannel(channel);
+    };
+  }, [reload]);
+
+  return { meetings, loading, error, reload, schedule, cancel };
 }

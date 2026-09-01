@@ -1431,3 +1431,79 @@ hook do projeto), `npm run build` ok, `npm run test:unit` 189/189, `npm run
 validate:sql` 111 arquivos / 1264 statements. Migration aplicada em
 produção (`lstbxeaasyysboavdati`) e as 3 Edge Functions novas deployadas e
 `ACTIVE`.
+
+## 11. Investigação de bugs em produção — 01/09/2026
+
+Sessão de investigação (fora deste repositório, via chat) levantou um lote
+de problemas; o que exigia mudança de código do frontend ficou pendente
+para o Claude Code aplicar. Aplicado nesta rodada:
+
+- **`useMeetings.ts` — crash em `/meetings`**: o canal Realtime era criado
+  com nome estático (`'meetings-changes'`). Sempre que o hook montava mais
+  de uma vez com o mesmo nome — StrictMode, ou qualquer tela que renderize
+  o componente duas vezes — a segunda `.channel(...).subscribe()` colidia
+  com a primeira e o Supabase JS derrubava a subscription, travando a
+  tela. Corrigido sufixando o nome do canal com um id aleatório por
+  montagem, no mesmo padrão que `useConversations.ts`/`useMessages.ts`/
+  `useNotifications.ts`/`useKnowledgeBase.ts`/`usePipeline.ts` já usavam —
+  `useMeetings.ts` era o único hook do projeto que não seguia essa
+  convenção. Documentado como regra em `CLAUDE.md`.
+- **`useInternalChat.ts` e `useOperators.ts` — erros engolidos
+  silenciosamente**: os três pontos de leitura/escrita (`reload` de
+  conversas, `reload`/`send` de mensagens do chat interno, `list_operators`
+  do seletor de atribuição) desestruturavam só `data` da resposta do
+  Supabase e nunca olhavam `error` — uma falha de rede, RLS negando acesso,
+  ou uma RPC quebrada resultava silenciosamente numa lista vazia, sem log e
+  sem qualquer sinal pro usuário ou pra quem for depurar depois. Corrigido
+  seguindo o padrão já usado em `useConversations.ts` (estado `error` +
+  `console.error` estruturado); os três hooks agora expõem `error` no
+  retorno.
+
+**Verificação:** `tsc --noEmit` limpo depois das três mudanças. Não rodei o
+app no browser nesta rodada — as duas classes de bug (canal duplicado,
+error path silencioso) só se manifestam com uma segunda montagem do
+componente ou com uma falha real de rede/RLS, difíceis de forçar
+deterministicamente sem esse cenário.
+
+**Atualização, mesmo dia (01/09/2026) — migration drift investigado e fechado
+de verdade.** O usuário passou o project ref de produção
+(`lstbxeaasyysboavdati`); usei o MCP do Supabase (`list_migrations` +
+`execute_sql`, só leitura) pra confirmar o que estava só relatado:
+
+- `contacts_select` e `products_write` de fato mudaram em produção (migration
+  remota `operator_scope_contacts_and_products`, 01/09/2026) e não tinham
+  migration commitada. Escrevi
+  `20260901195523_operator_scope_contacts_and_products.sql` a partir do texto
+  real das policies em produção (`pg_policies`), validado com `npm run
+  validate:sql`.
+- `handle_new_user()` — comparei `pg_get_functiondef` de produção linha a
+  linha com `20260808180000_hierarchy_roles.sql`: **já são idênticos**, sem
+  drift real. A hipótese mais provável é que a function tinha sido alterada
+  direto em produção antes de hoje (por isso os 4 usuários com role errada),
+  e a "correção" foi restaurá-la pro texto que este repo já tinha — não
+  escrevi migration nova pra isso.
+- A remediação dos 4 usuários é fix de dado pontual, não schema — não faz
+  sentido virar migration (instância nova nunca teve o bug), fica só
+  documentada.
+- **Achado que não estava no relato original:** `list_migrations` mostrou
+  mais 6 migrations em produção sem arquivo em `main` (`quick_replies_search_mentions`,
+  `contact_duplicate_flag`, `sla_alert`, `ai_observability`,
+  `campaign_ab_variants`, `ai_agent_profiles`). Busquei em todas as branches
+  remotas e achei as 6 na branch `claude/platform-update-planning-0gojqn` —
+  5 commits com código completo (frontend + Edge Functions + migration) já
+  aplicados em produção, nunca mergeados em `main`. Perguntei ao usuário como
+  proceder — decidiu mergear. PR aberta a partir dessa branch (ver
+  `ISSUES.md` "Branch órfã com 5 features já refletidas em produção").
+
+Detalhe completo em `ISSUES.md` — as duas entradas de migration drift foram
+fechadas (✅) nesta rodada.
+
+**Em aberto, para decidir com calma (não implementado)**:
+
+- Plano de cadastro unificado (usuário + telefone + QR) — só desenho até
+  aqui, sem seção própria neste documento ainda; precisa de um pedido
+  explícito descrevendo o fluxo antes de virar plano de execução.
+- Tenants fantasmas no banco — registrado em `ISSUES.md`, não investigada a
+  origem.
+- Schema `public` com outros sistemas Agentise misturados — registrado em
+  `ISSUES.md`, não investigado quais tabelas são essas nem o risco real.

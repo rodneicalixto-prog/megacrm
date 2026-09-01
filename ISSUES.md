@@ -46,6 +46,37 @@ Rodar em máquina/CI com acesso a `cdn.sheetjs.com`, e commitar o
   que faz parse de arquivo enviado pelo usuário, isso troca uma CVE conhecida
   por um mantenedor desconhecido. Usar só como último recurso.
 
+## ✅ Migration drift — RLS de `contacts`/`products` corrigida direto em produção — resolvido
+
+- **Status:** fechada em 01/09/2026 — migration retroativa commitada
+  (`20260901195523_operator_scope_contacts_and_products.sql`).
+- **Verificado nesta sessão** via `list_migrations` + `execute_sql` (read-only)
+  contra o projeto de produção (`lstbxeaasyysboavdati`, MCP Supabase). A
+  migration remota `operator_scope_contacts_and_products` (aplicada
+  01/09/2026) mudou duas policies, confirmadas lendo `pg_policies` direto:
+  - `contacts_select` — era `USING (true)` (`20260430120002_drop_multitenant.sql`,
+    todo autenticado lia todos os contatos); virou a mesma lógica de
+    `sees_all_departments() OU dono/participante do departamento da
+    conversa` já usada em `conversations_select`.
+  - `products_write` — era `current_user_role() IN ('admin','operator')`
+    (`20260711160000_custom_pipelines_and_lead_fields.sql`); virou
+    `sees_all_departments()` (restringe de operator pra admin/super_admin).
+  - `contacts_write` e `products_select` **não mudaram** — texto idêntico ao
+    já commitado.
+- **`handle_new_user()` — sem drift real, apesar do relato inicial.**
+  Comparei o `pg_get_functiondef` de produção com
+  `20260808180000_hierarchy_roles.sql` linha a linha (só variam comentários
+  e a forma como o Postgres normaliza `SET search_path` na exibição) — o
+  corpo da function já é idêntico ao que está commitado. A causa mais
+  provável: alguém alterou a function direto em produção num ponto
+  anterior, quebrando-a pros 4 usuários afetados, e a "correção" de hoje foi
+  restaurá-la pro texto que este repo já tinha — não uma mudança nova. Não
+  precisa de migration.
+- **Remediação dos 4 usuários** — fix de dado pontual (`UPDATE app_users`
+  pra quem tinha role errada), não schema. Não é recriável numa migration
+  de forma que faça sentido (uma instância nova nunca teve o bug), então
+  fica só documentada aqui, não replicada em SQL.
+
 ## `react-router-dom@6.30.4` — 3 advisories moderate
 
 - **Status:** aberta, sem ação planejada. Reavaliar quando houver cobertura de
@@ -71,3 +102,52 @@ Rodar em máquina/CI com acesso a `cdn.sheetjs.com`, e commitar o
 Subir para React Router 7 sem nenhum teste de rota, para fechar advisories que
 não têm caminho de exploração aqui, troca risco teórico por risco real de
 regressão. A dívida fica registrada.
+
+## ✅ Branch órfã com 5 features já refletidas em produção — mergeada
+
+- **Status:** fechada em 01/09/2026 — PR aberta e mergeada a partir de
+  `claude/platform-update-planning-0gojqn`.
+- **O que era:** ao investigar a entrada acima, `list_migrations` mostrou 6
+  migrations em produção sem arquivo em `main`: `quick_replies_search_mentions`,
+  `contact_duplicate_flag`, `sla_alert`, `ai_observability`,
+  `campaign_ab_variants`, `ai_agent_profiles`. Uma busca em todas as branches
+  remotas (`git ls-tree` em cada uma) achou as 6 na branch
+  `claude/platform-update-planning-0gojqn` — 5 commits ("Onda 1" a "Onda 4":
+  respostas rápidas/@menções no inbox, SLA + dedup de contato, observabilidade
+  de IA, teste A/B de campanhas, múltiplos perfis de IA), nunca mergeados em
+  `main`, mas já aplicados em produção (schema) antes de hoje.
+- **Risco que isso representava:** o schema de produção já tinha 6 features
+  que o frontend de `main` não sabia usar — se o deploy publicado seguisse
+  `main` em vez dessa branch, haveria colunas/tabelas novas sem UI nenhuma
+  as usando. Não foi confirmado qual branch estava de fato publicada no
+  Vercel antes do merge.
+
+## Tenants fantasmas no banco
+
+- **Status:** aberta, sem ação planejada.
+- **Severidade:** 🟢 baixa — relatado como "lixo inofensivo", sem impacto
+  funcional conhecido.
+- **O que se sabe:** existem registros de tenants órfãos/antigos sobrando no
+  Supabase, herança provável da migração SaaS → self-hosted (uma instância =
+  uma organização). Não foi investigado ainda de que tabela(s) vêm nem se
+  algum RLS/RPC assume tenant único de um jeito que esses registros
+  invalidam.
+- **Próximo passo:** mapear a origem (provavelmente uma tabela remanescente
+  do modelo multi-tenant antigo) antes de decidir entre limpar ou apenas
+  documentar como legado inofensivo.
+
+## Schema `public` com outros sistemas Agentise no mesmo Supabase
+
+- **Status:** aberta, não investigada.
+- **Severidade:** desconhecida — depende do que exatamente está lá.
+- **O que se sabe:** o mesmo projeto Supabase hospeda múltiplas apps
+  Agentise por schema (ver seção "Arquitetura multi-schema" do
+  `CLAUDE.md`: `agentise_chat`, `prospector`, `crm_sofia`, `whatsapp_hub`).
+  Foi identificado que o schema `public` — que deveria ficar reservado a
+  extensions e ao cofre de credenciais/bootstrap (`public.app_settings`,
+  `public._bootstrap_state`) — tem outros sistemas misturados nele. Ainda
+  não foi levantado quais tabelas são essas, se há RLS cobrindo-as, ou se
+  há risco de colisão de nomes com o que este projeto já usa em `public`.
+- **Próximo passo:** `list_tables` no schema `public` em produção pra ver o
+  que exatamente está lá além de `app_settings`/`_bootstrap_state`, e
+  decidir se precisa de isolamento adicional.

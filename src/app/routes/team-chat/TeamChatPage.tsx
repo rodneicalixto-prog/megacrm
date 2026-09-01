@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState, type FormEvent } from 'react';
+import { toast } from 'sonner';
 import { Send, MessageCircle } from 'lucide-react';
 import { operatorLabel, useOperators, type Operator } from '@/hooks/useOperators';
 import { useInternalConversations, useInternalMessages } from '@/hooks/useInternalChat';
@@ -58,7 +59,12 @@ export function TeamChatPage() {
     const text = draft.trim();
     if (!text) return;
     setDraft('');
-    await send(text);
+    const ok = await send(text);
+    if (!ok) {
+      setDraft(text);
+      toast.error('Falha ao enviar mensagem. Tente novamente.');
+      return;
+    }
     requestAnimationFrame(() => listEndRef.current?.scrollIntoView({ behavior: 'smooth' }));
   };
 
