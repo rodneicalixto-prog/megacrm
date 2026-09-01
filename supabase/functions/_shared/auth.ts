@@ -41,6 +41,17 @@ export async function requireCaller(req: Request): Promise<Caller> {
   const appMeta = (data.user.app_metadata ?? {}) as Record<string, unknown>;
   const role = typeof appMeta.role === 'string' ? appMeta.role : null;
 
+  // Não basta banir no Auth: um access token já emitido pode continuar válido
+  // até expirar. Toda Edge Function confirma o estado atual da conta.
+  const { data: member, error: memberError } = await getAdminClient()
+    .from('app_users')
+    .select('is_active')
+    .eq('user_id', data.user.id)
+    .maybeSingle();
+  if (memberError || !member || member.is_active !== true) {
+    throw new AuthError('Usuário desativado', 403);
+  }
+
   return {
     userId: data.user.id,
     email: data.user.email ?? null,
