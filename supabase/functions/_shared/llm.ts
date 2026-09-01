@@ -25,10 +25,21 @@ export interface LLMCallInput {
   imageUrl?: string;
 }
 
+export interface LLMUsage {
+  inputTokens: number | null;
+  outputTokens: number | null;
+}
+
 export interface LLMCallResult {
   content: string;
   model: string;
+  // Tokens de entrada/saída, quando o provider os devolve. Alimenta
+  // observabilidade da IA (custo estimado por mensagem) — ver
+  // _shared/llm-cost.ts e process-ai-message.
+  usage: LLMUsage;
 }
+
+const NO_USAGE: LLMUsage = { inputTokens: null, outputTokens: null };
 
 interface InlineImage {
   mimeType: string;
@@ -102,7 +113,10 @@ async function callOpenAI(input: LLMCallInput, image: InlineImage | null): Promi
     throw new Error(`OpenAI ${res.status}: ${err}`);
   }
   const body = await res.json();
-  return { content: body.choices?.[0]?.message?.content ?? '', model };
+  const usage: LLMUsage = body.usage
+    ? { inputTokens: body.usage.prompt_tokens ?? null, outputTokens: body.usage.completion_tokens ?? null }
+    : NO_USAGE;
+  return { content: body.choices?.[0]?.message?.content ?? '', model, usage };
 }
 
 async function callClaude(input: LLMCallInput, image: InlineImage | null): Promise<LLMCallResult> {
@@ -142,7 +156,10 @@ async function callClaude(input: LLMCallInput, image: InlineImage | null): Promi
     Array.isArray(body.content)
       ? body.content.find((c: { type: string }) => c.type === 'text')?.text ?? ''
       : '';
-  return { content: text, model };
+  const usage: LLMUsage = body.usage
+    ? { inputTokens: body.usage.input_tokens ?? null, outputTokens: body.usage.output_tokens ?? null }
+    : NO_USAGE;
+  return { content: text, model, usage };
 }
 
 async function callGemini(input: LLMCallInput, image: InlineImage | null): Promise<LLMCallResult> {
@@ -174,7 +191,10 @@ async function callGemini(input: LLMCallInput, image: InlineImage | null): Promi
   const body = await res.json();
   const text =
     body.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? '').join('') ?? '';
-  return { content: text, model };
+  const usage: LLMUsage = body.usageMetadata
+    ? { inputTokens: body.usageMetadata.promptTokenCount ?? null, outputTokens: body.usageMetadata.candidatesTokenCount ?? null }
+    : NO_USAGE;
+  return { content: text, model, usage };
 }
 
 /**

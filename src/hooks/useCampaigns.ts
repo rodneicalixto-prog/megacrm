@@ -13,6 +13,23 @@ interface CreateCampaignInput {
   audience_filter: AudienceFilter;
   variable_mapping: Record<string, VariableSource>;
   scheduled_at: string | null; // ISO; null = start immediately
+  // Teste A/B de templates (PLANEJAMENTO.md Onda 3): quando presente com 2+
+  // entradas, cada contato da fila sorteia uma variante (peso relativo) em
+  // vez de todos usarem `template_id`. `template_id` continua obrigatório —
+  // é a variante default quando A/B não é usado.
+  variants?: Array<{ template_id: string; weight: number }>;
+}
+
+// Sorteio ponderado simples: soma dos pesos, número aleatório no intervalo,
+// percorre até achar a faixa.
+function pickWeighted<T extends { weight: number }>(items: T[]): T {
+  const total = items.reduce((s, i) => s + i.weight, 0);
+  let roll = Math.random() * total;
+  for (const item of items) {
+    roll -= item.weight;
+    if (roll <= 0) return item;
+  }
+  return items[items.length - 1];
 }
 
 interface UseCampaignsResult {
@@ -177,16 +194,38 @@ export function useCampaigns(): UseCampaignsResult {
     }
     const created = campaign as Campaign;
 
+    // Teste A/B: cria as variantes e resolve, por contato, qual delas (via
+    // sorteio ponderado) preenche template_id_override + variant_id na fila.
+    // dispatch-campaign já agrupa por template efetivo — nenhuma mudança lá.
+    let variantRows: Array<{ id: string; template_id: string; weight: number }> = [];
+    if (input.variants && input.variants.length >= 2) {
+      const { data: insertedVariants, error: variantErr } = await supabase
+        .schema('whatsapp_hub')
+        .from('campaign_variants')
+        .insert(input.variants.map((v) => ({ campaign_id: created.id, template_id: v.template_id, weight: v.weight })))
+        .select('id, template_id, weight');
+      if (variantErr) throw new Error(variantErr.message);
+      variantRows = (insertedVariants ?? []) as typeof variantRows;
+    }
+
     // Materialize the queue. Chunk to be friendly to PostgREST payload limits.
     const CHUNK = 500;
     for (let i = 0; i < contactIds.length; i += CHUNK) {
       const chunk = contactIds.slice(i, i + CHUNK);
       const { error: insErr } = await supabase.schema('whatsapp_hub').from('campaign_contacts').insert(
-        chunk.map((contact_id) => ({
-          campaign_id: created.id,
-          contact_id,
-          status: 'pending' as const,
-        })),
+        chunk.map((contact_id) => {
+          if (variantRows.length === 0) {
+            return { campaign_id: created.id, contact_id, status: 'pending' as const };
+          }
+          const variant = pickWeighted(variantRows);
+          return {
+            campaign_id: created.id,
+            contact_id,
+            status: 'pending' as const,
+            variant_id: variant.id,
+            template_id_override: variant.template_id,
+          };
+        }),
       );
       if (insErr) throw new Error(insErr.message);
     }

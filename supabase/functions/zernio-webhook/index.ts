@@ -301,7 +301,7 @@ async function handleMessageReceived(
   // Resposta do contato cancela follow-ups: marca o ultimo campaign_contact ativo.
   const { data: ccHit } = await admin
     .from('campaign_contacts')
-    .select('id, campaign_id')
+    .select('id, campaign_id, variant_id')
     .eq('contact_id', contactId)
     .is('replied_at', null)
     .in('status', ['sent', 'delivered', 'read'])
@@ -309,15 +309,23 @@ async function handleMessageReceived(
     .limit(1)
     .maybeSingle();
   if (ccHit) {
+    const hit = ccHit as { id: string; campaign_id: string; variant_id: string | null };
     await admin
       .from('campaign_contacts')
       .update({ status: 'replied', replied_at: new Date().toISOString() })
-      .eq('id', (ccHit as { id: string }).id);
+      .eq('id', hit.id);
     await admin.rpc('bump_campaign_counter', {
-      p_campaign_id: (ccHit as { campaign_id: string }).campaign_id,
+      p_campaign_id: hit.campaign_id,
       p_column: 'replied',
       p_delta: 1,
     });
+    if (hit.variant_id) {
+      await admin.rpc('bump_campaign_variant_counter', {
+        p_variant_id: hit.variant_id,
+        p_column: 'replied',
+        p_delta: 1,
+      });
+    }
   }
 }
 

@@ -36,6 +36,21 @@ export interface Campaign {
   updated_at: string;
 }
 
+// Variante de teste A/B de templates (PLANEJAMENTO.md Onda 3). Sem A/B, uma
+// campanha não tem nenhuma linha aqui — segue só com campaigns.template_id.
+export interface CampaignVariant {
+  id: string;
+  campaign_id: string;
+  template_id: string;
+  weight: number;
+  sent: number;
+  delivered: number;
+  read: number;
+  replied: number;
+  failed: number;
+  created_at: string;
+}
+
 export interface FollowUpRule {
   id: string;
   campaign_id: string | null;

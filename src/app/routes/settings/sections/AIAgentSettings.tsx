@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
-import { ChevronDown, Instagram, Loader2, MessageCircle, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, Copy, FlaskConical, History, Instagram, Loader2, MessageCircle, Pause, Play, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { getSupabase } from '@/lib/supabase';
 import { useAppUser } from '@/app/providers/AppUserProvider';
+import { useAiObservabilityByProfile } from '@/hooks/useAiObservability';
 
 const DEFAULT_PROMPT = `Você é um assistente virtual de atendimento via WhatsApp.
 Seja objetivo, educado e responda em português do Brasil.`;
@@ -43,14 +44,74 @@ const AUTO_VARS = [
 
 type VarRow = { key: string; value: string };
 
+// Perfil de IA (Onda 4) — cada linha de ai_agent_config é uma variante
+// testável em A/B/C/D; a lista completa aparece no seletor de perfis.
+interface ProfileRow {
+  id: string;
+  name: string;
+  variant_key: string;
+  is_active: boolean;
+  is_control: boolean;
+  traffic_pct: number;
+  active_whatsapp: boolean;
+}
+
+// Versionamento de prompt (PLANEJAMENTO.md Onda 3) — snapshot gravado pela
+// trigger _snapshot_ai_agent_config a cada UPDATE em ai_agent_config.
+interface AgentHistoryRow {
+  id: string;
+  system_prompt: string | null;
+  temperature: number | null;
+  max_tokens: number | null;
+  created_at: string;
+}
+
 function toRows(obj: Record<string, string> | null | undefined): VarRow[] {
   const src = obj && Object.keys(obj).length ? obj : DEFAULT_VARIABLES;
   return Object.entries(src).map(([key, value]) => ({ key, value: String(value ?? '') }));
 }
 
+// Preenche o formulário a partir de uma linha crua do Supabase.
+function applyRowToForm(
+  data: Record<string, unknown>,
+  setters: {
+    setRowId: (v: string) => void;
+    setSystemPrompt: (v: string) => void;
+    setTemperature: (v: number) => void;
+    setMaxTokens: (v: number) => void;
+    setActiveWhatsapp: (v: boolean) => void;
+    setActiveInstagram: (v: boolean) => void;
+    setAutoMoveLeads: (v: boolean) => void;
+    setModel: (v: string) => void;
+    setTimezone: (v: string) => void;
+    setVariables: (v: VarRow[]) => void;
+    setName: (v: string) => void;
+    setTrafficPct: (v: number) => void;
+    setIsControl: (v: boolean) => void;
+  },
+) {
+  setters.setRowId(data.id as string);
+  setters.setSystemPrompt((data.system_prompt as string) ?? DEFAULT_PROMPT);
+  setters.setTemperature(Number(data.temperature ?? 0.7));
+  setters.setMaxTokens(Number(data.max_tokens ?? 1000));
+  setters.setActiveWhatsapp(Boolean(data.active_whatsapp ?? true));
+  setters.setActiveInstagram(Boolean(data.active_instagram ?? false));
+  setters.setAutoMoveLeads(Boolean(data.auto_move_leads ?? true));
+  setters.setModel((data.model as string) ?? 'gpt-4.1-mini');
+  setters.setTimezone((data.timezone as string) ?? 'America/Sao_Paulo');
+  setters.setVariables(toRows(data.variables as Record<string, string> | null));
+  setters.setName((data.name as string) ?? 'Principal');
+  setters.setTrafficPct(Number(data.traffic_pct ?? 100));
+  setters.setIsControl(Boolean(data.is_control ?? true));
+}
+
 export function AIAgentSettings() {
   const { userId } = useAppUser();
+  const [profiles, setProfiles] = useState<ProfileRow[]>([]);
   const [rowId, setRowId] = useState<string | null>(null);
+  const [name, setName] = useState('Principal');
+  const [trafficPct, setTrafficPct] = useState(100);
+  const [isControl, setIsControl] = useState(true);
   const [systemPrompt, setSystemPrompt] = useState(DEFAULT_PROMPT);
   const [temperature, setTemperature] = useState(0.7);
   const [maxTokens, setMaxTokens] = useState(1000);
@@ -63,34 +124,152 @@ export function AIAgentSettings() {
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [history, setHistory] = useState<AgentHistoryRow[]>([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const { byProfile: obsByProfile } = useAiObservabilityByProfile(30);
 
   // Autocomplete de variáveis ao digitar "{" no prompt.
   const promptRef = useRef<HTMLTextAreaElement>(null);
   const [varMenu, setVarMenu] = useState<{ partial: string; pos: number } | null>(null);
 
-  useEffect(() => {
-    if (!userId) return;
-    const supabase = getSupabase();
-    supabase
+  const setterBag = {
+    setRowId, setSystemPrompt, setTemperature, setMaxTokens, setActiveWhatsapp,
+    setActiveInstagram, setAutoMoveLeads, setModel, setTimezone, setVariables,
+    setName, setTrafficPct, setIsControl,
+  };
+
+  const loadProfiles = async (selectId?: string) => {
+    const { data } = await getSupabase()
       .from('ai_agent_config')
       .select('*')
+      .order('created_at', { ascending: true });
+    const rows = (data ?? []) as Array<Record<string, unknown>>;
+    setProfiles(
+      rows.map((r) => ({
+        id: r.id as string,
+        name: (r.name as string) ?? 'Principal',
+        variant_key: (r.variant_key as string) ?? '',
+        is_active: Boolean(r.is_active ?? true),
+        is_control: Boolean(r.is_control ?? true),
+        traffic_pct: Number(r.traffic_pct ?? 100),
+        active_whatsapp: Boolean(r.active_whatsapp ?? true),
+      })),
+    );
+    const target = (selectId && rows.find((r) => r.id === selectId)) || rows[0];
+    if (target) applyRowToForm(target, setterBag);
+    return rows;
+  };
+
+  useEffect(() => {
+    if (!userId) return;
+    void loadProfiles().then(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
+  const selectProfile = (row: ProfileRow) => {
+    void getSupabase()
+      .from('ai_agent_config')
+      .select('*')
+      .eq('id', row.id)
       .maybeSingle()
       .then(({ data }) => {
-        if (data) {
-          setRowId(data.id as string);
-          setSystemPrompt((data.system_prompt as string) ?? DEFAULT_PROMPT);
-          setTemperature(Number(data.temperature ?? 0.7));
-          setMaxTokens(Number(data.max_tokens ?? 1000));
-          setActiveWhatsapp(Boolean(data.active_whatsapp ?? true));
-          setActiveInstagram(Boolean(data.active_instagram ?? false));
-          setAutoMoveLeads(Boolean(data.auto_move_leads ?? true));
-          setModel((data.model as string) ?? 'gpt-4.1-mini');
-          setTimezone((data.timezone as string) ?? 'America/Sao_Paulo');
-          setVariables(toRows(data.variables as Record<string, string> | null));
-        }
-        setLoading(false);
+        if (data) applyRowToForm(data, setterBag);
       });
-  }, [userId]);
+  };
+
+  const createProfile = async () => {
+    setSaving(true);
+    const key = `variante-${Date.now().toString(36)}`;
+    const { data, error } = await getSupabase()
+      .from('ai_agent_config')
+      .insert({
+        name: `Variante ${profiles.length + 1}`,
+        variant_key: key,
+        system_prompt: DEFAULT_PROMPT,
+        is_active: true,
+        is_control: false,
+        traffic_pct: 0,
+        active_whatsapp: false,
+        active_instagram: false,
+      })
+      .select('id')
+      .single();
+    setSaving(false);
+    if (error) {
+      toast.error('Falha ao criar perfil', { description: error.message });
+      return;
+    }
+    toast.success('Novo perfil criado — ajuste o tráfego e ative o canal quando estiver pronto.');
+    await loadProfiles((data as { id: string }).id);
+  };
+
+  const duplicateProfile = async (row: ProfileRow) => {
+    setSaving(true);
+    const { data: full } = await getSupabase().from('ai_agent_config').select('*').eq('id', row.id).maybeSingle();
+    if (!full) {
+      setSaving(false);
+      return;
+    }
+    const key = `${(full.variant_key as string) || 'variante'}-copia-${Date.now().toString(36)}`;
+    const { id: _id, created_at: _createdAt, updated_at: _updatedAt, variant_key: _vk, ...rest } = full as Record<string, unknown>;
+    const { data, error } = await getSupabase()
+      .from('ai_agent_config')
+      .insert({ ...rest, name: `${row.name} (cópia)`, variant_key: key, is_control: false, traffic_pct: 0 })
+      .select('id')
+      .single();
+    setSaving(false);
+    if (error) {
+      toast.error('Falha ao duplicar perfil', { description: error.message });
+      return;
+    }
+    toast.success('Perfil duplicado com peso 0% — ajuste antes de ativar.');
+    await loadProfiles((data as { id: string }).id);
+  };
+
+  const togglePause = async (row: ProfileRow) => {
+    const { error } = await getSupabase()
+      .from('ai_agent_config')
+      .update({ is_active: !row.is_active })
+      .eq('id', row.id);
+    if (error) {
+      toast.error('Falha ao atualizar perfil', { description: error.message });
+      return;
+    }
+    await loadProfiles(rowId ?? undefined);
+  };
+
+  const deleteProfile = async (row: ProfileRow) => {
+    if (profiles.length <= 1) {
+      toast.error('Não é possível remover o único perfil de IA.');
+      return;
+    }
+    if (!confirm(`Remover o perfil "${row.name}"? Métricas já registradas continuam associadas a ele.`)) return;
+    const { error } = await getSupabase().from('ai_agent_config').delete().eq('id', row.id);
+    if (error) {
+      toast.error('Falha ao remover perfil', { description: error.message });
+      return;
+    }
+    toast.success(`Perfil "${row.name}" removido.`);
+    await loadProfiles();
+  };
+
+  useEffect(() => {
+    if (!rowId) return;
+    void getSupabase()
+      .from('ai_agent_config_history')
+      .select('id, system_prompt, temperature, max_tokens, created_at')
+      .eq('config_id', rowId)
+      .order('created_at', { ascending: false })
+      .limit(10)
+      .then(({ data }) => setHistory((data ?? []) as AgentHistoryRow[]));
+  }, [rowId]);
+
+  const restoreVersion = (h: AgentHistoryRow) => {
+    setSystemPrompt(h.system_prompt ?? DEFAULT_PROMPT);
+    if (h.temperature != null) setTemperature(h.temperature);
+    if (h.max_tokens != null) setMaxTokens(h.max_tokens);
+    toast.info('Versão carregada no formulário — clique em "Salvar alterações" para aplicar.');
+  };
 
   const varKeys = useMemo(
     () => [...variables.map((v) => v.key.trim()).filter(Boolean), ...AUTO_VARS],
@@ -148,25 +327,50 @@ export function AIAgentSettings() {
       system_prompt: systemPrompt,
       temperature,
       max_tokens: maxTokens,
-      // Sempre ativo globalmente; quem liga/desliga a IA são os toggles por canal.
-      is_active: true,
       active_whatsapp: activeWhatsapp,
       active_instagram: activeInstagram,
       auto_move_leads: autoMoveLeads,
       model,
       timezone,
       variables: varsObj,
+      name: name.trim() || 'Principal',
+      traffic_pct: Math.max(0, Math.min(100, Math.round(trafficPct))),
+      is_control: isControl,
     };
-    const { error } = rowId
-      ? await supabase.from('ai_agent_config').update(payload).eq('id', rowId)
-      : await supabase.from('ai_agent_config').insert(payload);
+    let savedId = rowId;
+    let error: { message: string } | null = null;
+    if (rowId) {
+      ({ error } = await supabase.from('ai_agent_config').update(payload).eq('id', rowId));
+    } else {
+      const { data, error: insErr } = await supabase
+        .from('ai_agent_config')
+        .insert({ ...payload, is_active: true, variant_key: `perfil-${Date.now().toString(36)}` })
+        .select('id')
+        .single();
+      error = insErr;
+      savedId = (data as { id: string } | null)?.id ?? null;
+    }
     setSaving(false);
     if (error) {
       toast.error('Falha ao salvar', { description: error.message });
       return;
     }
     toast.success('Configuração do agente salva.');
+    await loadProfiles(savedId ?? undefined);
+    if (rowId) {
+      const { data } = await supabase
+        .from('ai_agent_config_history')
+        .select('id, system_prompt, temperature, max_tokens, created_at')
+        .eq('config_id', rowId)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      setHistory((data ?? []) as AgentHistoryRow[]);
+    }
   };
+
+  const trafficTotalWhatsapp = profiles
+    .filter((p) => p.is_active && p.active_whatsapp)
+    .reduce((sum, p) => sum + p.traffic_pct, 0);
 
   if (loading) {
     return (
@@ -177,15 +381,122 @@ export function AIAgentSettings() {
   }
 
   return (
-    <Card>
+    <div className="space-y-6">
+      <Card className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-display flex items-center gap-2">
+              <FlaskConical className="h-4 w-4 text-[var(--accent-secondary)]" />
+              Perfis de IA
+            </h2>
+            <p className="text-xs text-[var(--color-text-secondary)]">
+              Cada perfil é uma personalidade testável. O mesmo contato sempre cai no mesmo
+              perfil (hash do telefone), distribuído pelo % de tráfego de cada um.
+            </p>
+          </div>
+          <Button type="button" size="sm" onClick={createProfile} disabled={saving}>
+            <Plus className="h-3.5 w-3.5" /> Novo perfil
+          </Button>
+        </div>
+        {trafficTotalWhatsapp !== 100 && profiles.some((p) => p.is_active) && (
+          <div className="rounded-lg border border-[rgba(245,158,11,0.3)] bg-[rgba(245,158,11,0.08)] px-3 py-2 text-xs text-[#FBBF24]">
+            Atenção: perfis ativos no WhatsApp somam {trafficTotalWhatsapp}% de tráfego (deveria
+            somar 100%).
+          </div>
+        )}
+        <div className="space-y-2">
+          {profiles.map((p) => (
+            <div
+              key={p.id}
+              className={`flex items-center gap-3 rounded-lg border px-3 py-2 cursor-pointer transition-colors ${
+                p.id === rowId
+                  ? 'border-[var(--accent-primary)] bg-[rgba(59,130,246,0.08)]'
+                  : 'border-[rgba(59,130,246,0.12)] bg-white/[0.02] hover:border-[rgba(59,130,246,0.25)]'
+              }`}
+              onClick={() => selectProfile(p)}
+            >
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 text-sm font-semibold text-[var(--color-text-primary)]">
+                  {p.name}
+                  {p.is_control && (
+                    <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[9px] uppercase tracking-wide text-[var(--color-text-secondary)]">
+                      Controle
+                    </span>
+                  )}
+                  {!p.is_active && (
+                    <span className="rounded-full bg-[rgba(239,68,68,0.12)] px-1.5 py-0.5 text-[9px] uppercase tracking-wide text-[var(--color-error)]">
+                      Pausado
+                    </span>
+                  )}
+                </div>
+                <div className="text-[11px] text-[var(--color-text-secondary)]">
+                  {p.traffic_pct}% do tráfego
+                  {(() => {
+                    const o = obsByProfile.get(p.id);
+                    if (!o || o.messages === 0) return null;
+                    const total = o.feedbackUp + o.feedbackDown;
+                    const pct = total > 0 ? Math.round((o.feedbackUp / total) * 100) : null;
+                    return ` · ${o.messages} respostas · $${o.costUsd.toFixed(3)}${pct != null ? ` · ${pct}% 👍` : ''}`;
+                  })()}
+                </div>
+              </div>
+              <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                <Button type="button" variant="ghost" size="icon" onClick={() => duplicateProfile(p)} aria-label={`Duplicar ${p.name}`}>
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
+                <Button type="button" variant="ghost" size="icon" onClick={() => togglePause(p)} aria-label={p.is_active ? `Pausar ${p.name}` : `Ativar ${p.name}`}>
+                  {p.is_active ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+                </Button>
+                <Button type="button" variant="ghost" size="icon" onClick={() => deleteProfile(p)} aria-label={`Remover ${p.name}`}>
+                  <Trash2 className="h-3.5 w-3.5 text-[var(--color-error)]" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      <Card>
       <form onSubmit={handleSubmit} className="space-y-6">
         <header className="space-y-1">
-          <h2 className="text-xl font-bold text-display">Configuração do agente</h2>
+          <h2 className="text-xl font-bold text-display">Editando: {name || 'Perfil'}</h2>
           <p className="text-sm text-[var(--color-text-secondary)]">
             O system prompt define a personalidade e as regras. Use {'{variavel}'} para
             inserir variáveis (digite {'{'} para escolher).
           </p>
         </header>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="profile_name">Nome do perfil</Label>
+            <Input id="profile_name" value={name} onChange={(e) => setName(e.target.value)} disabled={saving} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="traffic_pct">Tráfego (%)</Label>
+            <Input
+              id="traffic_pct"
+              type="number"
+              min={0}
+              max={100}
+              value={trafficPct}
+              onChange={(e) => setTrafficPct(Number(e.target.value))}
+              disabled={saving}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Controle</Label>
+            <label className="flex items-center gap-2 h-11 px-3 rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03]">
+              <input
+                type="checkbox"
+                checked={isControl}
+                onChange={(e) => setIsControl(e.target.checked)}
+                disabled={saving}
+                className="accent-[var(--accent-primary)] h-4 w-4"
+              />
+              <span className="text-sm text-[var(--color-text-primary)]">Marcar como controle</span>
+            </label>
+          </div>
+        </div>
 
         <div className="space-y-2 relative">
           <Label htmlFor="system_prompt">System prompt</Label>
@@ -402,6 +713,42 @@ export function AIAgentSettings() {
           )}
         </div>
 
+        {history.length > 0 && (
+          <div className="space-y-2 border-t border-[rgba(59,130,246,0.1)] pt-4">
+            <button
+              type="button"
+              onClick={() => setHistoryOpen((v) => !v)}
+              className="flex items-center gap-2 text-sm font-semibold text-[var(--accent-secondary)]"
+            >
+              <History className="h-4 w-4" />
+              Histórico de versões ({history.length})
+              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${historyOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {historyOpen && (
+              <div className="space-y-2">
+                {history.map((h) => (
+                  <div
+                    key={h.id}
+                    className="flex items-start gap-3 rounded-lg border border-[rgba(59,130,246,0.15)] bg-white/[0.02] px-3 py-2"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[10px] text-[var(--color-text-secondary)]">
+                        {new Date(h.created_at).toLocaleString('pt-BR')} · temp {h.temperature ?? '—'} · max {h.max_tokens ?? '—'} tokens
+                      </div>
+                      <div className="mt-1 line-clamp-2 text-xs text-[var(--color-text-secondary)]">
+                        {h.system_prompt || '(prompt vazio)'}
+                      </div>
+                    </div>
+                    <Button type="button" variant="outline" size="sm" onClick={() => restoreVersion(h)}>
+                      <RotateCcw className="h-3.5 w-3.5" /> Restaurar
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="flex justify-end">
           <Button type="submit" disabled={saving}>
             {saving ? (
@@ -415,6 +762,7 @@ export function AIAgentSettings() {
           </Button>
         </div>
       </form>
-    </Card>
+      </Card>
+    </div>
   );
 }

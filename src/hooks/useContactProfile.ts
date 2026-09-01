@@ -21,7 +21,7 @@ interface UseContactProfileResult {
   error: string | null;
   reload: () => Promise<void>;
   addNote: (body: string) => Promise<void>;
-  saveContact: (patch: Partial<Pick<Contact, 'name' | 'phone' | 'email' | 'source' | 'custom_fields'>>) => Promise<string | null>;
+  saveContact: (patch: Partial<Pick<Contact, 'name' | 'phone' | 'email' | 'source' | 'custom_fields' | 'possible_duplicate_of'>>) => Promise<string | null>;
 }
 
 const MEDIA_LABEL: Record<string, string> = {

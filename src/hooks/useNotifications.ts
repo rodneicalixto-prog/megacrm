@@ -3,7 +3,7 @@ import { getSupabase } from '@/lib/supabase';
 import { useAppUser } from '@/app/providers/AppUserProvider';
 import { isNotifSoundEnabled } from '@/lib/soundPrefs';
 
-export type NotificationType = 'new_message' | 'handoff' | 'mention';
+export type NotificationType = 'new_message' | 'handoff' | 'mention' | 'sla_breach';
 
 export interface NotificationRow {
   id: string;

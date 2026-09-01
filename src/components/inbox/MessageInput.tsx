@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from 'react';
 import { toast } from 'sonner';
-import { Clock, FileText, Loader2, Mic, MonitorUp, Paperclip, Reply, Send, Smile, Square, StickyNote, X } from 'lucide-react';
+import { AtSign, Clock, FileText, Loader2, Mic, MonitorUp, Paperclip, Reply, Send, Slash, Smile, Square, StickyNote, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getSupabase } from '@/lib/supabase';
 import type { SendResult, ThreadMessage } from '@/hooks/useMessages';
+import { useQuickReplies } from '@/hooks/useQuickReplies';
+import { useOperators, operatorLabel } from '@/hooks/useOperators';
 import { TemplateRestartDialog } from './TemplateRestartDialog';
 
 interface MessageInputProps {
@@ -13,12 +15,17 @@ interface MessageInputProps {
   withinWindow?: boolean;
   // Envio OTIMISTA de texto/nota: o balão aparece na hora e a requisição roda
   // em segundo plano (dono do estado é o useMessages).
-  onSendText: (text: string, isPrivate: boolean, replyTo?: ThreadMessage | null) => Promise<SendResult>;
+  onSendText: (text: string, isPrivate: boolean, replyTo?: ThreadMessage | null, mentionedUserIds?: string[]) => Promise<SendResult>;
   replyTo?: ThreadMessage | null;
   onCancelReply?: () => void;
 }
 
 const MAX_BYTES = 25 * 1024 * 1024;
+// "/atalho" (mensagem pública) e "@Nome" (nota privada) só disparam o
+// autocomplete quando o token está "aberto" — logo após um espaço/início de
+// linha e sem espaço depois, até o cursor.
+const SLASH_TRIGGER = /(?:^|\s)\/([a-z0-9_-]{0,40})$/i;
+const MENTION_TRIGGER = /(?:^|\s)@([a-zA-Z0-9À-ÿ ]{0,30})$/;
 
 export function MessageInput({ conversationId, disabled, withinWindow = true, onSendText, replyTo, onCancelReply }: MessageInputProps) {
   const [content, setContent] = useState('');
@@ -33,6 +40,65 @@ export function MessageInput({ conversationId, disabled, withinWindow = true, on
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Respostas rápidas (/atalho) e @menções (nota privada).
+  const { quickReplies } = useQuickReplies();
+  const { operators } = useOperators();
+  const [slashQuery, setSlashQuery] = useState<string | null>(null);
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [mentionedIds, setMentionedIds] = useState<Map<string, string>>(new Map()); // user_id -> "@Nome" inserido
+
+  const filteredQuickReplies = useMemo(() => {
+    if (slashQuery === null) return [];
+    return quickReplies.filter((qr) => qr.shortcut.startsWith(slashQuery)).slice(0, 6);
+  }, [quickReplies, slashQuery]);
+
+  const filteredOperators = useMemo(() => {
+    if (mentionQuery === null) return [];
+    const q = mentionQuery.trim().toLowerCase();
+    return operators
+      .filter((op) => operatorLabel(op).toLowerCase().includes(q))
+      .slice(0, 6);
+  }, [operators, mentionQuery]);
+
+  const handleContentChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setContent(value);
+    const cursor = e.target.selectionStart ?? value.length;
+    const uptoCursor = value.slice(0, cursor);
+    const slashMatch = !isPrivate ? uptoCursor.match(SLASH_TRIGGER) : null;
+    const mentionMatch = isPrivate ? uptoCursor.match(MENTION_TRIGGER) : null;
+    setSlashQuery(slashMatch ? slashMatch[1].toLowerCase() : null);
+    setMentionQuery(mentionMatch ? mentionMatch[1] : null);
+  };
+
+  const pickQuickReply = (replyContent: string) => {
+    const cursor = textareaRef.current?.selectionStart ?? content.length;
+    const uptoCursor = content.slice(0, cursor);
+    const replaced = uptoCursor.replace(SLASH_TRIGGER, (m) => (m.startsWith(' ') ? ' ' : '') + replyContent);
+    setContent(replaced + content.slice(cursor));
+    setSlashQuery(null);
+    textareaRef.current?.focus();
+  };
+
+  const pickMention = (userId: string, label: string) => {
+    const cursor = textareaRef.current?.selectionStart ?? content.length;
+    const uptoCursor = content.slice(0, cursor);
+    const mentionText = `@${label}`;
+    const replaced = uptoCursor.replace(MENTION_TRIGGER, (m) => (m.startsWith(' ') ? ' ' : '') + mentionText + ' ');
+    setContent(replaced + content.slice(cursor));
+    setMentionedIds((prev) => new Map(prev).set(userId, mentionText));
+    setMentionQuery(null);
+    textareaRef.current?.focus();
+  };
+
+  // Só manda o ID se o "@Nome" correspondente ainda estiver no texto — evita
+  // notificar alguém que o operador mencionou e depois apagou manualmente.
+  const resolveMentionedUserIds = (text: string): string[] =>
+    Array.from(mentionedIds.entries())
+      .filter(([, label]) => text.includes(label))
+      .map(([id]) => id);
 
   const onPickFile = (e: ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0] ?? null;
@@ -134,8 +200,10 @@ export function MessageInput({ conversationId, disabled, withinWindow = true, on
     const text = content.trim();
     if (!text) return;
     const wasPrivate = isPrivate;
+    const mentionIds = wasPrivate ? resolveMentionedUserIds(text) : [];
     setContent('');
-    const res = await onSendText(text, wasPrivate, replyTo);
+    setMentionedIds(new Map());
+    const res = await onSendText(text, wasPrivate, replyTo, mentionIds);
     onCancelReply?.();
     if (res.ok && res.zernioError) {
       // Balão salvo, mas o WhatsApp recusou (ex.: fora da janela de 24h).
@@ -165,8 +233,23 @@ export function MessageInput({ conversationId, disabled, withinWindow = true, on
   };
 
   const handleKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Escape' && (slashQuery !== null || mentionQuery !== null)) {
+      e.preventDefault();
+      setSlashQuery(null);
+      setMentionQuery(null);
+      return;
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
+      if (slashQuery !== null && filteredQuickReplies[0]) {
+        pickQuickReply(filteredQuickReplies[0].content);
+        return;
+      }
+      if (mentionQuery !== null && filteredOperators[0]) {
+        const op = filteredOperators[0];
+        pickMention(op.user_id, op.full_name?.trim() || op.email);
+        return;
+      }
       void submit();
     }
   };
@@ -187,7 +270,11 @@ export function MessageInput({ conversationId, disabled, withinWindow = true, on
       <div className="flex items-center gap-2">
         <button
           type="button"
-          onClick={() => setIsPrivate((v) => !v)}
+          onClick={() => {
+            setIsPrivate((v) => !v);
+            setSlashQuery(null);
+            setMentionQuery(null);
+          }}
           className={
             isPrivate
               ? 'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold bg-[rgba(245,158,11,0.12)] text-[#FBBF24]'
@@ -333,25 +420,69 @@ export function MessageInput({ conversationId, disabled, withinWindow = true, on
             </div>
           )}
         </div>
-        <textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          onKeyDown={handleKey}
-          rows={2}
-          disabled={disabled || sending}
-          placeholder={
-            file
-              ? 'Legenda (opcional)…'
-              : isPrivate
-                ? 'Escreva uma nota interna…'
-                : 'Digite uma mensagem…'
-          }
-          className={
-            isPrivate
-              ? 'flex-1 rounded-lg border border-[rgba(245,158,11,0.3)] bg-[rgba(245,158,11,0.04)] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[#FBBF24] resize-none'
-              : 'flex-1 rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)] resize-none'
-          }
-        />
+        <div className="relative flex-1">
+          {slashQuery !== null && filteredQuickReplies.length > 0 && (
+            <div className="absolute bottom-full left-0 z-30 mb-1 w-72 overflow-hidden rounded-lg border border-[var(--color-border-card)] bg-[var(--color-bg-elevated)] shadow-2xl">
+              <div className="flex items-center gap-1.5 border-b border-[rgba(59,130,246,0.1)] px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">
+                <Slash className="h-3 w-3" /> Respostas rápidas
+              </div>
+              <ul className="max-h-48 overflow-y-auto">
+                {filteredQuickReplies.map((qr) => (
+                  <li key={qr.id}>
+                    <button
+                      type="button"
+                      onClick={() => pickQuickReply(qr.content)}
+                      className="flex w-full flex-col items-start gap-0.5 px-2.5 py-1.5 text-left hover:bg-[rgba(59,130,246,0.08)]"
+                    >
+                      <span className="text-xs font-semibold text-[var(--accent-primary)]">/{qr.shortcut}</span>
+                      <span className="w-full truncate text-xs text-[var(--color-text-secondary)]">{qr.content}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {mentionQuery !== null && filteredOperators.length > 0 && (
+            <div className="absolute bottom-full left-0 z-30 mb-1 w-64 overflow-hidden rounded-lg border border-[var(--color-border-card)] bg-[var(--color-bg-elevated)] shadow-2xl">
+              <div className="flex items-center gap-1.5 border-b border-[rgba(59,130,246,0.1)] px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">
+                <AtSign className="h-3 w-3" /> Mencionar colega
+              </div>
+              <ul className="max-h-48 overflow-y-auto">
+                {filteredOperators.map((op) => (
+                  <li key={op.user_id}>
+                    <button
+                      type="button"
+                      onClick={() => pickMention(op.user_id, op.full_name?.trim() || op.email)}
+                      className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-xs text-[var(--color-text-primary)] hover:bg-[rgba(59,130,246,0.08)]"
+                    >
+                      {operatorLabel(op)}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <textarea
+            ref={textareaRef}
+            value={content}
+            onChange={handleContentChange}
+            onKeyDown={handleKey}
+            rows={2}
+            disabled={disabled || sending}
+            placeholder={
+              file
+                ? 'Legenda (opcional)…'
+                : isPrivate
+                  ? 'Escreva uma nota interna… (use @nome para mencionar)'
+                  : 'Digite uma mensagem… (use /atalho para respostas rápidas)'
+            }
+            className={
+              isPrivate
+                ? 'w-full rounded-lg border border-[rgba(245,158,11,0.3)] bg-[rgba(245,158,11,0.04)] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[#FBBF24] resize-none'
+                : 'w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)] resize-none'
+            }
+          />
+        </div>
         <Button type="submit" disabled={(!content.trim() && !file) || sending || disabled}>
           {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           Enviar

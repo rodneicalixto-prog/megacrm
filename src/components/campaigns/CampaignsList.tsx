@@ -1,11 +1,13 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { Pause, Play, Plus, Trash2 } from 'lucide-react';
+import { FlaskConical, Pause, Play, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCampaigns } from '@/hooks/useCampaigns';
+import { useCampaignVariants } from '@/hooks/useCampaignVariants';
+import { useTemplates } from '@/hooks/useTemplates';
 import { CampaignWizard } from '@/components/campaigns/CampaignWizard';
 import { LoadErrorBanner } from '@/components/LoadErrorBanner';
-import type { Campaign, CampaignStatus } from '@/types/campaigns';
+import type { Campaign, CampaignStatus, CampaignVariant } from '@/types/campaigns';
 
 const STATUS_LABEL: Record<CampaignStatus, string> = {
   draft: 'Rascunho',
@@ -33,6 +35,10 @@ function progressPct(c: Campaign): number {
 
 export function CampaignsList() {
   const { campaigns, loading, error, reload, pause, resume, remove } = useCampaigns();
+  const { templates } = useTemplates();
+  const campaignIds = useMemo(() => campaigns.map((c) => c.id), [campaigns]);
+  const variantsByCampaign = useCampaignVariants(campaignIds);
+  const templateName = (id: string) => templates.find((t) => t.id === id)?.name ?? '—';
   const [showWizard, setShowWizard] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -158,6 +164,10 @@ export function CampaignsList() {
                   <Metric label="Respondidas" value={c.replied} tone="success" />
                   <Metric label="Falhas" value={c.failed} tone="error" />
                 </div>
+
+                {(variantsByCampaign.get(c.id)?.length ?? 0) >= 2 && (
+                  <VariantComparison variants={variantsByCampaign.get(c.id)!} templateName={templateName} />
+                )}
               </div>
             );
           })
@@ -165,6 +175,41 @@ export function CampaignsList() {
       </div>
 
       <CampaignWizard open={showWizard} onClose={() => setShowWizard(false)} />
+    </div>
+  );
+}
+
+// Comparação de variantes A/B (PLANEJAMENTO.md Onda 3) — taxa de entrega/
+// leitura/resposta lado a lado, calculada sobre `sent` de cada variante (não
+// sobre total_contacts, que é da campanha inteira).
+function VariantComparison({
+  variants,
+  templateName,
+}: {
+  variants: CampaignVariant[];
+  templateName: (id: string) => string;
+}) {
+  const pct = (n: number, base: number) => (base > 0 ? Math.round((n / base) * 100) : 0);
+  return (
+    <div className="mt-4 space-y-2 border-t border-[rgba(59,130,246,0.08)] pt-3">
+      <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--accent-secondary)]">
+        <FlaskConical className="h-3.5 w-3.5" /> Teste A/B de templates
+      </div>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {variants.map((v, i) => (
+          <div key={v.id} className="rounded-lg border border-[rgba(59,130,246,0.12)] bg-white/[0.02] p-2.5">
+            <div className="truncate text-xs font-semibold text-[var(--color-text-primary)]">
+              {String.fromCharCode(65 + i)} · {templateName(v.template_id)}
+            </div>
+            <div className="mt-1.5 grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10px] text-[var(--color-text-secondary)]">
+              <span>Enviadas</span><span className="text-right">{v.sent}</span>
+              <span>Entregues</span><span className="text-right">{pct(v.delivered, v.sent)}%</span>
+              <span>Lidas</span><span className="text-right">{pct(v.read, v.sent)}%</span>
+              <span>Respondidas</span><span className="text-right font-semibold text-[var(--color-success)]">{pct(v.replied, v.sent)}%</span>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

@@ -23,6 +23,7 @@
 import { getAdminClient } from '../_shared/supabase-admin.ts';
 import { loadAppCredentials } from '../_shared/tenant-credentials.ts';
 import { callLLM, type LLMProvider } from '../_shared/llm.ts';
+import { estimateCostUsd } from '../_shared/llm-cost.ts';
 import { jsonResponse, preflight } from '../_shared/cors.ts';
 import { requireServiceRole } from '../_shared/auth.ts';
 import { isModuleEnabled } from '../_shared/plan.ts';
@@ -96,6 +97,7 @@ async function resolveBusinessHours(
 }
 
 interface AgentConfig {
+  id: string;
   system_prompt: string | null;
   temperature: number;
   max_tokens: number;
@@ -106,6 +108,37 @@ interface AgentConfig {
   model: string | null;
   timezone: string | null;
   variables: Record<string, string> | null;
+  traffic_pct: number;
+}
+
+// Hash determinístico (FNV-1a, 32 bits) de uma string → [0, 1). Mesmo
+// contact_id sempre produz o mesmo número, então o mesmo lead sempre cai na
+// mesma variante de IA (Onda 4 — teste A/B/C/D de perfis).
+function hashUnit(input: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < input.length; i++) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0) / 0xffffffff;
+}
+
+// Escolhe um perfil de IA ativo (já filtrado por canal) para este contato,
+// distribuindo por traffic_pct acumulado. Perfil único → sempre ele, sem
+// gastar hash à toa. traffic_pct total = 0 (todos pausados via peso) cai no
+// último perfil, para nunca deixar de responder por erro de configuração.
+function pickAgentVariant(candidates: AgentConfig[], contactId: string): AgentConfig | null {
+  if (candidates.length === 0) return null;
+  if (candidates.length === 1) return candidates[0];
+  const totalWeight = candidates.reduce((sum, c) => sum + Math.max(0, c.traffic_pct), 0);
+  if (totalWeight <= 0) return candidates[candidates.length - 1];
+  const roll = hashUnit(contactId) * totalWeight;
+  let acc = 0;
+  for (const c of candidates) {
+    acc += Math.max(0, c.traffic_pct);
+    if (roll < acc) return c;
+  }
+  return candidates[candidates.length - 1];
 }
 
 // ---- Horário de atendimento → variáveis automáticas -----------------------
@@ -208,8 +241,8 @@ Deno.serve(async (req) => {
     return jsonResponse({ ok: true, skipped: `content_type=${message.content_type}` });
   }
 
-  // 2. Load conversation + agent config (singleton).
-  const [{ data: convRow }, { data: agentRow }] = await Promise.all([
+  // 2. Load conversation + agent profiles (Onda 4 — deixou de ser singleton).
+  const [{ data: convRow }, { data: agentRows }] = await Promise.all([
     admin
       .from('conversations')
       .select('id, contact_id, status, ai_paused, channel, zernio_conversation_id, department_id, connection_id, assigned_to')
@@ -217,14 +250,14 @@ Deno.serve(async (req) => {
       .maybeSingle(),
     admin
       .from('ai_agent_config')
-      .select('system_prompt, temperature, max_tokens, is_active, active_whatsapp, active_instagram, auto_move_leads, model, timezone, variables')
-      .maybeSingle(),
+      .select('id, system_prompt, temperature, max_tokens, is_active, active_whatsapp, active_instagram, auto_move_leads, model, timezone, variables, traffic_pct')
+      .eq('is_active', true),
   ]);
   if (!convRow) {
     return jsonResponse({ ok: false, error: 'Conversa não encontrada.' }, { status: 404 });
   }
   const conversation = convRow as ConversationRow;
-  const agent = (agentRow as AgentConfig | null) ?? null;
+  const allAgents = (agentRows ?? []) as AgentConfig[];
 
   if (conversation.status === 'closed') {
     return jsonResponse({ ok: true, skipped: 'conversation closed' });
@@ -233,16 +266,18 @@ Deno.serve(async (req) => {
     return jsonResponse({ ok: true, skipped: 'ai paused' });
   }
 
-  // Gate por canal (Módulo 6): se o agente está desligado para o canal desta
-  // conversa, a IA não responde — a conversa vai direto para atendimento
-  // humano (status human_active + ai_paused true, que dispara a notificação
-  // de handoff aos operadores). É reversível: o operador pode retomar a IA.
+  // Gate por canal (Módulo 6) + seleção de perfil (Onda 4): entre os perfis
+  // ativos habilitados para o canal desta conversa, escolhe um via hash
+  // determinístico do contact_id — mesmo contato sempre cai no mesmo perfil.
+  // Se nenhum perfil estiver habilitado no canal, a conversa vai direto para
+  // atendimento humano (reversível: o operador pode retomar a IA).
   const channel = conversation.channel === 'instagram' ? 'instagram' : 'whatsapp';
-  const channelEnabled =
-    channel === 'instagram'
-      ? (agent?.active_instagram ?? false)
-      : (agent?.active_whatsapp ?? true);
-  if (agent && !channelEnabled) {
+  const channelCandidates = allAgents.filter((a) =>
+    channel === 'instagram' ? a.active_instagram : a.active_whatsapp,
+  );
+  const agent = pickAgentVariant(channelCandidates, conversation.contact_id);
+
+  if (allAgents.length > 0 && !agent) {
     await admin
       .from('conversations')
       .update({ status: 'human_active', ai_paused: true, last_message_at: new Date().toISOString() })
@@ -250,7 +285,7 @@ Deno.serve(async (req) => {
     return jsonResponse({ ok: true, skipped: `ai disabled for channel ${channel}`, routed_to_human: true });
   }
 
-  if (!agent || agent.is_active === false) {
+  if (!agent) {
     return jsonResponse({ ok: true, skipped: 'ai agent disabled' });
   }
 
@@ -362,6 +397,9 @@ Deno.serve(async (req) => {
   const userPrompt = buildUserPrompt(history, ragChunks, inboundLabel);
 
   let reply: string;
+  let tokensInput: number | null = null;
+  let tokensOutput: number | null = null;
+  let costUsd: number | null = null;
   try {
     const result = await callLLM({
       provider,
@@ -375,6 +413,9 @@ Deno.serve(async (req) => {
     });
     reply = result.content.trim();
     if (!reply) throw new Error('LLM retornou resposta vazia.');
+    tokensInput = result.usage.inputTokens;
+    tokensOutput = result.usage.outputTokens;
+    costUsd = estimateCostUsd(result.model, result.usage);
   } catch (err) {
     return jsonResponse(
       { ok: false, error: `llm: ${err instanceof Error ? err.message : String(err)}` },
@@ -423,7 +464,18 @@ Deno.serve(async (req) => {
     if (textBody) {
       const { data: ins } = await admin
         .from('messages')
-        .insert({ conversation_id: conversation.id, direction: 'outbound', sender_type: 'ai', content_type: 'text', content: textBody, is_private_note: false })
+        .insert({
+          conversation_id: conversation.id,
+          direction: 'outbound',
+          sender_type: 'ai',
+          content_type: 'text',
+          content: textBody,
+          is_private_note: false,
+          ai_config_id: agent.id,
+          tokens_input: tokensInput,
+          tokens_output: tokensOutput,
+          cost_usd: costUsd,
+        })
         .select('id').single();
       const outboundId = (ins as { id: string } | null)?.id ?? null;
       try {
@@ -439,7 +491,7 @@ Deno.serve(async (req) => {
     for (const m of mediaToSend) {
       const { data: mIns } = await admin
         .from('messages')
-        .insert({ conversation_id: conversation.id, direction: 'outbound', sender_type: 'ai', content_type: m.content_type, content: null, media_url: m.media_url, is_private_note: false })
+        .insert({ conversation_id: conversation.id, direction: 'outbound', sender_type: 'ai', content_type: m.content_type, content: null, media_url: m.media_url, is_private_note: false, ai_config_id: agent.id })
         .select('id').single();
       const mId = (mIns as { id: string } | null)?.id ?? null;
       try {
@@ -491,7 +543,18 @@ Deno.serve(async (req) => {
   if (textBody) {
     const { data: ins } = await admin
       .from('messages')
-      .insert({ conversation_id: conversation.id, direction: 'outbound', sender_type: 'ai', content_type: 'text', content: textBody, is_private_note: false })
+      .insert({
+        conversation_id: conversation.id,
+        direction: 'outbound',
+        sender_type: 'ai',
+        content_type: 'text',
+        content: textBody,
+        is_private_note: false,
+        ai_config_id: agent.id,
+        tokens_input: tokensInput,
+        tokens_output: tokensOutput,
+        cost_usd: costUsd,
+      })
       .select('id').single();
     const outboundId = (ins as { id: string } | null)?.id ?? null;
     try {
@@ -511,7 +574,7 @@ Deno.serve(async (req) => {
       (['image', 'video', 'audio'].includes(m.content_type) ? m.content_type : 'file') as 'image' | 'video' | 'audio' | 'file';
     const { data: mIns } = await admin
       .from('messages')
-      .insert({ conversation_id: conversation.id, direction: 'outbound', sender_type: 'ai', content_type: m.content_type, content: null, media_url: m.media_url, is_private_note: false })
+      .insert({ conversation_id: conversation.id, direction: 'outbound', sender_type: 'ai', content_type: m.content_type, content: null, media_url: m.media_url, is_private_note: false, ai_config_id: agent.id })
       .select('id').single();
     const mId = (mIns as { id: string } | null)?.id ?? null;
     try {

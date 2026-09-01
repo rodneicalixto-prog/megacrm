@@ -33,6 +33,7 @@ const STATUS_RANK: Record<string, number> = { sent: 1, delivered: 2, read: 3 };
 interface ContactRow {
   id: string;
   campaign_id: string;
+  variant_id: string | null;
   status: 'sent' | 'delivered';
   delivered_at: string | null;
   contacts: { phone: string | null } | { phone: string | null }[] | null;
@@ -101,13 +102,21 @@ Deno.serve(async (req) => {
   let updated = 0;
   const errors: string[] = [];
 
-  const bumpCounter = async (campaignId: string, column: string) => {
+  const bumpCounter = async (campaignId: string, column: string, variantId: string | null) => {
     const { error } = await admin.rpc('bump_campaign_counter', {
       p_campaign_id: campaignId,
       p_column: column,
       p_delta: 1,
     });
     if (error) errors.push(`counter ${column}: ${error.message}`);
+    if (variantId) {
+      const { error: vErr } = await admin.rpc('bump_campaign_variant_counter', {
+        p_variant_id: variantId,
+        p_column: column,
+        p_delta: 1,
+      });
+      if (vErr) errors.push(`variant counter ${column}: ${vErr.message}`);
+    }
   };
 
   for (const broadcastId of broadcastIds) {
@@ -129,7 +138,7 @@ Deno.serve(async (req) => {
 
     const { data: rows, error: rowsErr } = await admin
       .from('campaign_contacts')
-      .select('id, campaign_id, status, delivered_at, contacts(phone)')
+      .select('id, campaign_id, variant_id, status, delivered_at, contacts(phone)')
       .eq('zernio_broadcast_id', broadcastId)
       .in('status', ['sent', 'delivered']);
     if (rowsErr) {
@@ -157,7 +166,7 @@ Deno.serve(async (req) => {
           errors.push(`update ${row.id}: ${error.message}`);
           continue;
         }
-        await bumpCounter(row.campaign_id, 'failed');
+        await bumpCounter(row.campaign_id, 'failed', row.variant_id);
         updated++;
         continue;
       }
@@ -176,9 +185,9 @@ Deno.serve(async (req) => {
         errors.push(`update ${row.id}: ${error.message}`);
         continue;
       }
-      await bumpCounter(row.campaign_id, next);
+      await bumpCounter(row.campaign_id, next, row.variant_id);
       // Se pulou direto sent→read, conta tambem o delivered para o funil fechar.
-      if (next === 'read' && row.status === 'sent') await bumpCounter(row.campaign_id, 'delivered');
+      if (next === 'read' && row.status === 'sent') await bumpCounter(row.campaign_id, 'delivered', row.variant_id);
       updated++;
     }
   }

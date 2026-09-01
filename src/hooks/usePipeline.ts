@@ -51,6 +51,10 @@ interface UsePipelineResult {
   reload: () => Promise<void>;
   moveDeal: (dealId: string, stageId: string) => Promise<void>;
   createDeal: (input: CreateDealInput) => Promise<void>;
+  // Ações em massa — usadas pela toolbar de seleção múltipla do FunilPage.
+  bulkMoveStage: (dealIds: string[], stageId: string) => Promise<{ ok: boolean; error?: string }>;
+  bulkAssignOwner: (dealIds: string[], ownerId: string | null) => Promise<{ ok: boolean; error?: string }>;
+  bulkAddTag: (dealIds: string[], tagId: string) => Promise<{ ok: boolean; error?: string }>;
   // Gestão de funis
   // scope 'pessoal' = só do usuário; 'empresa' = compartilhado (owner_id nulo),
   // que a RLS reserva a admin. kind decide o propósito do funil e os
@@ -413,9 +417,61 @@ export function usePipeline(): UsePipelineResult {
     [stages],
   );
 
+  // Ações em massa no funil — move/atribui/marca vários negócios selecionados
+  // de uma vez. Sempre em lotes de 100 (mesmo padrão de useContacts.ts) para
+  // não estourar o filtro `.in()` de uma seleção grande.
+  const bulkMoveStage = useCallback(
+    async (dealIds: string[], stageId: string): Promise<{ ok: boolean; error?: string }> => {
+      if (dealIds.length === 0) return { ok: true };
+      const stage = stages.find((s) => s.id === stageId);
+      const patch: Partial<Deal> = { stage_id: stageId };
+      if (stage?.is_won) patch.status = 'won';
+      else if (stage?.is_lost) patch.status = 'lost';
+      else patch.status = 'open';
+      const supabase = getSupabase();
+      for (const chunk of chunkArray(dealIds, IN_FILTER_CHUNK_SIZE)) {
+        const { error: err } = await supabase.from('deals').update(patch).in('id', chunk);
+        if (err) return { ok: false, error: err.message };
+      }
+      setDeals((cur) => cur.map((d) => (dealIds.includes(d.id) ? { ...d, ...patch } : d)));
+      return { ok: true };
+    },
+    [stages],
+  );
+
+  const bulkAssignOwner = useCallback(
+    async (dealIds: string[], ownerId: string | null): Promise<{ ok: boolean; error?: string }> => {
+      if (dealIds.length === 0) return { ok: true };
+      const supabase = getSupabase();
+      for (const chunk of chunkArray(dealIds, IN_FILTER_CHUNK_SIZE)) {
+        const { error: err } = await supabase.from('deals').update({ owner_id: ownerId }).in('id', chunk);
+        if (err) return { ok: false, error: err.message };
+      }
+      setDeals((cur) => cur.map((d) => (dealIds.includes(d.id) ? { ...d, owner_id: ownerId } : d)));
+      return { ok: true };
+    },
+    [],
+  );
+
+  const bulkAddTag = useCallback(
+    async (dealIds: string[], tagId: string): Promise<{ ok: boolean; error?: string }> => {
+      if (dealIds.length === 0) return { ok: true };
+      const supabase = getSupabase();
+      const rows = dealIds.map((deal_id) => ({ deal_id, tag_id: tagId }));
+      for (const chunk of chunkArray(rows, IN_FILTER_CHUNK_SIZE)) {
+        const { error: err } = await supabase.from('deal_tags').upsert(chunk, { onConflict: 'deal_id,tag_id' });
+        if (err) return { ok: false, error: err.message };
+      }
+      await reload();
+      return { ok: true };
+    },
+    [reload],
+  );
+
   return {
     pipelines, selectedId, select, pipeline, stages, deals, loading, error, reload,
     moveDeal, createDeal,
+    bulkMoveStage, bulkAssignOwner, bulkAddTag,
     createPipeline, renamePipeline, deletePipeline, setDefaultPipeline,
     addStage, renameStage, setStageColor, setStageProbability, setStageAiCriteria, reorderStages, removeStage,
   };

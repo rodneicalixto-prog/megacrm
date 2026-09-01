@@ -6,6 +6,7 @@ import {
   KeyRound,
   Package,
   Settings as SettingsIcon,
+  Slash,
   UserCircle2,
   Users,
 } from 'lucide-react';
@@ -19,6 +20,7 @@ import { TeamSettings } from './sections/TeamSettings';
 import { DepartmentsSettings } from './sections/DepartmentsSettings';
 import { LeadAssignmentSettings } from './sections/LeadAssignmentSettings';
 import { ProductsSettings } from './sections/ProductsSettings';
+import { QuickRepliesSettings } from './sections/QuickRepliesSettings';
 import CredentialsPage from './CredentialsPage';
 
 type TabId =
@@ -27,6 +29,7 @@ type TabId =
   | 'team'
   | 'departments'
   | 'products'
+  | 'quick_replies'
   | 'credentials';
 
 interface TabDef {
@@ -89,6 +92,13 @@ export default function SettingsPage() {
             icon: Package,
             adminOnly: true,
             render: () => <ProductsSettings />,
+          },
+          {
+            id: 'quick_replies',
+            label: 'Respostas rápidas',
+            hint: 'Atalhos /comando do Inbox',
+            icon: Slash,
+            render: () => <QuickRepliesSettings />,
           },
           {
             id: 'credentials',

@@ -24,6 +24,7 @@ interface Payload {
   content?: string;
   is_private_note?: boolean;
   reply_to_message_id?: string;
+  mentioned_user_ids?: string[];
 }
 
 Deno.serve(async (req) => {
@@ -47,6 +48,11 @@ Deno.serve(async (req) => {
     const content = (body.content ?? '').trim();
     const isPrivate = Boolean(body.is_private_note);
     const replyToId = body.reply_to_message_id?.trim() || null;
+    // Menções só fazem sentido em nota privada — mensagem pública vai pro
+    // contato, que não tem conta na instância pra ser "mencionado".
+    const mentionedUserIds = isPrivate && Array.isArray(body.mentioned_user_ids)
+      ? body.mentioned_user_ids.filter((id): id is string => typeof id === 'string' && id.length > 0)
+      : [];
 
     if (!conversationId) return jsonResponse({ ok: false, error: 'conversation_id ausente.' }, { status: 400 });
     if (!content) return jsonResponse({ ok: false, error: 'Conteúdo vazio.' }, { status: 400 });
@@ -101,6 +107,7 @@ Deno.serve(async (req) => {
         is_private_note: isPrivate,
         reply_to_message_id: replyToId,
         reply_preview: replyPreview,
+        mentioned_user_ids: mentionedUserIds,
       })
       .select()
       .single();

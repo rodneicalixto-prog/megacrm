@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, CheckCheck, MessageSquare, UserRoundCog } from 'lucide-react';
+import { AlarmClock, AtSign, Bell, CheckCheck, MessageSquare, UserRoundCog } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useNotifications, type NotificationRow } from '@/hooks/useNotifications';
@@ -13,7 +13,12 @@ function relativeTime(iso: string): string {
 }
 
 function contactName(title: string): string {
-  return title.replace(/^Nova mensagem de\s+/i, '').replace(/^Handoff para humano:\s*/i, '').trim() || 'Contato';
+  return title
+    .replace(/^Nova mensagem de\s+/i, '')
+    .replace(/^Handoff para humano:\s*/i, '')
+    .replace(/^SLA estourado:\s*/i, '')
+    .replace(/^Você foi mencionado por\s+/i, '')
+    .trim() || 'Contato';
 }
 
 export function NotificationsDropdown() {
@@ -33,8 +38,10 @@ export function NotificationsDropdown() {
   }, [notifications]);
   const unreadContacts = grouped.filter((item) => item.unread > 0).length;
   const sections = [
-    { id: 'messages', label: 'Mensagens', items: grouped.filter((item) => item.latest.type !== 'handoff') },
+    { id: 'sla', label: 'SLA estourado', items: grouped.filter((item) => item.latest.type === 'sla_breach') },
     { id: 'handoff', label: 'Aguardando atendimento', items: grouped.filter((item) => item.latest.type === 'handoff') },
+    { id: 'mentions', label: 'Menções', items: grouped.filter((item) => item.latest.type === 'mention') },
+    { id: 'messages', label: 'Mensagens', items: grouped.filter((item) => item.latest.type === 'new_message') },
   ].filter((section) => section.items.length > 0);
 
   useEffect(() => {
@@ -66,11 +73,17 @@ export function NotificationsDropdown() {
         {sections.length === 0 ? <div className="p-8 text-center text-xs text-[var(--color-text-secondary)]">Sem notificações pendentes.</div> : sections.map((section) => <section key={section.id}>
           <h3 className="border-y border-[rgba(59,130,246,0.08)] bg-[rgba(59,130,246,0.03)] px-3 py-2 text-[10px] font-semibold uppercase text-[var(--color-text-secondary)]">{section.label}</h3>
           <ul className="divide-y divide-[rgba(59,130,246,0.08)]">
-            {section.items.map((item) => { const n=item.latest; const Icon=n.type === 'handoff' ? UserRoundCog : MessageSquare; return <li key={n.conversation_id ?? n.id}><button type="button" onClick={() => void openConversation(item)} className={cn('flex w-full items-center gap-3 p-3 text-left transition hover:bg-[rgba(59,130,246,0.06)]', item.unread && 'bg-[rgba(59,130,246,0.04)]')}>
-              <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-full', n.type === 'handoff' ? 'bg-amber-500/15 text-amber-300' : 'bg-blue-500/15 text-[var(--accent-primary)]')}><Icon className="h-4 w-4" /></span>
-              <span className="min-w-0 flex-1"><span className="flex items-center gap-2"><strong className="truncate text-sm text-[var(--color-text-primary)]">{contactName(n.title)}</strong><span className="ml-auto shrink-0 text-[10px] text-[var(--color-text-secondary)]">{relativeTime(n.created_at)}</span></span><span className="block truncate text-xs text-[var(--color-text-secondary)]">{n.type === 'handoff' ? 'Aguardando atendimento humano' : (n.body || 'Nova mensagem')}</span></span>
+            {section.items.map((item) => {
+              const n = item.latest;
+              const Icon = n.type === 'handoff' ? UserRoundCog : n.type === 'sla_breach' ? AlarmClock : n.type === 'mention' ? AtSign : MessageSquare;
+              const iconCls = n.type === 'sla_breach' ? 'bg-red-500/15 text-red-400' : n.type === 'handoff' ? 'bg-amber-500/15 text-amber-300' : 'bg-blue-500/15 text-[var(--accent-primary)]';
+              const subtitle = n.type === 'handoff' ? 'Aguardando atendimento humano' : (n.body || 'Nova mensagem');
+              return <li key={n.conversation_id ?? n.id}><button type="button" onClick={() => void openConversation(item)} className={cn('flex w-full items-center gap-3 p-3 text-left transition hover:bg-[rgba(59,130,246,0.06)]', item.unread && 'bg-[rgba(59,130,246,0.04)]')}>
+              <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-full', iconCls)}><Icon className="h-4 w-4" /></span>
+              <span className="min-w-0 flex-1"><span className="flex items-center gap-2"><strong className="truncate text-sm text-[var(--color-text-primary)]">{contactName(n.title)}</strong><span className="ml-auto shrink-0 text-[10px] text-[var(--color-text-secondary)]">{relativeTime(n.created_at)}</span></span><span className="block truncate text-xs text-[var(--color-text-secondary)]">{subtitle}</span></span>
               {item.unread > 0 && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--accent-primary)] px-1 text-[10px] font-bold text-white">{item.unread}</span>}
-            </button></li>; })}
+            </button></li>;
+            })}
           </ul>
         </section>)}
       </div>
