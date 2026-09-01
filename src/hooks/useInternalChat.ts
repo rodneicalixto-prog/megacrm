@@ -137,7 +137,9 @@ export function useInternalMessages(conversationId: string | null) {
     if (sendErr) {
       console.error('[useInternalMessages] falha ao enviar mensagem', sendErr);
       setError(sendErr.message);
+      return;
     }
+    setError(null);
   }, [conversationId]);
 
   return { messages, loading, error, send };

@@ -14,14 +14,22 @@ export interface ScheduleResult {
 export function useMeetings() {
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
-    const { data, error } = await getSupabase()
+    const { data, error: err } = await getSupabase()
       .schema('whatsapp_hub')
       .from('meetings')
       .select('*')
       .order('starts_at', { ascending: false });
-    if (!error) setMeetings((data ?? []) as Meeting[]);
+    if (err) {
+      console.error('[useMeetings] falha ao carregar reuniões', err);
+      setError(err.message);
+      setLoading(false);
+      return;
+    }
+    setError(null);
+    setMeetings((data ?? []) as Meeting[]);
     setLoading(false);
   }, []);
 
@@ -55,5 +63,5 @@ export function useMeetings() {
     return { ok: true };
   }, []);
 
-  return { meetings, loading, reload, schedule, cancel };
+  return { meetings, loading, error, reload, schedule, cancel };
 }
