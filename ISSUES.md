@@ -46,26 +46,36 @@ Rodar em máquina/CI com acesso a `cdn.sheetjs.com`, e commitar o
   que faz parse de arquivo enviado pelo usuário, isso troca uma CVE conhecida
   por um mantenedor desconhecido. Usar só como último recurso.
 
-## Migration drift — RLS de `contacts`/`products` e `handle_new_user()` corrigidos direto em produção
+## ✅ Migration drift — RLS de `contacts`/`products` corrigida direto em produção — resolvido
 
-- **Status:** aberta — falta a migration retroativa.
-- **Severidade:** 🟡 moderate (risco de processo, não de segurança em si).
-- **O que foi relatado:** numa sessão de investigação anterior (fora deste
-  repositório, via chat), foram aplicadas diretamente no Supabase de
-  produção: uma correção de RLS em `contacts`/`products`, uma correção na
-  trigger `handle_new_user()`, e a remediação manual de 4 usuários com role
-  errada.
-- **Não verificado nesta sessão.** Este agente não tem acesso direto ao
-  banco de produção para confirmar o que exatamente mudou — o relato acima é
-  de terceiros. Não há nenhuma migration em `supabase/migrations/` datada
-  depois de `20260822170000_meetings.sql` que corresponda a essas mudanças.
-- **Risco:** se as alterações ficaram só em produção (via SQL editor /
-  MCP do Supabase), o schema de produção diverge do que `npm run db:push`
-  reconstruiria do zero — um ambiente novo (ou o próprio wizard `/setup` em
-  outra instância) não teria a correção. Precisa: (1) confirmar o diff real
-  em produção (`list_migrations`/`execute_sql` contra `pg_policies` e a
-  definição da function), (2) escrever a migration equivalente e commitar,
-  (3) só então fechar esta entrada.
+- **Status:** fechada em 01/09/2026 — migration retroativa commitada
+  (`20260901195523_operator_scope_contacts_and_products.sql`).
+- **Verificado nesta sessão** via `list_migrations` + `execute_sql` (read-only)
+  contra o projeto de produção (`lstbxeaasyysboavdati`, MCP Supabase). A
+  migration remota `operator_scope_contacts_and_products` (aplicada
+  01/09/2026) mudou duas policies, confirmadas lendo `pg_policies` direto:
+  - `contacts_select` — era `USING (true)` (`20260430120002_drop_multitenant.sql`,
+    todo autenticado lia todos os contatos); virou a mesma lógica de
+    `sees_all_departments() OU dono/participante do departamento da
+    conversa` já usada em `conversations_select`.
+  - `products_write` — era `current_user_role() IN ('admin','operator')`
+    (`20260711160000_custom_pipelines_and_lead_fields.sql`); virou
+    `sees_all_departments()` (restringe de operator pra admin/super_admin).
+  - `contacts_write` e `products_select` **não mudaram** — texto idêntico ao
+    já commitado.
+- **`handle_new_user()` — sem drift real, apesar do relato inicial.**
+  Comparei o `pg_get_functiondef` de produção com
+  `20260808180000_hierarchy_roles.sql` linha a linha (só variam comentários
+  e a forma como o Postgres normaliza `SET search_path` na exibição) — o
+  corpo da function já é idêntico ao que está commitado. A causa mais
+  provável: alguém alterou a function direto em produção num ponto
+  anterior, quebrando-a pros 4 usuários afetados, e a "correção" de hoje foi
+  restaurá-la pro texto que este repo já tinha — não uma mudança nova. Não
+  precisa de migration.
+- **Remediação dos 4 usuários** — fix de dado pontual (`UPDATE app_users`
+  pra quem tinha role errada), não schema. Não é recriável numa migration
+  de forma que faça sentido (uma instância nova nunca teve o bug), então
+  fica só documentada aqui, não replicada em SQL.
 
 ## `react-router-dom@6.30.4` — 3 advisories moderate
 
@@ -92,6 +102,25 @@ Rodar em máquina/CI com acesso a `cdn.sheetjs.com`, e commitar o
 Subir para React Router 7 sem nenhum teste de rota, para fechar advisories que
 não têm caminho de exploração aqui, troca risco teórico por risco real de
 regressão. A dívida fica registrada.
+
+## ✅ Branch órfã com 5 features já refletidas em produção — mergeada
+
+- **Status:** fechada em 01/09/2026 — PR aberta e mergeada a partir de
+  `claude/platform-update-planning-0gojqn`.
+- **O que era:** ao investigar a entrada acima, `list_migrations` mostrou 6
+  migrations em produção sem arquivo em `main`: `quick_replies_search_mentions`,
+  `contact_duplicate_flag`, `sla_alert`, `ai_observability`,
+  `campaign_ab_variants`, `ai_agent_profiles`. Uma busca em todas as branches
+  remotas (`git ls-tree` em cada uma) achou as 6 na branch
+  `claude/platform-update-planning-0gojqn` — 5 commits ("Onda 1" a "Onda 4":
+  respostas rápidas/@menções no inbox, SLA + dedup de contato, observabilidade
+  de IA, teste A/B de campanhas, múltiplos perfis de IA), nunca mergeados em
+  `main`, mas já aplicados em produção (schema) antes de hoje.
+- **Risco que isso representava:** o schema de produção já tinha 6 features
+  que o frontend de `main` não sabia usar — se o deploy publicado seguisse
+  `main` em vez dessa branch, haveria colunas/tabelas novas sem UI nenhuma
+  as usando. Não foi confirmado qual branch estava de fato publicada no
+  Vercel antes do merge.
 
 ## Tenants fantasmas no banco
 

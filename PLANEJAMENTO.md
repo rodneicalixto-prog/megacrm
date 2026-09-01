@@ -1465,14 +1465,38 @@ error path silencioso) só se manifestam com uma segunda montagem do
 componente ou com uma falha real de rede/RLS, difíceis de forçar
 deterministicamente sem esse cenário.
 
-**Relatado como já aplicado direto no Supabase (não verificado por mim
-nesta sessão — sem acesso ao banco de produção, e sem migration
-correspondente commitada neste repositório)**: correção de RLS em
-`contacts`/`products`, correção de `handle_new_user()`, remediação manual
-de 4 usuários com role errada. Registrado como dívida em `ISSUES.md`
-("Migration drift") até alguém com acesso ao projeto Supabase confirmar o
-diff real e escrever a migration equivalente — sem isso, uma instância nova
-não herda essas correções.
+**Atualização, mesmo dia (01/09/2026) — migration drift investigado e fechado
+de verdade.** O usuário passou o project ref de produção
+(`lstbxeaasyysboavdati`); usei o MCP do Supabase (`list_migrations` +
+`execute_sql`, só leitura) pra confirmar o que estava só relatado:
+
+- `contacts_select` e `products_write` de fato mudaram em produção (migration
+  remota `operator_scope_contacts_and_products`, 01/09/2026) e não tinham
+  migration commitada. Escrevi
+  `20260901195523_operator_scope_contacts_and_products.sql` a partir do texto
+  real das policies em produção (`pg_policies`), validado com `npm run
+  validate:sql`.
+- `handle_new_user()` — comparei `pg_get_functiondef` de produção linha a
+  linha com `20260808180000_hierarchy_roles.sql`: **já são idênticos**, sem
+  drift real. A hipótese mais provável é que a function tinha sido alterada
+  direto em produção antes de hoje (por isso os 4 usuários com role errada),
+  e a "correção" foi restaurá-la pro texto que este repo já tinha — não
+  escrevi migration nova pra isso.
+- A remediação dos 4 usuários é fix de dado pontual, não schema — não faz
+  sentido virar migration (instância nova nunca teve o bug), fica só
+  documentada.
+- **Achado que não estava no relato original:** `list_migrations` mostrou
+  mais 6 migrations em produção sem arquivo em `main` (`quick_replies_search_mentions`,
+  `contact_duplicate_flag`, `sla_alert`, `ai_observability`,
+  `campaign_ab_variants`, `ai_agent_profiles`). Busquei em todas as branches
+  remotas e achei as 6 na branch `claude/platform-update-planning-0gojqn` —
+  5 commits com código completo (frontend + Edge Functions + migration) já
+  aplicados em produção, nunca mergeados em `main`. Perguntei ao usuário como
+  proceder — decidiu mergear. PR aberta a partir dessa branch (ver
+  `ISSUES.md` "Branch órfã com 5 features já refletidas em produção").
+
+Detalhe completo em `ISSUES.md` — as duas entradas de migration drift foram
+fechadas (✅) nesta rodada.
 
 **Em aberto, para decidir com calma (não implementado)**:
 
