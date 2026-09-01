@@ -136,18 +136,39 @@ regressão. A dívida fica registrada.
   do modelo multi-tenant antigo) antes de decidir entre limpar ou apenas
   documentar como legado inofensivo.
 
-## Schema `public` com outros sistemas Agentise no mesmo Supabase
+## ✅ Schema `public` com outro sistema (Tomik CRM) exposto sem RLS — travado
 
-- **Status:** aberta, não investigada.
-- **Severidade:** desconhecida — depende do que exatamente está lá.
-- **O que se sabe:** o mesmo projeto Supabase hospeda múltiplas apps
-  Agentise por schema (ver seção "Arquitetura multi-schema" do
-  `CLAUDE.md`: `agentise_chat`, `prospector`, `crm_sofia`, `whatsapp_hub`).
-  Foi identificado que o schema `public` — que deveria ficar reservado a
-  extensions e ao cofre de credenciais/bootstrap (`public.app_settings`,
-  `public._bootstrap_state`) — tem outros sistemas misturados nele. Ainda
-  não foi levantado quais tabelas são essas, se há RLS cobrindo-as, ou se
-  há risco de colisão de nomes com o que este projeto já usa em `public`.
-- **Próximo passo:** `list_tables` no schema `public` em produção pra ver o
-  que exatamente está lá além de `app_settings`/`_bootstrap_state`, e
-  decidir se precisa de isolamento adicional.
+- **Status:** mitigado em 01/09/2026 (achado + travado na mesma sessão, com
+  confirmação do dono do projeto antes de qualquer mudança).
+- **Severidade era 🔴 high, confirmada, não hipotética.** `information_schema.tables`
+  em produção mostrou **68 tabelas em `public`**, não só
+  `app_settings`/`_bootstrap_state` como este `CLAUDE.md` descrevia — a
+  maioria pertence a um sistema alheio ao `whatsapp_hub` (aparência de CRM +
+  agendamento de clínica + financeiro + integração WhatsApp própria +
+  automações n8n: `clients`, `patients`, `appointments`, `consultations`,
+  `crm_leads`, `despesas`/`entradas`/`pagamentos`, `n8n_workflows`,
+  `whatsapp_instances`/`whatsapp_messages`, `tomikcrm_schema_migrations`,
+  etc. — nome de origem "Tomik CRM", confirmado pelo dono do projeto como
+  **em desuso**).
+- **O achado real:** 9 dessas tabelas (`analytics_events`, `app_migrations`,
+  `crm_stage_aliases`, `entradas_source_links`, `produtos_relacionados`,
+  `report_filter_presets`, `tomikcrm_schema_migrations`,
+  `user_dashboard_prefs`, `user_preferences`) estavam **sem RLS e com GRANT
+  total** (`SELECT/INSERT/UPDATE/DELETE`) para `anon` **e** `authenticated`
+  — ou seja, qualquer usuário logado de **qualquer app** hospedada nesse
+  mesmo Supabase, incluindo o `whatsapp_hub` deste repositório, conseguia
+  ler e escrever nelas via PostgREST sem nenhuma restrição. As outras ~59
+  tabelas do Tomik já tinham RLS com policies próprias — não auditadas em
+  detalhe, mas não estavam no mesmo nível de exposição.
+- **Ação tomada (confirmada, não hipotética):** `ALTER TABLE ... ENABLE ROW
+  LEVEL SECURITY` (mesmo padrão de `public.app_settings` — zero policy, só
+  service role acessa) + `REVOKE ALL ... FROM anon, authenticated` nas 9
+  tabelas. Verificado depois via `pg_class.relrowsecurity` e
+  `information_schema.role_table_grants`: as 9 mostram `rls_enabled=true` e
+  `open_grants=0`. Aplicado direto via MCP do Supabase (`apply_migration`),
+  **não** commitado como migration deste repositório — não é schema do
+  `whatsapp_hub`, então não pertence a `supabase/migrations/`.
+- **O que ficou por auditar:** as outras ~59 tabelas do Tomik (RLS
+  presente, mas as policies em si não foram lidas) e se o mesmo problema
+  existe nos outros schemas citados no `CLAUDE.md` (`agentise_chat`,
+  `prospector`, `crm_sofia`) — não verificados nesta sessão.

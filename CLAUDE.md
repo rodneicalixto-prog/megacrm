@@ -69,8 +69,17 @@ próprio schema PostgreSQL.
 
 ### Schemas ativos
 
-- `public` — reservado para extensions e tipos compartilhados (NÃO usar para
-  dados de aplicação).
+- `public` — *deveria* ficar reservado a extensions e ao cofre de
+  credenciais/bootstrap deste projeto (`app_settings`, `_bootstrap_state`,
+  ver seção "Credenciais e bootstrap" abaixo). **Na prática, em 01/09/2026,
+  tem 68 tabelas** — a maioria de um sistema alheio (nome de origem "Tomik
+  CRM": clientes, agendamentos, financeiro, WhatsApp e automações n8n
+  próprios), confirmado pelo dono do projeto como em desuso. 9 dessas
+  tabelas estavam sem RLS e com acesso total liberado pra `anon`/
+  `authenticated` — travadas nessa data (ver `ISSUES.md`, entrada "Schema
+  `public` com outro sistema exposto"). As outras ~59 não foram auditadas
+  em detalhe. **NÃO usar `public` para dados de aplicação do
+  `whatsapp_hub`** — o risco de colidir com essa bagunça existente é real.
 - `agentise_chat`
 - `prospector`
 - `crm_sofia`
