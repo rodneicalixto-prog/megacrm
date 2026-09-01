@@ -657,8 +657,11 @@ supabase/functions/
   runtime). Sempre sufixar com um id por montagem, ex.
   `` `meetings-changes:${Math.random().toString(36).slice(2, 10)}` `` — ver
   `useConversations.ts`, `useMessages.ts`, `useNotifications.ts`,
-  `useKnowledgeBase.ts`, `usePipeline.ts` e `useMeetings.ts` (corrigido em
-  01/09/2026, era o único hook com nome de canal fixo).
+  `useKnowledgeBase.ts`, `usePipeline.ts`, `useMeetings.ts` e
+  `useInternalChat.ts` (os três últimos corrigidos em 01/09/2026 — o nome do
+  canal levar a chave do recurso, tipo `internal-messages-${conversationId}`,
+  não basta: precisa do sufixo aleatório também, senão dois mounts com a
+  mesma conversa/usuário colidem do mesmo jeito).
 - Todo hook que lê/escreve no Supabase deve checar `error` do retorno —
   nunca desestruturar só `data` e descartar o resto. Padrão do projeto:
   `console.error('[useX] falha ao ...', error)` + expor um estado `error`

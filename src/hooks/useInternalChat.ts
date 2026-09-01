@@ -43,8 +43,9 @@ export function useInternalConversations() {
   useEffect(() => {
     if (!userId) return;
     const supabase = getSupabase();
+    const suffix = Math.random().toString(36).slice(2, 10);
     const channel = supabase
-      .channel(`internal-conversations-${userId}`)
+      .channel(`internal-conversations-${userId}:${suffix}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'whatsapp_hub', table: 'internal_conversations' },
@@ -106,8 +107,9 @@ export function useInternalMessages(conversationId: string | null) {
   useEffect(() => {
     if (!conversationId) return;
     const supabase = getSupabase();
+    const suffix = Math.random().toString(36).slice(2, 10);
     const channel = supabase
-      .channel(`internal-messages-${conversationId}`)
+      .channel(`internal-messages-${conversationId}:${suffix}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'whatsapp_hub', table: 'internal_messages', filter: `conversation_id=eq.${conversationId}` },
@@ -125,11 +127,11 @@ export function useInternalMessages(conversationId: string | null) {
   // Não recarrega a lista após o insert: a mesma mensagem chega de volta pelo
   // canal realtime (o remetente também está inscrito), e recarregar aqui
   // duplicaria a bolha na tela por causa da corrida entre os dois caminhos.
-  const send = useCallback(async (content: string) => {
-    if (!conversationId || !content.trim()) return;
+  const send = useCallback(async (content: string): Promise<boolean> => {
+    if (!conversationId || !content.trim()) return false;
     const { data } = await getSupabase().auth.getUser();
     const senderId = data.user?.id;
-    if (!senderId) return;
+    if (!senderId) return false;
     const { error: sendErr } = await getSupabase()
       .schema('whatsapp_hub')
       .from('internal_messages')
@@ -137,9 +139,10 @@ export function useInternalMessages(conversationId: string | null) {
     if (sendErr) {
       console.error('[useInternalMessages] falha ao enviar mensagem', sendErr);
       setError(sendErr.message);
-      return;
+      return false;
     }
     setError(null);
+    return true;
   }, [conversationId]);
 
   return { messages, loading, error, send };

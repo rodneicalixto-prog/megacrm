@@ -8,6 +8,31 @@ export interface ScheduleResult {
   recall_warning?: string | null;
 }
 
+// schedule/cancel não dependem da listagem — telas que só precisam disparar
+// a mutação (ex.: o diálogo "Nova reunião") usam este hook em vez de
+// useMeetings(), pra não abrir uma segunda subscription Realtime ociosa.
+export function useMeetingActions() {
+  const schedule = useCallback(async (input: ScheduleMeetingInput): Promise<ScheduleResult> => {
+    const { data, error } = await getSupabase().functions.invoke('schedule-meeting', { body: input });
+    if (error || !data?.ok) {
+      return { ok: false, error: data?.error ?? error?.message ?? 'Erro ao agendar reunião.' };
+    }
+    return { ok: true, recall_warning: data.recall_warning ?? null };
+  }, []);
+
+  const cancel = useCallback(async (meetingId: string): Promise<ScheduleResult> => {
+    const { data, error } = await getSupabase().functions.invoke('cancel-meeting', {
+      body: { meeting_id: meetingId },
+    });
+    if (error || !data?.ok) {
+      return { ok: false, error: data?.error ?? error?.message ?? 'Erro ao cancelar reunião.' };
+    }
+    return { ok: true };
+  }, []);
+
+  return { schedule, cancel };
+}
+
 // Acervo compartilhado (sem recorte por departamento — ver RLS da tabela):
 // todo mundo lê tudo, então uma reunião marcada por qualquer setor aparece
 // pra todos, e o histórico/gravação/resumo ficam fáceis de achar depois.
@@ -15,6 +40,7 @@ export function useMeetings() {
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { schedule, cancel } = useMeetingActions();
 
   const reload = useCallback(async () => {
     const { data, error: err } = await getSupabase()
@@ -44,24 +70,6 @@ export function useMeetings() {
       void getSupabase().removeChannel(channel);
     };
   }, [reload]);
-
-  const schedule = useCallback(async (input: ScheduleMeetingInput): Promise<ScheduleResult> => {
-    const { data, error } = await getSupabase().functions.invoke('schedule-meeting', { body: input });
-    if (error || !data?.ok) {
-      return { ok: false, error: data?.error ?? error?.message ?? 'Erro ao agendar reunião.' };
-    }
-    return { ok: true, recall_warning: data.recall_warning ?? null };
-  }, []);
-
-  const cancel = useCallback(async (meetingId: string): Promise<ScheduleResult> => {
-    const { data, error } = await getSupabase().functions.invoke('cancel-meeting', {
-      body: { meeting_id: meetingId },
-    });
-    if (error || !data?.ok) {
-      return { ok: false, error: data?.error ?? error?.message ?? 'Erro ao cancelar reunião.' };
-    }
-    return { ok: true };
-  }, []);
 
   return { meetings, loading, error, reload, schedule, cancel };
 }
