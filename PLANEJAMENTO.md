@@ -1431,3 +1431,55 @@ hook do projeto), `npm run build` ok, `npm run test:unit` 189/189, `npm run
 validate:sql` 111 arquivos / 1264 statements. Migration aplicada em
 produção (`lstbxeaasyysboavdati`) e as 3 Edge Functions novas deployadas e
 `ACTIVE`.
+
+## 11. Investigação de bugs em produção — 01/09/2026
+
+Sessão de investigação (fora deste repositório, via chat) levantou um lote
+de problemas; o que exigia mudança de código do frontend ficou pendente
+para o Claude Code aplicar. Aplicado nesta rodada:
+
+- **`useMeetings.ts` — crash em `/meetings`**: o canal Realtime era criado
+  com nome estático (`'meetings-changes'`). Sempre que o hook montava mais
+  de uma vez com o mesmo nome — StrictMode, ou qualquer tela que renderize
+  o componente duas vezes — a segunda `.channel(...).subscribe()` colidia
+  com a primeira e o Supabase JS derrubava a subscription, travando a
+  tela. Corrigido sufixando o nome do canal com um id aleatório por
+  montagem, no mesmo padrão que `useConversations.ts`/`useMessages.ts`/
+  `useNotifications.ts`/`useKnowledgeBase.ts`/`usePipeline.ts` já usavam —
+  `useMeetings.ts` era o único hook do projeto que não seguia essa
+  convenção. Documentado como regra em `CLAUDE.md`.
+- **`useInternalChat.ts` e `useOperators.ts` — erros engolidos
+  silenciosamente**: os três pontos de leitura/escrita (`reload` de
+  conversas, `reload`/`send` de mensagens do chat interno, `list_operators`
+  do seletor de atribuição) desestruturavam só `data` da resposta do
+  Supabase e nunca olhavam `error` — uma falha de rede, RLS negando acesso,
+  ou uma RPC quebrada resultava silenciosamente numa lista vazia, sem log e
+  sem qualquer sinal pro usuário ou pra quem for depurar depois. Corrigido
+  seguindo o padrão já usado em `useConversations.ts` (estado `error` +
+  `console.error` estruturado); os três hooks agora expõem `error` no
+  retorno.
+
+**Verificação:** `tsc --noEmit` limpo depois das três mudanças. Não rodei o
+app no browser nesta rodada — as duas classes de bug (canal duplicado,
+error path silencioso) só se manifestam com uma segunda montagem do
+componente ou com uma falha real de rede/RLS, difíceis de forçar
+deterministicamente sem esse cenário.
+
+**Relatado como já aplicado direto no Supabase (não verificado por mim
+nesta sessão — sem acesso ao banco de produção, e sem migration
+correspondente commitada neste repositório)**: correção de RLS em
+`contacts`/`products`, correção de `handle_new_user()`, remediação manual
+de 4 usuários com role errada. Registrado como dívida em `ISSUES.md`
+("Migration drift") até alguém com acesso ao projeto Supabase confirmar o
+diff real e escrever a migration equivalente — sem isso, uma instância nova
+não herda essas correções.
+
+**Em aberto, para decidir com calma (não implementado)**:
+
+- Plano de cadastro unificado (usuário + telefone + QR) — só desenho até
+  aqui, sem seção própria neste documento ainda; precisa de um pedido
+  explícito descrevendo o fluxo antes de virar plano de execução.
+- Tenants fantasmas no banco — registrado em `ISSUES.md`, não investigada a
+  origem.
+- Schema `public` com outros sistemas Agentise misturados — registrado em
+  `ISSUES.md`, não investigado quais tabelas são essas nem o risco real.

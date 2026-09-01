@@ -46,6 +46,27 @@ Rodar em máquina/CI com acesso a `cdn.sheetjs.com`, e commitar o
   que faz parse de arquivo enviado pelo usuário, isso troca uma CVE conhecida
   por um mantenedor desconhecido. Usar só como último recurso.
 
+## Migration drift — RLS de `contacts`/`products` e `handle_new_user()` corrigidos direto em produção
+
+- **Status:** aberta — falta a migration retroativa.
+- **Severidade:** 🟡 moderate (risco de processo, não de segurança em si).
+- **O que foi relatado:** numa sessão de investigação anterior (fora deste
+  repositório, via chat), foram aplicadas diretamente no Supabase de
+  produção: uma correção de RLS em `contacts`/`products`, uma correção na
+  trigger `handle_new_user()`, e a remediação manual de 4 usuários com role
+  errada.
+- **Não verificado nesta sessão.** Este agente não tem acesso direto ao
+  banco de produção para confirmar o que exatamente mudou — o relato acima é
+  de terceiros. Não há nenhuma migration em `supabase/migrations/` datada
+  depois de `20260822170000_meetings.sql` que corresponda a essas mudanças.
+- **Risco:** se as alterações ficaram só em produção (via SQL editor /
+  MCP do Supabase), o schema de produção diverge do que `npm run db:push`
+  reconstruiria do zero — um ambiente novo (ou o próprio wizard `/setup` em
+  outra instância) não teria a correção. Precisa: (1) confirmar o diff real
+  em produção (`list_migrations`/`execute_sql` contra `pg_policies` e a
+  definição da function), (2) escrever a migration equivalente e commitar,
+  (3) só então fechar esta entrada.
+
 ## `react-router-dom@6.30.4` — 3 advisories moderate
 
 - **Status:** aberta, sem ação planejada. Reavaliar quando houver cobertura de
@@ -71,3 +92,33 @@ Rodar em máquina/CI com acesso a `cdn.sheetjs.com`, e commitar o
 Subir para React Router 7 sem nenhum teste de rota, para fechar advisories que
 não têm caminho de exploração aqui, troca risco teórico por risco real de
 regressão. A dívida fica registrada.
+
+## Tenants fantasmas no banco
+
+- **Status:** aberta, sem ação planejada.
+- **Severidade:** 🟢 baixa — relatado como "lixo inofensivo", sem impacto
+  funcional conhecido.
+- **O que se sabe:** existem registros de tenants órfãos/antigos sobrando no
+  Supabase, herança provável da migração SaaS → self-hosted (uma instância =
+  uma organização). Não foi investigado ainda de que tabela(s) vêm nem se
+  algum RLS/RPC assume tenant único de um jeito que esses registros
+  invalidam.
+- **Próximo passo:** mapear a origem (provavelmente uma tabela remanescente
+  do modelo multi-tenant antigo) antes de decidir entre limpar ou apenas
+  documentar como legado inofensivo.
+
+## Schema `public` com outros sistemas Agentise no mesmo Supabase
+
+- **Status:** aberta, não investigada.
+- **Severidade:** desconhecida — depende do que exatamente está lá.
+- **O que se sabe:** o mesmo projeto Supabase hospeda múltiplas apps
+  Agentise por schema (ver seção "Arquitetura multi-schema" do
+  `CLAUDE.md`: `agentise_chat`, `prospector`, `crm_sofia`, `whatsapp_hub`).
+  Foi identificado que o schema `public` — que deveria ficar reservado a
+  extensions e ao cofre de credenciais/bootstrap (`public.app_settings`,
+  `public._bootstrap_state`) — tem outros sistemas misturados nele. Ainda
+  não foi levantado quais tabelas são essas, se há RLS cobrindo-as, ou se
+  há risco de colisão de nomes com o que este projeto já usa em `public`.
+- **Próximo passo:** `list_tables` no schema `public` em produção pra ver o
+  que exatamente está lá além de `app_settings`/`_bootstrap_state`, e
+  decidir se precisa de isolamento adicional.

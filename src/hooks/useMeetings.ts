@@ -27,8 +27,9 @@ export function useMeetings() {
 
   useEffect(() => {
     void reload();
+    const suffix = Math.random().toString(36).slice(2, 10);
     const channel = getSupabase()
-      .channel('meetings-changes')
+      .channel(`meetings-changes:${suffix}`)
       .on('postgres_changes', { event: '*', schema: 'whatsapp_hub', table: 'meetings' }, () => void reload())
       .subscribe();
     return () => {

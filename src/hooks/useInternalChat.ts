@@ -18,14 +18,22 @@ export function useInternalConversations() {
   const { userId } = useAppUser();
   const [conversations, setConversations] = useState<InternalConversation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     if (!userId) return;
-    const { data } = await getSupabase()
+    const { data, error: err } = await getSupabase()
       .schema('whatsapp_hub')
       .from('internal_conversations')
       .select('id, user_a, user_b, last_message_at, last_read_a, last_read_b')
       .order('last_message_at', { ascending: false, nullsFirst: false });
+    if (err) {
+      console.error('[useInternalConversations] falha ao carregar conversas', err);
+      setError(err.message);
+      setLoading(false);
+      return;
+    }
+    setError(null);
     setConversations(((data ?? []) as InternalConversationRow[]).map((row) => resolve(row, userId)));
     setLoading(false);
   }, [userId]);
@@ -50,35 +58,47 @@ export function useInternalConversations() {
     const { data, error } = await getSupabase()
       .schema('whatsapp_hub')
       .rpc('get_or_create_internal_conversation', { p_peer_id: peerId });
-    if (error) return null;
+    if (error) {
+      console.error('[useInternalConversations] falha ao abrir conversa', error);
+      return null;
+    }
     await reload();
     return (data as string) ?? null;
   }, [reload]);
 
   const totalUnread = conversations.filter((c) => c.unread).length;
 
-  return { conversations, loading, reload, openWith, totalUnread };
+  return { conversations, loading, error, reload, openWith, totalUnread };
 }
 
 // Mensagens de UMA conversa aberta, com realtime e "marcar como lida" ao abrir.
 export function useInternalMessages(conversationId: string | null) {
   const [messages, setMessages] = useState<InternalMessage[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     if (!conversationId) { setMessages([]); return; }
     setLoading(true);
-    const { data } = await getSupabase()
+    const { data, error: err } = await getSupabase()
       .schema('whatsapp_hub')
       .from('internal_messages')
       .select('id, conversation_id, sender_id, content, created_at')
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: true });
+    if (err) {
+      console.error('[useInternalMessages] falha ao carregar mensagens', err);
+      setError(err.message);
+      setLoading(false);
+      return;
+    }
+    setError(null);
     setMessages((data ?? []) as InternalMessage[]);
     setLoading(false);
-    await getSupabase()
+    const { error: readErr } = await getSupabase()
       .schema('whatsapp_hub')
       .rpc('mark_internal_conversation_read', { p_conversation_id: conversationId });
+    if (readErr) console.error('[useInternalMessages] falha ao marcar como lida', readErr);
   }, [conversationId]);
 
   useEffect(() => { void reload(); }, [reload]);
@@ -110,11 +130,15 @@ export function useInternalMessages(conversationId: string | null) {
     const { data } = await getSupabase().auth.getUser();
     const senderId = data.user?.id;
     if (!senderId) return;
-    await getSupabase()
+    const { error: sendErr } = await getSupabase()
       .schema('whatsapp_hub')
       .from('internal_messages')
       .insert({ conversation_id: conversationId, sender_id: senderId, content: content.trim() });
+    if (sendErr) {
+      console.error('[useInternalMessages] falha ao enviar mensagem', sendErr);
+      setError(sendErr.message);
+    }
   }, [conversationId]);
 
-  return { messages, loading, send };
+  return { messages, loading, error, send };
 }

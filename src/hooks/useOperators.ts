@@ -25,21 +25,28 @@ export function operatorLabel(o: Operator): string {
 export function useOperators() {
   const [operators, setOperators] = useState<Operator[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const supabase = getSupabase();
-      const { data } = await supabase.schema('whatsapp_hub').rpc('list_operators');
-      if (!cancelled) {
-        setOperators((data ?? []) as Operator[]);
+      const { data, error: err } = await supabase.schema('whatsapp_hub').rpc('list_operators');
+      if (cancelled) return;
+      if (err) {
+        console.error('[useOperators] falha ao listar operadores', err);
+        setError(err.message);
         setLoading(false);
+        return;
       }
+      setError(null);
+      setOperators((data ?? []) as Operator[]);
+      setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
   }, []);
 
-  return { operators, loading };
+  return { operators, loading, error };
 }
