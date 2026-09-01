@@ -1539,8 +1539,9 @@ Sugeri, em ordem:
 2. **Varredura preventiva** dos mesmos dois bugs corrigidos na PR #33 (canal
    Realtime sem sufixo, `data`/`error` sem checar) no resto de `src/hooks`
    (implementada nesta rodada, ver abaixo).
-3. Cobertura de teste pra `/meetings` e chat interno — o crash do canal
-   Realtime não foi pego por nenhum teste existente. Ainda não feita.
+3. **Cobertura de teste** pra `/meetings` e chat interno — implementada em
+   escopo reduzido nesta rodada (teste estático, não montagem real do
+   componente; ver justificativa abaixo).
 4. Zerar os 84 warnings de lint acumulados (`react-hooks/set-state-in-effect`
    principalmente) ou decidir suprimir a regra deliberadamente. Ainda não
    feita.
@@ -1601,3 +1602,35 @@ Sugeri, em ordem:
 
 Verificação: `tsc --noEmit` limpo, lint 0 erros (84 warnings, mesmo
 baseline), `npm run test:unit` 192/192.
+
+### Item 3 — Cobertura de teste pra `/meetings` e chat interno
+
+**Escopo reduzido do que eu tinha sugerido, e por quê.** A suíte de testes
+deste projeto não tem `jsdom`/`@testing-library/react` — `vitest.config.ts`
+roda tudo em `environment: 'node'`, pensado pra lógica pura do frontend
+(`src/lib/*`) e pros adapters das Edge Functions (Deno) com o
+`FakeSupabase` de `tests/unit/helpers/fake-supabase.ts`. Os specs e2e
+(`tests/specs/*.spec.ts`, Playwright) cobrem só o wizard `/setup` via um
+shim offline — nenhuma tela autenticada (inbox, funil, reuniões, chat
+interno) tem teste, e2e ou unitário. Montar `useMeetings`/`useInternalChat`
+de verdade (dois mounts simultâneos, forçar erro de rede) exigiria adicionar
+`jsdom` + React Testing Library + mockar `getSupabase()` — uma decisão de
+infra que não tomo sozinho no meio de uma lista de "melhorias sugeridas".
+
+**O que fiz em vez disso:** `tests/unit/realtime-channel-naming.test.ts` —
+teste estático (Node puro, sem infra nova) que lê todo `src/hooks/*.ts` e
+falha se algum `.channel(...)` usar string ou template literal sem
+interpolação (`${...}`). **Verificado que pega o bug de verdade**: reintroduzi
+temporariamente o `.channel('meetings-changes')` original em
+`useMeetings.ts`, rodei o teste, ele falhou apontando exatamente a linha;
+revertido antes de commitar. Não cobre a segunda classe de bug (`data`/`error`
+descartado) porque não dá pra distinguir estaticamente um caso real de um
+`.auth.getUser()` intencionalmente sem checagem, sem uma taxa alta de falso
+positivo.
+
+**Em aberto, se quiser ir além:** adicionar `jsdom` + RTL pra testar os
+hooks de verdade (dois mounts, erro de rede simulado) é um projeto à parte —
+pergunte se quiser que eu monte isso.
+
+Verificação: `tsc --noEmit` limpo, lint 0 erros, `npm run test:unit` 194/194
+(2 testes novos).
