@@ -776,6 +776,27 @@ supabase/functions/
 > este documento — vale conferir `styles/globals.css` para os tokens do modo
 > claro antes de assumir que só o dark existe.
 
+> **Rebrand Athenas em andamento (02/09/2026, ainda sem hex aplicados).** O
+> proprietário confirmou que esta instância é exclusiva da Athenas
+> Terceirização, então a regra abaixo de "marca fixa Agentise, sem override
+> por instância" está sendo substituída por uma paleta própria da Athenas —
+> mas os hex reais ainda não foram enviados (Instagram/site da marca estão
+> bloqueados no ambiente de execução) e a tabela abaixo continua com o azul
+> Agentise até chegarem. Existe um plano estruturado para essa migração em
+> `docs/DESIGN-ATHENAS-PREMIUM.md` (identidade "Athenas Atelier": superfícies
+> semânticas `page`/`panel`/`card`/`interactive`/`overlay`, kit de
+> componentes, Inbox como piloto) e `docs/DESIGN-MODERNIZATION.md`
+> ("operational calm": menos glow/glass espalhado, mais hierarquia) — ambos
+> como proposta, não implementados. Nesta sessão foram aplicados só
+> incrementos pontuais sobre o DS atual (fonte `Fraunces` em `.text-display`/
+> `.text-stat`, badge `.icon-chip` nos ícones de cabeçalho, ripple/loading no
+> `Button`, scroll-reveal em Dashboard/Funil/Inbox) — **não** a fundação de
+> tokens de marca nem a migração completa descritas nos dois documentos.
+> Detalhe em `docs/memory/2026-09-visual-polish-increment.md`. Antes de
+> aplicar a cor da Athenas quando os hex chegarem, seguir a estrutura de
+> tokens de marca já desenhada em `DESIGN-ATHENAS-PREMIUM.md` em vez de
+> substituir os hex diretamente na tabela abaixo.
+
 ### Tokens de cor
 
 | Token                  | Valor                                        |
@@ -830,11 +851,16 @@ body {
 
 ### Tipografia
 
+> Atualizado 02/09/2026: `.text-display`/`.text-stat` passaram a usar
+> `Fraunces` (carregada em `index.html` junto do Inter) em vez de Inter puro —
+> ver callout de rebrand Athenas acima. O restante da interface continua em
+> Inter.
+
 ```css
 * { font-family: 'Inter', sans-serif; }
 
-.text-display { font-weight: 700; }
-.text-stat    { font-size: 2.5rem; font-weight: 800; }
+.text-display { font-family: 'Fraunces', 'Inter', sans-serif; font-weight: 600; letter-spacing: -0.01em; }
+.text-stat    { font-family: 'Fraunces', 'Inter', sans-serif; font-size: 2.5rem; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 
 .text-label {
   font-weight: 600;

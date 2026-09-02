@@ -38,3 +38,8 @@ indexados pelo módulo de memória descrito em `docs/INTERNAL-AI-AGENTS.md`.
   — comportamento aprovado de grupos privados da Inbox, cinco contatos
   fixados, sincronização da agenda Evolution e encaminhamento hierárquico de
   contatos; inclui o roteiro-base para o futuro manual de uso.
+- [`2026-09-visual-polish-increment.md`](2026-09-visual-polish-increment.md)
+  — micro-interações de botão, fonte de display, badge de ícone e scroll
+  reveal aplicados sobre o design system atual; deixa explícito que isso não
+  é a fundação "Athenas Atelier" (`DESIGN-ATHENAS-PREMIUM.md`), que segue
+  pendente dos ativos reais da marca.
