@@ -212,8 +212,8 @@ test('aguardando e aguardando cliente sao lados opostos, nunca ambos', () => {
 });
 
 test('conversa encerrada sai das filas de trabalho', () => {
-  const fechada = conv({ status: 'closed', assigned_to: null });
-  assert.equal(matchesQueue(fechada, 'encerrados', null), true);
+  const fechada = conv({ status: 'closed', assigned_to: null, closed_at: '2026-08-08T11:00:00Z' });
+  assert.equal(matchesQueue(fechada, 'encerrados', null, NOW), true);
   assert.equal(matchesQueue(fechada, 'nao_atribuidos', null), false);
   assert.equal(matchesQueue(fechada, 'aguardando', null), false);
   assert.equal(matchesQueue(conv({ status: 'closed', unread_count: 3 }), 'nao_lidos', null), false);
@@ -233,7 +233,7 @@ test('favoritos ignora o arquivamento; as demais filas nao', () => {
 });
 
 test('a fila manda no status: encerrados nao e vencido pelo default abertas', () => {
-  const fechada = conv({ status: 'closed' });
+  const fechada = conv({ status: 'closed', closed_at: '2026-08-08T11:00:00Z' });
   const f = { ...DEFAULT_FILTERS, queue: 'encerrados' as const };
   assert.equal(matchesFilters(fechada, f, NOW), true);
 });

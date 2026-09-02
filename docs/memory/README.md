@@ -34,3 +34,7 @@ indexados pelo módulo de memória descrito em `docs/INTERNAL-AI-AGENTS.md`.
 - [`2026-09-production-commercialization-roadmap.md`](2026-09-production-commercialization-roadmap.md)
   — intenção de produção/comercialização, gates, empacotamento, operação,
   treinamento e decisões ainda pendentes.
+- [`2026-09-inbox-groups-contacts.md`](2026-09-inbox-groups-contacts.md)
+  — comportamento aprovado de grupos privados da Inbox, cinco contatos
+  fixados, sincronização da agenda Evolution e encaminhamento hierárquico de
+  contatos; inclui o roteiro-base para o futuro manual de uso.

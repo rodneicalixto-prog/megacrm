@@ -48,6 +48,8 @@ projeto real usado neste repositório:
 
 - **Supabase** — project ref `lstbxeaasyysboavdati` (nome exibido no painel:
   "calixto testesProject", região `us-east-1`, org `jfpiyugtvtuihjuqweyc`).
+  API URL confirmada pelo proprietário em 02/09/2026:
+  `https://lstbxeaasyysboavdati.supabase.co`.
   Dashboard: `https://supabase.com/dashboard/project/lstbxeaasyysboavdati`.
   Referenciado como produção neste repo desde antes desta entrada (ver seção
   10 do `PLANEJAMENTO.md`); o nome "testes" no painel é do próprio Supabase,
@@ -59,6 +61,12 @@ projeto real usado neste repositório:
   ganha preview em `megacrm-git-<branch>-rodnei-calixto-s-projects.vercel.app`
   — **não confirmado** qual branch está publicada no domínio de produção
   (fora do escopo verificado até agora, ver `ISSUES.md`).
+
+> A URL identifica o projeto, mas não autoriza migrations, consultas ou deploy
+> de Edge Functions. Operações administrativas exigem
+> `SUPABASE_ACCESS_TOKEN`; migrations com placeholders também podem exigir as
+> demais variáveis descritas em `.env.example`. Nunca registrar esses segredos
+> em Markdown ou no Git.
 
 ---
 
@@ -214,6 +222,18 @@ tags
 ├── id, name (UNIQUE), color
 
 contact_tags  (N:N contact_id × tag_id)
+
+attendance_groups  (grupos privados da Inbox, pertencem ao usuário)
+├── id, user_id, name, color, created_at
+
+attendance_group_conversations  (N:N grupo × conversa)
+├── group_id, conversation_id, created_at
+
+conversation_favorites  (até 5 conversas fixadas por usuário)
+├── conversation_id, user_id, created_at
+
+contact_forwards  (acesso pontual ao cadastro, sem compartilhar a lista)
+├── contact_id, from_user_id, to_user_id, created_at
 
 templates
 ├── id, name (UNIQUE), category ENUM('marketing','utility','service','authentication') -- 'service' nunca foi removido do enum (só ganhou 'authentication' depois); não usar para atendimento livre, que não é template
@@ -485,7 +505,19 @@ service role key vêm de Vault entries (`whatsapp_hub_supabase_url`,
 - Notas privadas (`is_private_note = true`) — fundo diferenciado, locais, nunca
   enviadas ao Zernio.
 - Atribuição automática round-robin entre operadores com `is_online = true`.
-- Filtros: status, assigned_to, tags, período.
+- Filtros: fila, canal, equipe, número, status, assigned_to, tags, janela de
+  atendimento e grupos privados do usuário.
+- Grupos da Inbox são pessoais e só organizam a visualização; não alteram
+  responsável, departamento ou RLS da conversa. A UI atual associa cada
+  atendimento a um grupo por vez.
+- Favoritos também são pessoais, aparecem primeiro na lista e têm limite de 5
+  por usuário, reforçado no frontend e por trigger transacional no banco.
+- Encaminhar contato concede ao destinatário acesso somente ao cadastro
+  escolhido, respeitando nível hierárquico e departamento; não transfere a
+  conversa nem compartilha a lista do remetente.
+- Evolution registra `CONTACTS_UPSERT` no webhook. Ao parear o celular, contatos
+  individuais enviados pela agenda são criados por telefone sem sobrescrever
+  nomes já enriquecidos; grupos/listas/status do WhatsApp são ignorados.
 
 ### Chat interno
 

@@ -4,7 +4,7 @@ import {
   Settings, Timer, Users,
 } from 'lucide-react';
 import { formatDuration, type AttendanceMetrics } from '@/hooks/useAttendanceMetrics';
-import type { Operator } from '@/hooks/useOperators';
+import { operatorLabel, type Operator } from '@/hooks/useOperators';
 import { downloadAttendanceCsv } from '@/lib/attendanceCsv';
 
 // Painel operacional: quantas conversas estão paradas, com quem, e há quanto
@@ -30,7 +30,7 @@ function Card({
   return (
     <Link
       to={href}
-      className={'glass-card group block p-4 border transition hover:-translate-y-0.5 focus-visible:border-[var(--accent-primary)] ' + toneClass}
+      className={'glass-card dashboard-interactive-card group block p-4 border focus-visible:border-[var(--accent-primary)] ' + toneClass}
       title={'Ver dados de ' + label}
     >
       <div className="flex items-center gap-2">
@@ -44,24 +44,32 @@ function Card({
 }
 // Barras dos 7 dias em CSS puro: sete valores não justificam carregar uma
 // biblioteca de gráficos que já pesa 374 KB no bundle de outra rota.
-function SevenDayChart({ data }: { data: { dia: string; novas: number }[] }) {
+function SevenDayChart({ data, inboxLink }: { data: { dia: string; novas: number }[]; inboxLink: (queue?: string, extra?: Record<string, string>) => string }) {
   const max = Math.max(1, ...data.map((d) => d.novas));
   return (
     <div className="glass-card p-4">
-      <span className="text-label">Últimos 7 dias</span>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-label">Novas conversas · últimos 7 dias</span>
+        <span className="text-[10px] text-[var(--color-text-secondary)]">Clique em um dia</span>
+      </div>
       <div className="mt-4 flex h-28 items-end gap-2">
         {data.map((d) => (
-          <div key={d.dia} className="flex flex-1 flex-col items-center gap-1">
+          <Link
+            key={d.dia}
+            to={inboxLink(undefined, { fcr: d.dia, fst: '' })}
+            aria-label={`Ver ${d.novas} conversa(s) criada(s) em ${new Date(`${d.dia}T12:00:00`).toLocaleDateString('pt-BR')}`}
+            className="group/day flex h-full flex-1 flex-col items-center justify-end gap-1 rounded-md px-0.5 transition-colors hover:bg-white/[0.04]"
+          >
             <span className="text-[10px] text-[var(--color-text-secondary)]">{d.novas}</span>
             <div
-              className="w-full rounded-t bg-gradient-to-t from-[#1E3A8A] to-[#3B82F6]"
+              className="w-full rounded-t bg-gradient-to-t from-[#16A34A] via-[#25D366] to-[#EC4899] transition-[filter,transform] duration-150 group-hover/day:brightness-125 group-hover/day:-translate-y-0.5"
               style={{ height: `${Math.max(4, (d.novas / max) * 100)}%` }}
               title={`${d.novas} conversa(s)`}
             />
             <span className="text-[10px] text-[var(--color-text-secondary)]">
               {new Date(`${d.dia}T12:00:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
             </span>
-          </div>
+          </Link>
         ))}
         {data.length === 0 ? (
           <p className="text-sm text-[var(--color-text-secondary)]">Sem conversas no período.</p>
@@ -72,21 +80,31 @@ function SevenDayChart({ data }: { data: { dia: string; novas: number }[] }) {
 }
 
 export function AttendancePanel({
-  metrics, operators, inboxScope = '',
+  metrics, operators, inboxScope = '', metricsMonth,
 }: {
   metrics: AttendanceMetrics;
   operators: Operator[];
   inboxScope?: string;
+  metricsMonth: string;
 }) {
-  const nameOf = (userId: string) =>
-    operators.find((o) => o.user_id === userId)?.email ?? 'Sem responsável';
+  const nameOf = (userId: string) => {
+    const operator = operators.find((item) => item.user_id === userId);
+    return operator ? operatorLabel(operator) : 'Sem responsável';
+  };
 
   const comCarga = metrics.por_agente.filter((a) => a.abertas > 0 || a.fechadas_hoje > 0);
-  const inboxLink = (queue?: string) => {
+  const inboxLink = (queue?: string, extra?: Record<string, string>) => {
     const params = new URLSearchParams(inboxScope);
     if (queue) params.set('fq', queue);
+    for (const [key, value] of Object.entries(extra ?? {})) params.set(key, value);
     return '/inbox?' + params.toString();
   };
+  const todayParts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date());
+  const todayPart = (type: Intl.DateTimeFormatPartTypes) =>
+    todayParts.find((item) => item.type === type)?.value ?? '';
+  const todaySaoPaulo = `${todayPart('year')}-${todayPart('month')}-${todayPart('day')}`;
 
   return (
     <div className="space-y-4">
@@ -124,18 +142,33 @@ export function AttendancePanel({
           icon={CheckCircle2}
           label="Finalizados hoje"
           value={metrics.finalizados_hoje}
+          hint="Encerrados desde 00h · São Paulo"
           tone="ok"
-          href={inboxLink('encerrados')}
+          href={inboxLink('encerrados', { fcl: todaySaoPaulo })}
         />
       </div>
 
       {/* Tempos e presença */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card
           icon={Timer}
-          label="1ª resposta (média)"
+          label="1ª resposta hoje"
+          value={formatDuration(metrics.tempo_medio_primeira_resposta_hoje)}
+          hint="Média das conversas iniciadas hoje"
+          href={inboxLink()}
+        />
+        <Card
+          icon={Timer}
+          label="1ª resposta no mês"
+          value={formatDuration(metrics.tempo_medio_primeira_resposta_periodo)}
+          hint={`Média de ${new Date(`${metricsMonth}-01T12:00:00`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`}
+          href={inboxLink()}
+        />
+        <Card
+          icon={Timer}
+          label="1ª resposta acumulada"
           value={formatDuration(metrics.tempo_medio_primeira_resposta)}
-          hint="Do 1º contato à 1ª resposta humana"
+          hint="Média de todo o histórico"
           href={inboxLink()}
         />
         <Card
@@ -155,11 +188,14 @@ export function AttendancePanel({
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <SevenDayChart data={metrics.serie_7_dias} />
+        <SevenDayChart data={metrics.serie_7_dias} inboxLink={inboxLink} />
 
         {/* Conversas por atendente */}
         <div className="glass-card p-4">
-          <span className="text-label">Conversas por atendente</span>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-label">Conversas por atendente</span>
+            <Link to={inboxLink()} className="text-xs font-medium text-[var(--accent-secondary)] hover:underline">Ver todas</Link>
+          </div>
           <div className="mt-3 space-y-2">
             {comCarga.length === 0 ? (
               <p className="text-sm text-[var(--color-text-secondary)]">
@@ -167,7 +203,7 @@ export function AttendancePanel({
               </p>
             ) : (
               comCarga.map((a) => (
-                <div key={a.user_id} className="flex items-center justify-between gap-3 text-sm">
+                <Link key={a.user_id} to={inboxLink(undefined, { fas: a.user_id })} className="dashboard-interactive-row flex items-center justify-between gap-3 rounded-lg px-2 py-2 text-sm">
                   <span className="flex min-w-0 items-center gap-2">
                     <span
                       className={`h-2 w-2 shrink-0 rounded-full ${a.is_online ? 'bg-[#10B981]' : 'bg-[var(--color-text-secondary)]'}`}
@@ -179,7 +215,7 @@ export function AttendancePanel({
                     <strong className="text-[var(--color-text-primary)]">{a.abertas}</strong> abertas
                     {a.fechadas_hoje > 0 ? ` · ${a.fechadas_hoje} hoje` : ''}
                   </span>
-                </div>
+                </Link>
               ))
             )}
           </div>

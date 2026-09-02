@@ -29,6 +29,8 @@ export interface AttendanceMetrics {
   finalizados_hoje: number;
   /** Segundos; null quando ainda não há amostra. */
   tempo_medio_primeira_resposta: number | null;
+  tempo_medio_primeira_resposta_hoje: number | null;
+  tempo_medio_primeira_resposta_periodo: number | null;
   tempo_medio_atendimento: number | null;
   agentes_online: number;
   agentes_total: number;
@@ -43,6 +45,8 @@ const EMPTY: AttendanceMetrics = {
   sem_resposta: 0,
   finalizados_hoje: 0,
   tempo_medio_primeira_resposta: null,
+  tempo_medio_primeira_resposta_hoje: null,
+  tempo_medio_primeira_resposta_periodo: null,
   tempo_medio_atendimento: null,
   agentes_online: 0,
   agentes_total: 0,
@@ -51,7 +55,11 @@ const EMPTY: AttendanceMetrics = {
   paradas: [],
 };
 
-export function useAttendanceMetrics(departmentId?: string | null, connectionId?: string | null) {
+export function useAttendanceMetrics(
+  departmentId?: string | null,
+  connectionId?: string | null,
+  month?: string | null,
+) {
   const [metrics, setMetrics] = useState<AttendanceMetrics>(EMPTY);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -64,12 +72,17 @@ export function useAttendanceMetrics(departmentId?: string | null, connectionId?
       .rpc('attendance_dashboard', {
         p_department: departmentId ?? null,
         p_connection: connectionId ?? null,
+        p_month: month ? `${month}-01` : null,
       });
 
     // Durante um deploy, o frontend pode entrar no ar antes da migration que
     // adiciona p_connection. Mantém o dashboard disponível nesse intervalo;
     // a visão por número passa a valer assim que o schema novo estiver ativo.
-    if (rpcError && (rpcError.code === 'PGRST202' || rpcError.message.includes('p_connection'))) {
+    if (rpcError && (
+      rpcError.code === 'PGRST202'
+      || rpcError.message.includes('p_connection')
+      || rpcError.message.includes('p_month')
+    )) {
       const legacy = await supabase.rpc('attendance_dashboard', {
         p_department: departmentId ?? null,
       });
@@ -84,7 +97,7 @@ export function useAttendanceMetrics(departmentId?: string | null, connectionId?
       setMetrics({ ...EMPTY, ...(data as Partial<AttendanceMetrics> | null) });
     }
     setLoading(false);
-  }, [departmentId, connectionId]);
+  }, [departmentId, connectionId, month]);
 
   useEffect(() => {
     void reload();

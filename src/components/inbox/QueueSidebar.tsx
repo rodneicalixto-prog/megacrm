@@ -2,6 +2,7 @@ import {
   Archive,
   CheckCircle2,
   Clock,
+  History,
   Inbox as InboxIcon,
   MailOpen,
   MessageSquareDot,
@@ -28,6 +29,7 @@ const ICONS: Record<QueueId, typeof InboxIcon> = {
   em_atendimento: MessageSquareDot,
   aguardando_cliente: MailOpen,
   encerrados: CheckCircle2,
+  historico: History,
   prioridade_alta: TriangleAlert,
   nao_lidos: Archive,
   favoritos: Star,
@@ -53,7 +55,7 @@ export function QueueSidebar({ conversations, filters, onChange, userId }: Props
     <nav aria-label="Filas de atendimento" className="flex flex-col gap-0.5 p-2">
       {QUEUES.map((q) => {
         const Icon = ICONS[q.id];
-        const count = pool.filter((c) => matchesQueue(c, q.id, userId)).length;
+        const count = pool.filter((c) => matchesQueue(c, q.id, userId, now)).length;
         const active = value === q.id;
         const urgent = q.id === 'prioridade_alta' || q.id === 'nao_lidos';
         return (

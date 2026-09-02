@@ -154,6 +154,45 @@ test('contato já existente é reaproveitado em vez de duplicado', async () => {
   expect(db.rows('conversations')[0]).toMatchObject({ contact_id: 'c-existente' });
 });
 
+test('contato existente sem nome é identificado pelo pushName da Evolution', async () => {
+  db.seed('contacts', [{ id: 'c-agenda', phone: '+5511999998888', name: null }]);
+
+  await handleInbound(post(EVOLUTION_URL, msg({ pushName: 'Talita Marques' })));
+
+  expect(db.rows('contacts')).toHaveLength(1);
+  expect(db.rows('contacts')[0]).toMatchObject({
+    id: 'c-agenda',
+    phone: '+5511999998888',
+    name: 'Talita Marques',
+  });
+});
+
+test('pushName da Evolution não sobrescreve nome editado pelo operador', async () => {
+  db.seed('contacts', [{ id: 'c-manual', phone: '+5511999998888', name: 'Talita Comercial' }]);
+
+  await handleInbound(post(EVOLUTION_URL, msg({ pushName: 'Talita Marques' })));
+
+  expect(db.rows('contacts')[0]).toMatchObject({ name: 'Talita Comercial' });
+});
+
+test('mensagem nova reabre conversa encerrada para ela voltar à fila da Inbox', async () => {
+  db.seed('contacts', [{ id: 'c-fechado', phone: '+5511999998888', name: 'Cliente' }]);
+  db.seed('conversations', [{
+    id: 'conv-fechada', contact_id: 'c-fechado', department_id: DEPT,
+    status: 'closed', closed_at: '2026-09-02T10:00:00.000Z', archived: true,
+    ai_paused: true, assigned_to: 'operador-1', unread_count: 0,
+  }]);
+
+  const res = await handleInbound(post(EVOLUTION_URL, msg({
+    key: { remoteJid: '5511999998888@s.whatsapp.net', fromMe: false, id: 'REOPEN1' },
+  })));
+
+  expect(res.status).toBe(200);
+  expect(db.rows('conversations')[0]).toMatchObject({
+    status: 'human_active', closed_at: null, archived: false, assigned_to: 'operador-1',
+  });
+});
+
 test('a atribuição é chamada com o telefone resolvido', async () => {
   await handleInbound(post(EVOLUTION_URL, msg()));
   const chamada = db.rpcCalls.find((c) => c.name === 'attribute_inbound_lead');

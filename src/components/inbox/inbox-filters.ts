@@ -18,6 +18,7 @@ export type QueueId =
   | 'em_atendimento'
   | 'aguardando_cliente'
   | 'encerrados'
+  | 'historico'
   | 'prioridade_alta'
   | 'nao_lidos'
   | 'favoritos';
@@ -29,7 +30,8 @@ export const QUEUES: Array<{ id: QueueId; label: string }> = [
   { id: 'aguardando', label: 'Aguardando' },
   { id: 'em_atendimento', label: 'Em atendimento' },
   { id: 'aguardando_cliente', label: 'Aguardando cliente' },
-  { id: 'encerrados', label: 'Encerrados' },
+  { id: 'encerrados', label: 'Encerrados hoje' },
+  { id: 'historico', label: 'Histórico' },
   { id: 'prioridade_alta', label: 'Prioridade alta' },
   { id: 'nao_lidos', label: 'Não lidos' },
   { id: 'favoritos', label: 'Favoritos' },
@@ -48,6 +50,10 @@ export interface InboxFilterState {
   assigned: string | 'unassigned' | 'any';
   tagIds: string[]; // any-match; vazio = qualquer
   janela: JanelaFilter;
+  // Recortes de data vindos dos cards do dashboard. YYYY-MM-DD no fuso de
+  // São Paulo, o mesmo usado pela RPC attendance_dashboard.
+  closedOn: string | null;
+  createdOn: string | null;
 }
 
 export const DEFAULT_FILTERS: InboxFilterState = {
@@ -60,6 +66,8 @@ export const DEFAULT_FILTERS: InboxFilterState = {
   assigned: 'any',
   tagIds: [],
   janela: 'any',
+  closedOn: null,
+  createdOn: null,
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -95,6 +103,7 @@ export function matchesQueue(
   c: ConversationWithContact,
   queue: QueueId,
   userId: string | null,
+  now: number = Date.now(),
 ): boolean {
   switch (queue) {
     case 'todos':
@@ -114,7 +123,11 @@ export function matchesQueue(
     case 'aguardando_cliente':
       return !c.archived && c.status !== 'closed' && lastSpeaker(c) === 'nos';
     case 'encerrados':
-      return !c.archived && c.status === 'closed';
+      return !c.archived && c.status === 'closed' && Boolean(c.closed_at)
+        && dateInSaoPaulo(c.closed_at as string) === dateInSaoPaulo(new Date(now).toISOString());
+    case 'historico':
+      return !c.archived && c.status === 'closed' && Boolean(c.closed_at)
+        && dateInSaoPaulo(c.closed_at as string) < dateInSaoPaulo(new Date(now).toISOString());
     case 'prioridade_alta':
       return !c.archived && c.priority === 'alta';
     case 'nao_lidos':
@@ -171,7 +184,21 @@ export function matchesNonQueueFilters(
     if (f.janela === 'fora' && within) return false;
   }
 
+  if (f.closedOn && (!c.closed_at || dateInSaoPaulo(c.closed_at) !== f.closedOn)) return false;
+  if (f.createdOn && dateInSaoPaulo(c.created_at) !== f.createdOn) return false;
+
   return true;
+}
+
+function dateInSaoPaulo(iso: string): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date(iso));
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? '';
+  return `${part('year')}-${part('month')}-${part('day')}`;
 }
 
 // Predicado central: uma conversa passa se satisfaz TODOS os eixos ativos (AND).
@@ -181,7 +208,7 @@ export function matchesFilters(
   now: number,
   userId: string | null = null,
 ): boolean {
-  return matchesQueue(c, f.queue, userId) && matchesNonQueueFilters(c, f, now);
+  return matchesQueue(c, f.queue, userId, now) && matchesNonQueueFilters(c, f, now);
 }
 
 // Quantos eixos (fora canal e fila) estão ativos — alimenta o badge do botão
@@ -198,6 +225,8 @@ export function activeFilterCount(f: InboxFilterState): number {
   if (f.janela !== 'any') n++;
   if (f.departmentId !== 'any') n++;
   if (f.connectionId !== 'any') n++;
+  if (f.closedOn) n++;
+  if (f.createdOn) n++;
   return n;
 }
 
@@ -232,6 +261,8 @@ export function readFiltersFromParams(sp: URLSearchParams): InboxFilterState {
     assigned,
     tagIds,
     janela,
+    closedOn: /^\d{4}-\d{2}-\d{2}$/.test(sp.get('fcl') ?? '') ? sp.get('fcl') : null,
+    createdOn: /^\d{4}-\d{2}-\d{2}$/.test(sp.get('fcr') ?? '') ? sp.get('fcr') : null,
   };
 }
 
@@ -256,5 +287,7 @@ export function writeFiltersToParams(
   setOrDel('fas', f.assigned, f.assigned !== 'any');
   setOrDel('ftg', f.tagIds.join(','), f.tagIds.length > 0);
   setOrDel('fjw', f.janela, f.janela !== 'any');
+  setOrDel('fcl', f.closedOn ?? '', Boolean(f.closedOn));
+  setOrDel('fcr', f.createdOn ?? '', Boolean(f.createdOn));
   return next;
 }

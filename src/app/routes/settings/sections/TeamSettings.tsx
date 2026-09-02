@@ -1,6 +1,6 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
-import { Loader2, Mail, Power, UserRound, Trash2 } from 'lucide-react';
+import { BriefcaseBusiness, Building2, ChevronDown, Loader2, Mail, Power, UserRound, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -43,6 +43,10 @@ interface MemberRow {
   role: Role;
   user_id: string;
   email: string | null;
+  full_name: string | null;
+  department_id: string | null;
+  department_name: string | null;
+  position_names: string[];
   accepted_at: string | null;
   invite_accepted_at: string | null;
   is_active: boolean;
@@ -72,6 +76,7 @@ export function TeamSettings() {
   const [inviting, setInviting] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [expandedDepartments, setExpandedDepartments] = useState<Set<string>>(new Set());
 
   const loadAll = async () => {
     if (!userId) return;
@@ -79,12 +84,17 @@ export function TeamSettings() {
 
     // app_users tem só user_id; os e-mails vêm da RPC list_operators (join com
     // auth.users, SECURITY DEFINER). Merge por user_id.
-    const [membersRes, opsRes] = await Promise.all([
+    const [membersRes, opsRes, positionsRes] = await Promise.all([
       supabase
         .from('app_users')
         .select('id, role, user_id, accepted_at, invite_accepted_at, is_active')
         .order('invited_at', { ascending: true }),
       supabase.schema('whatsapp_hub').rpc('list_operators'),
+      supabase
+        .from('department_positions')
+        .select('user_id, name')
+        .not('user_id', 'is', null)
+        .order('name'),
     ]);
 
     if (membersRes.error) {
@@ -92,23 +102,85 @@ export function TeamSettings() {
         description: membersRes.error.message,
       });
     } else {
-      const emailByUser = new Map<string, string>(
-        ((opsRes.data ?? []) as { user_id: string; email: string }[]).map((o) => [o.user_id, o.email]),
+      const operatorByUser = new Map<string, {
+        email: string;
+        full_name: string | null;
+        department_id: string | null;
+        department_name: string | null;
+      }>(
+        ((opsRes.data ?? []) as Array<{
+          user_id: string;
+          email: string;
+          full_name: string | null;
+          department_id: string | null;
+          department_name: string | null;
+        }>).map((operator) => [operator.user_id, operator]),
       );
-      setMembers(
-        (membersRes.data ?? []).map((row) => ({
+      const positionsByUser = new Map<string, string[]>();
+      for (const position of (positionsRes.data ?? []) as Array<{ user_id: string; name: string }>) {
+        const current = positionsByUser.get(position.user_id) ?? [];
+        current.push(position.name);
+        positionsByUser.set(position.user_id, current);
+      }
+      const nextMembers = (membersRes.data ?? []).map((row) => {
+        const operator = operatorByUser.get(row.user_id as string);
+        return {
           id: row.id as string,
           role: row.role as Role,
           user_id: row.user_id as string,
-          email: emailByUser.get(row.user_id as string) ?? null,
+          email: operator?.email ?? null,
+          full_name: operator?.full_name ?? null,
+          department_id: operator?.department_id ?? null,
+          department_name: operator?.department_name ?? null,
+          position_names: positionsByUser.get(row.user_id as string) ?? [],
           accepted_at: (row.accepted_at as string | null) ?? null,
           invite_accepted_at: (row.invite_accepted_at as string | null) ?? null,
           is_active: (row.is_active as boolean | null) ?? true,
-        })),
-      );
+        };
+      });
+      setMembers(nextMembers);
+      setExpandedDepartments((current) => {
+        if (current.size > 0) return current;
+        return new Set(nextMembers.map((member) => member.department_id ?? 'unassigned'));
+      });
     }
 
     setLoading(false);
+  };
+
+  const membersByDepartment = useMemo(() => {
+    const grouped = new Map<string, { id: string; name: string; members: MemberRow[] }>();
+    for (const member of members) {
+      const id = member.department_id ?? 'unassigned';
+      const group = grouped.get(id) ?? {
+        id,
+        name: member.department_name ?? 'Sem departamento',
+        members: [],
+      };
+      group.members.push(member);
+      grouped.set(id, group);
+    }
+    return Array.from(grouped.values())
+      .map((group) => ({
+        ...group,
+        members: group.members.sort((a, b) =>
+          (a.full_name ?? a.email ?? '').localeCompare(b.full_name ?? b.email ?? '', 'pt-BR'),
+        ),
+      }))
+      .sort((a, b) => {
+        if (a.id === 'unassigned') return 1;
+        if (b.id === 'unassigned') return -1;
+        return a.name.localeCompare(b.name, 'pt-BR');
+      });
+  }, [members]);
+
+  const toggleDepartment = (id: string) => {
+    setExpandedDepartments((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   };
 
   useEffect(() => {
@@ -289,75 +361,110 @@ export function TeamSettings() {
               Nenhum membro ainda.
             </div>
           ) : (
-            <ul className="divide-y divide-[rgba(59,130,246,0.08)] rounded-lg border border-[rgba(59,130,246,0.1)] bg-white/[0.02]">
-              {members.map((m) => (
-                <li
-                  key={m.id}
-                  className={`flex items-center justify-between p-3 gap-3 ${m.is_active ? '' : 'opacity-60'}`}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    {m.email ? (
-                      <Avatar name={m.email} />
-                    ) : (
-                      <div className="h-8 w-8 rounded-full bg-white/5 flex items-center justify-center">
-                        <UserRound className="h-4 w-4 text-[var(--color-text-secondary)]" />
-                      </div>
+            <div className="space-y-2">
+              {membersByDepartment.map((department) => {
+                const expanded = expandedDepartments.has(department.id);
+                const activeCount = department.members.filter((member) => member.is_active).length;
+                return (
+                  <section key={department.id} className="overflow-hidden rounded-xl border border-[rgba(59,130,246,0.12)] bg-white/[0.02]">
+                    <button
+                      type="button"
+                      onClick={() => toggleDepartment(department.id)}
+                      aria-expanded={expanded}
+                      aria-controls={`team-department-${department.id}`}
+                      className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-white/[0.035]"
+                    >
+                      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[rgba(59,130,246,0.1)] text-[var(--accent-primary)]">
+                        <Building2 className="h-4 w-4" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold text-[var(--color-text-primary)]">{department.name}</span>
+                        <span className="block text-xs text-[var(--color-text-secondary)]">
+                          {department.members.length} membro{department.members.length !== 1 ? 's' : ''} · {activeCount} ativo{activeCount !== 1 ? 's' : ''}
+                        </span>
+                      </span>
+                      <ChevronDown className={`h-4 w-4 text-[var(--color-text-secondary)] transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {expanded && (
+                      <ul id={`team-department-${department.id}`} className="divide-y divide-[rgba(59,130,246,0.08)] border-t border-[rgba(59,130,246,0.08)]">
+                        {department.members.map((m) => {
+                          const displayName = m.full_name?.trim() || m.email || m.user_id;
+                          const positionLabel = m.position_names.length > 0
+                            ? m.position_names.join(' · ')
+                            : ROLE_LABEL[m.role] ?? 'Operador';
+                          return (
+                            <li key={m.id} className={`flex items-center justify-between gap-3 px-4 py-3 ${m.is_active ? '' : 'bg-white/[0.015]'}`}>
+                              <div className="flex min-w-0 items-center gap-3">
+                                {displayName ? (
+                                  <Avatar name={displayName} size="lg" className={m.is_active ? '' : 'grayscale'} />
+                                ) : (
+                                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/5">
+                                    <UserRound className="h-4 w-4 text-[var(--color-text-secondary)]" />
+                                  </div>
+                                )}
+                                <div className="min-w-0 text-sm">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className="max-w-[320px] truncate font-semibold text-[var(--color-text-primary)]">{displayName}</span>
+                                    {!m.is_active && <span className="rounded-full bg-[rgba(239,68,68,0.1)] px-2 py-0.5 text-[10px] font-semibold text-[#EF4444]">Desativado</span>}
+                                  </div>
+                                  <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--color-text-secondary)]">
+                                    <span className="inline-flex items-center gap-1 font-medium text-[var(--accent-secondary)]">
+                                      <BriefcaseBusiness className="h-3 w-3" />
+                                      {positionLabel}
+                                    </span>
+                                    {m.position_names.length > 0 && (
+                                      <>
+                                        <span aria-hidden="true">•</span>
+                                        <span>{ROLE_LABEL[m.role] ?? 'Operador'}</span>
+                                      </>
+                                    )}
+                                    {m.email && m.email !== displayName && <><span aria-hidden="true">•</span><span className="truncate">{m.email}</span></>}
+                                  </div>
+                                  <div className="mt-0.5 text-[11px] text-[var(--color-text-secondary)] opacity-75">
+                                    {!m.is_active
+                                      ? 'Acesso suspenso, histórico preservado'
+                                      : m.invite_accepted_at
+                                      ? `Ativo desde ${new Date(m.invite_accepted_at).toLocaleDateString('pt-BR')}`
+                                      : 'Convite pendente'}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex shrink-0 items-center gap-1">
+                                {canManageMember(callerRole, m.role) && m.user_id !== userId && (
+                                  <button
+                                    type="button"
+                                    onClick={() => void handleToggleActive(m)}
+                                    disabled={togglingId === m.user_id}
+                                    aria-label={`${m.is_active ? 'Desativar' : 'Ativar'} ${displayName}`}
+                                    title={m.is_active ? 'Desativar acesso' : 'Ativar acesso'}
+                                    className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors disabled:opacity-50 ${m.is_active ? 'text-[var(--color-text-secondary)] hover:bg-[rgba(239,68,68,0.12)] hover:text-[#EF4444]' : 'text-[var(--color-success)] hover:bg-[rgba(16,185,129,0.12)]'}`}
+                                  >
+                                    {togglingId === m.user_id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Power className="h-4 w-4" />}
+                                  </button>
+                                )}
+                                {isOwner && m.user_id !== userId && (
+                                  <button
+                                    type="button"
+                                    onClick={() => void handleRemove(m)}
+                                    disabled={removingId === m.user_id}
+                                    aria-label={`Remover ${displayName}`}
+                                    title="Remover membro"
+                                    className="flex h-9 w-9 items-center justify-center rounded-lg text-[var(--color-text-secondary)] transition-colors hover:bg-[rgba(239,68,68,0.12)] hover:text-[#EF4444] disabled:opacity-50"
+                                  >
+                                    {removingId === m.user_id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                                  </button>
+                                )}
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
                     )}
-                    <div className="text-sm min-w-0">
-                      <div className="text-[var(--color-text-primary)] truncate max-w-[280px]">
-                        {m.email ?? m.user_id}
-                      </div>
-                      <div className="text-[var(--color-text-secondary)] text-xs">
-                        {!m.is_active
-                          ? 'Acesso desativado'
-                          : m.invite_accepted_at
-                          ? `Aceitou em ${new Date(m.invite_accepted_at).toLocaleDateString('pt-BR')}`
-                          : 'Convite pendente'}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className="text-xs uppercase tracking-wide font-semibold text-[var(--accent-primary)]">
-                      {ROLE_LABEL[m.role] ?? 'Operador'}
-                    </span>
-                    {canManageMember(callerRole, m.role) && m.user_id !== userId && (
-                      <button
-                        type="button"
-                        onClick={() => void handleToggleActive(m)}
-                        disabled={togglingId === m.user_id}
-                        aria-label={`${m.is_active ? 'Desativar' : 'Ativar'} ${m.email ?? m.user_id}`}
-                        title={m.is_active ? 'Desativar acesso' : 'Ativar acesso'}
-                        className={`flex h-8 w-8 items-center justify-center rounded-lg transition disabled:opacity-50 ${
-                          m.is_active
-                            ? 'text-[var(--color-text-secondary)] hover:bg-[rgba(239,68,68,0.12)] hover:text-[#EF4444]'
-                            : 'text-[var(--color-success)] hover:bg-[rgba(16,185,129,0.12)]'
-                        }`}
-                      >
-                        {togglingId === m.user_id
-                          ? <Loader2 className="h-4 w-4 animate-spin" />
-                          : <Power className="h-4 w-4" />}
-                      </button>
-                    )}
-                    {isOwner && m.user_id !== userId && (
-                      <button
-                        type="button"
-                        onClick={() => void handleRemove(m)}
-                        disabled={removingId === m.user_id}
-                        aria-label={`Remover ${m.email ?? m.user_id}`}
-                        title="Remover membro"
-                        className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-text-secondary)] transition hover:bg-[rgba(239,68,68,0.12)] hover:text-[#EF4444] disabled:opacity-50"
-                      >
-                        {removingId === m.user_id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="h-4 w-4" />
-                        )}
-                      </button>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
+                  </section>
+                );
+              })}
+            </div>
           )}
         </div>
       </div>

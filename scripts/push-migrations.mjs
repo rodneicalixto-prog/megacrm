@@ -4,22 +4,33 @@
 // the PAT is sufficient, since /database/query runs as postgres.
 //
 // Usage:
-//   SUPABASE_ACCESS_TOKEN=sbp_... PROJECT_REF=abc node scripts/push-migrations.mjs
+//   SUPABASE_ACCESS_TOKEN=sbp_... SUPABASE_URL=https://abc.supabase.co node scripts/push-migrations.mjs
 // ============================================================================
 
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 const TOKEN = process.env.SUPABASE_ACCESS_TOKEN;
-const REF = process.env.PROJECT_REF;
+const SUPABASE_URL = process.env.SUPABASE_URL;
+
+function projectRefFromUrl(value) {
+  if (!value) return null;
+  try {
+    const match = new URL(value).hostname.match(/^([a-z0-9]+)\.supabase\.co$/i);
+    return match?.[1] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+const REF = process.env.PROJECT_REF || projectRefFromUrl(SUPABASE_URL);
 const ENCRYPTION_KEY = process.env.APP_ENCRYPTION_KEY;
 
 if (!TOKEN || !REF) {
-  console.error('Missing SUPABASE_ACCESS_TOKEN or PROJECT_REF env vars.');
+  console.error('Missing SUPABASE_ACCESS_TOKEN or PROJECT_REF (or a valid SUPABASE_URL).');
   process.exit(2);
 }
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 // Migrations may contain placeholders we substitute at push time so the real
