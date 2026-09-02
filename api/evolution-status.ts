@@ -120,7 +120,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         url: hook,
         byEvents: false,
         base64: false,
-        events: ['MESSAGES_UPSERT'],
+        events: ['MESSAGES_UPSERT', 'CONTACTS_UPSERT'],
       },
     };
     const flat = {
@@ -128,7 +128,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       url: hook,
       webhookByEvents: false,
       webhookBase64: false,
-      events: ['MESSAGES_UPSERT'],
+      events: ['MESSAGES_UPSERT', 'CONTACTS_UPSERT'],
     };
 
     const endpoint = `${serverUrl}/webhook/set/${encodeURIComponent(instance)}`;
