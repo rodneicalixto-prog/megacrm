@@ -9,6 +9,7 @@ import {
   Trash2,
   Upload,
   Users,
+  Forward,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useContacts, type ContactSort } from '@/hooks/useContacts';
@@ -21,6 +22,8 @@ import { CONTACT_SOURCE_LABEL } from '@/types/crm';
 import { TRAFFIC_LABEL } from '@/lib/dashboard';
 import { LoadErrorBanner } from '@/components/LoadErrorBanner';
 import { buildContactsCsv, downloadCsv, fetchContactsForExport } from '@/lib/contactsCsv';
+import { operatorLabel, useOperators } from '@/hooks/useOperators';
+import { getSupabase } from '@/lib/supabase';
 
 const PAGE_SIZE_OPTIONS = [25, 50, 100, 1000] as const;
 
@@ -43,6 +46,7 @@ export default function ContactsPage() {
   const [showImport, setShowImport] = useState(false);
 
   const { tags } = useTags();
+  const { operators } = useOperators();
   const { contacts, total, loading, error, remove, assignTags, reload } = useContacts({
     search,
     tagId: tagFilter,
@@ -106,6 +110,26 @@ export default function ContactsPage() {
       toast.success(`Tag "${tag?.name}" aplicada a ${selected.size} contato(s).`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Não foi possível aplicar a tag.');
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const handleForward = async (operatorId: string) => {
+    if (!operatorId || selected.size === 0) return;
+    setBulkBusy(true);
+    try {
+      for (const contactId of selected) {
+        const { error } = await getSupabase().schema('whatsapp_hub').rpc('forward_contact', {
+          p_contact_id: contactId,
+          p_to_user_id: operatorId,
+        });
+        if (error) throw error;
+      }
+      toast.success(`${selected.size} contato(s) encaminhado(s).`);
+      setSelected(new Set());
+    } catch (error) {
+      toast.error('Não foi possível encaminhar', { description: error instanceof Error ? error.message : String(error) });
     } finally {
       setBulkBusy(false);
     }
@@ -246,6 +270,19 @@ export default function ContactsPage() {
               {selected.size} selecionado{selected.size > 1 ? 's' : ''}
             </span>
             <div className="ml-auto flex items-center gap-1 flex-wrap">
+              <label className="relative inline-flex items-center">
+                <Forward className="pointer-events-none absolute left-2 h-3.5 w-3.5" />
+                <select
+                  aria-label="Encaminhar contatos"
+                  defaultValue=""
+                  disabled={bulkBusy}
+                  onChange={(event) => { void handleForward(event.target.value); event.currentTarget.value = ''; }}
+                  className="h-8 rounded-lg border border-[rgba(59,130,246,0.2)] bg-[var(--color-bg-elevated)] pl-7 pr-2 text-xs"
+                >
+                  <option value="" disabled>Encaminhar para…</option>
+                  {operators.map((operator) => <option key={operator.user_id} value={operator.user_id}>{operatorLabel(operator)}</option>)}
+                </select>
+              </label>
               {tags.slice(0, 5).map((t) => (
                 <button
                   key={t.id}

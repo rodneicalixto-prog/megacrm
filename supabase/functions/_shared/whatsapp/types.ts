@@ -196,6 +196,56 @@ export function decodeBaileysContent(msg: Record<string, unknown>): {
   if (Object.keys(contactCard).length) {
     return { contentType: 'text', content: `👤 Contato compartilhado: ${str(contactCard, ['displayName']) ?? 'sem nome'}`, mediaUrl: null };
   }
+  // Templates/interativos enviados pelo WhatsApp ou por uma automacao chegam
+  // na Evolution como `templateMessage`. O texto pode variar de lugar entre
+  // versoes do Baileys, principalmente `hydratedTemplate` e
+  // `hydratedFourRowTemplate`. Antes este shape caia no fallback e aparecia na
+  // Inbox como "[Mensagem não suportada: templateMessage]", embora o conteúdo
+  // textual estivesse presente no payload.
+  const template = asObject(msg.templateMessage);
+  if (Object.keys(template).length) {
+    const hydrated = asObject(template.hydratedTemplate);
+    const fourRows = asObject(template.hydratedFourRowTemplate);
+    const body =
+      str(template, ['hydratedContentText', 'contentText', 'text']) ??
+      str(hydrated, ['hydratedContentText', 'contentText', 'text']) ??
+      str(fourRows, ['hydratedContentText', 'contentText', 'text']);
+    const footer =
+      str(template, ['hydratedFooterText', 'footerText']) ??
+      str(hydrated, ['hydratedFooterText', 'footerText']) ??
+      str(fourRows, ['hydratedFooterText', 'footerText']);
+    const content = [body, footer].filter((value): value is string => Boolean(value)).join('\n');
+    return {
+      contentType: 'text',
+      content: content || 'Mensagem interativa do WhatsApp',
+      mediaUrl: null,
+    };
+  }
+  const buttons = asObject(msg.buttonsMessage);
+  if (Object.keys(buttons).length) {
+    return {
+      contentType: 'text',
+      content: str(buttons, ['contentText', 'text', 'footerText']) ?? 'Mensagem com botões',
+      mediaUrl: null,
+    };
+  }
+  const buttonResponse = asObject(msg.buttonsResponseMessage);
+  if (Object.keys(buttonResponse).length) {
+    return {
+      contentType: 'text',
+      content: str(buttonResponse, ['selectedDisplayText', 'selectedButtonId']) ?? 'Resposta de botão',
+      mediaUrl: null,
+    };
+  }
+  const listResponse = asObject(msg.listResponseMessage);
+  if (Object.keys(listResponse).length) {
+    const reply = asObject(listResponse.singleSelectReply);
+    return {
+      contentType: 'text',
+      content: str(listResponse, ['title', 'description']) ?? str(reply, ['selectedRowId']) ?? 'Resposta de lista',
+      mediaUrl: null,
+    };
+  }
   // Tipo não mapeado (enquete, resposta de botão/lista, cartão de visita
   // múltiplo, etc.) — melhor um rótulo genérico com a chave real (ajuda a
   // identificar o tipo quando aparecer em produção) do que uma bolha em

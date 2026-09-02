@@ -68,7 +68,7 @@ export function ConversationList({
 
   return (
     <ul className="divide-y divide-[rgba(59,130,246,0.06)]">
-      {conversations.map((c) => {
+      {[...conversations].sort((a, b) => Number(b.isFavorite) - Number(a.isFavorite)).map((c) => {
         const badge = statusBadge(c.status);
         const Icon = badge.Icon;
         const chan = channelBadge(c.channel);
