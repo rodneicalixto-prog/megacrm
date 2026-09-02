@@ -38,14 +38,29 @@ const buttonVariants = cva(
 
 export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {}
+    VariantProps<typeof buttonVariants> {
+  loading?: boolean;
+}
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, ...props }, ref) => {
+  ({ className, variant, size, loading, disabled, onClick, ...props }, ref) => {
+    const handleClick: React.MouseEventHandler<HTMLButtonElement> = (event) => {
+      const target = event.currentTarget;
+      const wave = document.createElement('span');
+      wave.className = 'ripple-wave';
+      wave.style.left = `${event.nativeEvent.offsetX}px`;
+      wave.style.top = `${event.nativeEvent.offsetY}px`;
+      target.appendChild(wave);
+      setTimeout(() => wave.remove(), 500);
+      onClick?.(event);
+    };
+
     return (
       <button
         ref={ref}
-        className={cn(buttonVariants({ variant, size, className }))}
+        className={cn(buttonVariants({ variant, size, className }), 'btn-ripple', loading && 'btn-loading')}
+        disabled={disabled || loading}
+        onClick={handleClick}
         {...props}
       />
     );
