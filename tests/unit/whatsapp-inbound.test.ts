@@ -154,6 +154,27 @@ test('contato já existente é reaproveitado em vez de duplicado', async () => {
   expect(db.rows('conversations')[0]).toMatchObject({ contact_id: 'c-existente' });
 });
 
+test('contato existente sem nome é identificado pelo pushName da Evolution', async () => {
+  db.seed('contacts', [{ id: 'c-agenda', phone: '+5511999998888', name: null }]);
+
+  await handleInbound(post(EVOLUTION_URL, msg({ pushName: 'Talita Marques' })));
+
+  expect(db.rows('contacts')).toHaveLength(1);
+  expect(db.rows('contacts')[0]).toMatchObject({
+    id: 'c-agenda',
+    phone: '+5511999998888',
+    name: 'Talita Marques',
+  });
+});
+
+test('pushName da Evolution não sobrescreve nome editado pelo operador', async () => {
+  db.seed('contacts', [{ id: 'c-manual', phone: '+5511999998888', name: 'Talita Comercial' }]);
+
+  await handleInbound(post(EVOLUTION_URL, msg({ pushName: 'Talita Marques' })));
+
+  expect(db.rows('contacts')[0]).toMatchObject({ name: 'Talita Comercial' });
+});
+
 test('a atribuição é chamada com o telefone resolvido', async () => {
   await handleInbound(post(EVOLUTION_URL, msg()));
   const chamada = db.rpcCalls.find((c) => c.name === 'attribute_inbound_lead');
