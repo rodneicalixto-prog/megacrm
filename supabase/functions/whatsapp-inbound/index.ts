@@ -360,20 +360,21 @@ export async function handleInbound(req: Request): Promise<Response> {
   // mensagens em dobro.
   if (provider.name !== 'zernio') {
     let conversationId: string | null = null;
-    let existingConversation: {
+    type ExistingConversationRow = {
       id: string;
       status: string;
       archived: boolean;
       ai_paused: boolean;
-    } | null = null;
+    };
+    let existingConversation: ExistingConversationRow | null = null;
     const { data: existingConv } = await admin
       .from('conversations').select('id, status, archived, ai_paused')
       .eq('contact_id', contactId)
       .eq('department_id', departmentId)
       .maybeSingle();
     if (existingConv) {
-      existingConversation = existingConv as typeof existingConversation;
-      conversationId = existingConversation?.id ?? null;
+      existingConversation = existingConv as ExistingConversationRow;
+      conversationId = existingConversation.id;
     }
     else {
       const { data: createdConv, error: conversationError } = await admin
