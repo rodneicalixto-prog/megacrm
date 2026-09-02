@@ -153,6 +153,35 @@ test('sem filtro ativo, tudo passa', () => {
   assert.equal(matchesFilters(conv(), DEFAULT_FILTERS, NOW), true);
 });
 
+test('todas as filas mostram somente atendimentos com atividade no dia', () => {
+  const ontem = new Date(NOW - 25 * 60 * 60 * 1000).toISOString();
+  const filas = ['todos', 'meus', 'aguardando', 'em_atendimento', 'prioridade_alta', 'favoritos'] as const;
+
+  for (const queue of filas) {
+    const antiga = conv({
+      last_message_at: ontem,
+      assigned_to: 'u1',
+      status: queue === 'em_atendimento' ? 'human_active' : 'ai_active',
+      priority: 'alta',
+      isFavorite: true,
+    });
+    assert.equal(matchesFilters(antiga, { ...DEFAULT_FILTERS, queue }, NOW, 'u1'), false);
+  }
+});
+
+test('encerramento feito hoje permanece na fila mesmo com ultima mensagem antiga', () => {
+  const ontem = new Date(NOW - 25 * 60 * 60 * 1000).toISOString();
+  const fechadaHoje = conv({
+    status: 'closed',
+    last_message_at: ontem,
+    closed_at: new Date(NOW - 30 * 60 * 1000).toISOString(),
+  });
+  const f = { ...DEFAULT_FILTERS, queue: 'encerrados' as const };
+
+  assert.equal(matchesFilters(fechadaHoje, f, NOW), true);
+  assert.equal(matchesFilters({ ...fechadaHoje, closed_at: ontem }, f, NOW), false);
+});
+
 test('filtro de canal separa Evolution de WhatsApp oficial', () => {
   const f = { ...DEFAULT_FILTERS, channel: 'whatsapp' as const };
   assert.equal(matchesFilters(conv({ channel: 'evolution' }), f, NOW), false);
