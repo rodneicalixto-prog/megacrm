@@ -327,8 +327,20 @@ export async function handleInbound(req: Request): Promise<Response> {
   let contactId: string | null = null;
   {
     const { data: existing } = await admin
-      .from('contacts').select('id').eq('phone', phone).maybeSingle();
-    if (existing) contactId = (existing as { id: string }).id;
+      .from('contacts').select('id, name').eq('phone', phone).maybeSingle();
+    if (existing) {
+      const existingContact = existing as { id: string; name: string | null };
+      contactId = existingContact.id;
+      // O contato pode ter sido criado antes da sincronizacao da agenda ou por
+      // uma mensagem antiga sem pushName. Nesse caso a Inbox mostrava o numero
+      // mesmo quando a Evolution agora entregava o nome do perfil/agenda no
+      // evento. Preenchemos somente nome vazio para nunca apagar uma edicao
+      // manual feita pelo operador.
+      const senderName = inbound.senderName?.trim();
+      if (!existingContact.name?.trim() && senderName) {
+        await admin.from('contacts').update({ name: senderName }).eq('id', existingContact.id);
+      }
+    }
     else {
       const { data: created, error } = await admin
         .from('contacts')

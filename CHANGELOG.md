@@ -47,6 +47,19 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ### Fixed
 
+- **Contato já salvo aparecia apenas como número na Inbox**: quando uma
+  mensagem Evolution encontra o telefone exato de um contato existente cujo
+  nome ainda está vazio, o `pushName` recebido agora completa o cadastro. Um
+  nome editado manualmente pelo operador continua preservado.
+
+- **`[Mensagem não suportada: templateMessage]` na Inbox**: o decoder da
+  Evolution agora extrai corpo e rodapé de templates hidratados, além de
+  mensagens e respostas de botões/listas. Quando uma versão do Baileys não
+  entrega nenhum texto conhecido, a conversa mostra “Mensagem interativa do
+  WhatsApp” em vez do nome técnico do payload. A migration também troca o
+  rótulo técnico das linhas antigas; o corpo original dessas linhas não pode ser
+  recuperado porque o payload bruto histórico não era persistido.
+
 - **Certos tipos de mensagem do WhatsApp chegavam como bolha em branco no
   Inbox** (relatado como "não visualizo o que chegou"): confirmado no banco
   que as duas mensagens do caso tinham `content_type: 'text'` e `content:
