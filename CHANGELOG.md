@@ -9,6 +9,12 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ### Added
 
+- **Equipe agrupada por departamento**: “Membros atuais” agora organiza os
+  usuários em seções expansíveis por departamento, mostrando nome como
+  identificação principal, cargo vinculado, papel de acesso, e-mail, estado da
+  conta e totais de membros ativos. Usuários sem setor aparecem em um grupo
+  próprio para que cadastros incompletos não fiquem escondidos.
+
 - **Grupos privados, contatos fixados e encaminhamento pontual**: a Inbox agora
   permite criar grupos pessoais para filtrar atendimentos e manter até cinco
   conversas favoritas no topo. A aba Contatos encaminha somente os cadastros
