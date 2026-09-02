@@ -48,6 +48,8 @@ projeto real usado neste repositório:
 
 - **Supabase** — project ref `lstbxeaasyysboavdati` (nome exibido no painel:
   "calixto testesProject", região `us-east-1`, org `jfpiyugtvtuihjuqweyc`).
+  API URL confirmada pelo proprietário em 02/09/2026:
+  `https://lstbxeaasyysboavdati.supabase.co`.
   Dashboard: `https://supabase.com/dashboard/project/lstbxeaasyysboavdati`.
   Referenciado como produção neste repo desde antes desta entrada (ver seção
   10 do `PLANEJAMENTO.md`); o nome "testes" no painel é do próprio Supabase,
@@ -59,6 +61,12 @@ projeto real usado neste repositório:
   ganha preview em `megacrm-git-<branch>-rodnei-calixto-s-projects.vercel.app`
   — **não confirmado** qual branch está publicada no domínio de produção
   (fora do escopo verificado até agora, ver `ISSUES.md`).
+
+> A URL identifica o projeto, mas não autoriza migrations, consultas ou deploy
+> de Edge Functions. Operações administrativas exigem
+> `SUPABASE_ACCESS_TOKEN`; migrations com placeholders também podem exigir as
+> demais variáveis descritas em `.env.example`. Nunca registrar esses segredos
+> em Markdown ou no Git.
 
 ---
 

@@ -137,6 +137,54 @@ body {
     border: 1px solid rgba(59, 130, 246, 0.12);
   }
 
+  /* Interacao reservada a cards/linhas que realmente navegam. Evita que todo
+     card estatico pareca clicavel e adapta o efeito premium sugerido aos
+     tokens dos dois temas. */
+  .dashboard-interactive-card {
+    position: relative;
+    overflow: hidden;
+    transition: transform 160ms ease, box-shadow 180ms ease, border-color 180ms ease;
+  }
+
+  .dashboard-interactive-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    background: radial-gradient(circle at 20% 0%, color-mix(in srgb, var(--accent-primary) 14%, transparent), transparent 45%);
+    transition: opacity 180ms ease;
+  }
+
+  .dashboard-interactive-card:hover {
+    transform: translateY(-3px);
+    border-color: color-mix(in srgb, var(--accent-primary) 45%, transparent);
+    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.16), 0 0 24px color-mix(in srgb, var(--accent-primary) 8%, transparent);
+  }
+
+  .dashboard-interactive-card:hover::after { opacity: 1; }
+  .dashboard-interactive-card:active { transform: translateY(0) scale(0.985); }
+
+  .dashboard-interactive-row {
+    transition: transform 140ms ease, background-color 160ms ease, box-shadow 160ms ease;
+  }
+  .dashboard-interactive-row:hover {
+    transform: translateX(2px);
+    background: color-mix(in srgb, var(--accent-primary) 7%, transparent);
+    box-shadow: inset 2px 0 0 var(--accent-primary);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dashboard-interactive-card,
+    .dashboard-interactive-card::after,
+    .dashboard-interactive-row {
+      transition-duration: 0.01ms;
+    }
+    .dashboard-interactive-card:hover,
+    .dashboard-interactive-card:active,
+    .dashboard-interactive-row:hover { transform: none; }
+  }
+
   .text-display {
     font-weight: 700;
   }

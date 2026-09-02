@@ -200,6 +200,20 @@ export default function InboxPage() {
         clear: () => updateFilters({ ...filters, janela: 'any' }),
       });
     }
+    if (filters.closedOn) {
+      chips.push({
+        key: 'cl',
+        label: `Finalizadas em: ${new Date(`${filters.closedOn}T12:00:00`).toLocaleDateString('pt-BR')}`,
+        clear: () => updateFilters({ ...filters, closedOn: null }),
+      });
+    }
+    if (filters.createdOn) {
+      chips.push({
+        key: 'cr',
+        label: `Criadas em: ${new Date(`${filters.createdOn}T12:00:00`).toLocaleDateString('pt-BR')}`,
+        clear: () => updateFilters({ ...filters, createdOn: null }),
+      });
+    }
     return chips;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters, operators, tags, departments, lines]);

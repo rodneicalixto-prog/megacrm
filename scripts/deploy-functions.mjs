@@ -5,17 +5,27 @@
 // webhooks and intentionally public endpoints disable it.
 //
 // Usage:
-//   SUPABASE_ACCESS_TOKEN=sbp_... PROJECT_REF=abc npm run functions:deploy
+//   SUPABASE_ACCESS_TOKEN=sbp_... SUPABASE_URL=https://abc.supabase.co npm run functions:deploy
 // ============================================================================
 
 import { readdirSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 
 const TOKEN = process.env.SUPABASE_ACCESS_TOKEN;
-const REF = process.env.PROJECT_REF;
+function projectRefFromUrl(value) {
+  if (!value) return null;
+  try {
+    const match = new URL(value).hostname.match(/^([a-z0-9]+)\.supabase\.co$/i);
+    return match?.[1] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+const REF = process.env.PROJECT_REF || projectRefFromUrl(process.env.SUPABASE_URL);
 
 if (!TOKEN || !REF) {
-  console.error('Missing SUPABASE_ACCESS_TOKEN or PROJECT_REF env vars.');
+  console.error('Missing SUPABASE_ACCESS_TOKEN or PROJECT_REF (or a valid SUPABASE_URL).');
   process.exit(2);
 }
 
