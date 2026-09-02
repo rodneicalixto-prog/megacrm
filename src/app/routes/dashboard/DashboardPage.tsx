@@ -4,6 +4,7 @@ import { useOperators } from '@/hooks/useOperators';
 import { useAttendanceMetrics } from '@/hooks/useAttendanceMetrics';
 import { useAiObservability } from '@/hooks/useAiObservability';
 import { lineLabel, useDepartments } from '@/hooks/useDepartments';
+import { useScrollReveal } from '@/hooks/useScrollReveal';
 import { AttendancePanel } from '@/components/dashboard/AttendancePanel';
 import { LoadErrorBanner } from '@/components/LoadErrorBanner';
 
@@ -35,9 +36,13 @@ export default function DashboardPage() {
     ? lines
     : lines.filter((line) => line.department_id === departmentId);
 
+  const headerReveal = useScrollReveal<HTMLDivElement>();
+  const panelReveal = useScrollReveal<HTMLDivElement>();
+  const aiStatsReveal = useScrollReveal<HTMLDivElement>();
+
   return (
     <div className="mx-auto max-w-7xl space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div ref={headerReveal} data-animate className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex items-center gap-4">
           <div className="icon-chip flex h-12 w-12 items-center justify-center rounded-xl">
             <LayoutDashboard className="h-5 w-5 text-[var(--accent-primary)]" />
@@ -105,11 +110,13 @@ export default function DashboardPage() {
           Carregando atendimento...
         </div>
       ) : (
-        <AttendancePanel metrics={attendance.metrics} operators={operators} inboxScope={inboxScope.toString()} metricsMonth={metricsMonth} />
+        <div ref={panelReveal} data-animate data-delay="1">
+          <AttendancePanel metrics={attendance.metrics} operators={operators} inboxScope={inboxScope.toString()} metricsMonth={metricsMonth} />
+        </div>
       )}
 
       {aiStats.messages > 0 && (
-        <div className="glass-card p-4">
+        <div ref={aiStatsReveal} data-animate data-delay="2" className="glass-card p-4">
           <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-[var(--color-text-primary)]">
             <Sparkles className="h-4 w-4 text-[var(--accent-primary)]" />
             Uso da IA (últimos 7 dias)

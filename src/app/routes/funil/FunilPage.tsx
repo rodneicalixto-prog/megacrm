@@ -13,6 +13,7 @@ import { DealDrawer } from '@/components/funil/DealDrawer';
 import { FunilManager } from '@/components/funil/FunilManager';
 import { FunilFilter, applyDealFilter, EMPTY_FILTER, type DealFilter } from '@/components/funil/FunilFilter';
 import { OriginBadge } from '@/components/origin/OriginBadge';
+import { useScrollReveal } from '@/hooks/useScrollReveal';
 import { TEMPERATURE_STYLE, type ContactLite, type CustomField, type Deal, type Product, type Stage } from '@/types/crm';
 import { dueBadge } from '@/lib/nextAction';
 
@@ -102,9 +103,11 @@ export default function FunilPage() {
     [filteredDeals],
   );
 
+  const headerReveal = useScrollReveal<HTMLDivElement>();
+
   return (
     <div className="max-w-full space-y-6">
-      <div className="flex flex-wrap items-center gap-4">
+      <div ref={headerReveal} data-animate className="flex flex-wrap items-center gap-4">
         <div className="h-12 w-12 rounded-xl icon-chip flex items-center justify-center">
           <SquareKanban className="h-5 w-5 text-[var(--accent-primary)]" />
         </div>

@@ -18,6 +18,7 @@ import { ContactPanel } from '@/components/inbox/ContactPanel';
 import { TransferDialog } from '@/components/inbox/TransferDialog';
 import { InboxFilters } from '@/components/inbox/InboxFilters';
 import { hasSessionWindow } from '@/types/inbox';
+import { useScrollReveal } from '@/hooks/useScrollReveal';
 import {
   DEFAULT_FILTERS,
   matchesFilters,
@@ -307,9 +308,11 @@ export default function InboxPage() {
     setReplyMessage(message);
   };
 
+  const headerReveal = useScrollReveal<HTMLDivElement>();
+
   return (
     <div className="h-[calc(100vh-6rem)] flex flex-col">
-      <div className="flex items-center justify-between mb-4">
+      <div ref={headerReveal} data-animate className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-4">
           <div className="h-12 w-12 rounded-xl icon-chip flex items-center justify-center">
             <InboxIcon className="h-5 w-5 text-[var(--accent-primary)]" />
