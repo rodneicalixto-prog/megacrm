@@ -9,6 +9,15 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ### Added
 
+- **Grupos privados, contatos fixados e encaminhamento pontual**: a Inbox agora
+  permite criar grupos pessoais para filtrar atendimentos e manter até cinco
+  conversas favoritas no topo. A aba Contatos encaminha somente os cadastros
+  selecionados, com validação de papel e departamento, sem compartilhar listas
+  completas nem transferir conversas. O webhook Evolution também passa a
+  receber `CONTACTS_UPSERT` para salvar contatos individuais após o pareamento,
+  preservando nomes já editados. O contexto funcional e o roteiro-base do
+  futuro manual estão em `docs/memory/2026-09-inbox-groups-contacts.md`.
+
 - **Ativação e desativação hierárquica de usuários**: em Configurações →
   Equipe, `super_admin` pode suspender/reativar admins, supervisores e
   operadores; `admin` pode fazer o mesmo com supervisores e operadores. A

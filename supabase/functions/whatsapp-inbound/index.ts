@@ -95,6 +95,38 @@ export async function handleInbound(req: Request): Promise<Response> {
 
   const admin = getAdminClient();
 
+  // Ao parear o celular, a Evolution emite CONTACTS_UPSERT com a agenda
+  // sincronizada. Persistimos somente contatos individuais; grupos, listas e
+  // status ficam fora da base de atendimento. O upsert preserva dados que o
+  // operador ja enriqueceu e completa apenas nomes ainda vazios.
+  if (provider.name === 'evolution') {
+    const root = payload && typeof payload === 'object' ? payload as Record<string, unknown> : {};
+    const event = String(root.event ?? '').toLowerCase().replace(/_/g, '.');
+    if (event === 'contacts.upsert') {
+      const rawRows = Array.isArray(root.data) ? root.data : [root.data];
+      let saved = 0;
+      for (const rawRow of rawRows) {
+        if (!rawRow || typeof rawRow !== 'object') continue;
+        const row = rawRow as Record<string, unknown>;
+        const jid = String(row.remoteJid ?? row.id ?? '');
+        if (!jid.endsWith('@s.whatsapp.net')) continue;
+        const digits = jid.split('@')[0].replace(/\D/g, '');
+        if (digits.length < 8) continue;
+        const name = String(row.pushName ?? row.name ?? row.notify ?? '').trim() || null;
+        const { data: existing } = await admin.from('contacts').select('id, name').eq('phone', `+${digits}`).maybeSingle();
+        if (existing) {
+          if (!(existing as { name: string | null }).name && name) {
+            await admin.from('contacts').update({ name }).eq('id', (existing as { id: string }).id);
+          }
+        } else {
+          const { error } = await admin.from('contacts').insert({ phone: `+${digits}`, name, source: 'whatsapp' });
+          if (!error) saved++;
+        }
+      }
+      return jsonResponse({ ok: true, contacts_synced: saved });
+    }
+  }
+
   // Reação (emoji) — não é mensagem: nunca criava contato/conversa, só
   // anotava (ou removia) a reação na mensagem alvo. Precisa ser interceptada
   // ANTES de parseInboundWebhook: esse não reconhece reactionMessage e
