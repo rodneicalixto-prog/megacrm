@@ -105,6 +105,48 @@ test('tipo de mensagem desconhecido nunca vira bolha em branco (rótulo genéric
   assert.equal(got?.text, '[Mensagem não suportada: pollCreationMessage]');
 });
 
+test('templateMessage exibe o conteúdo e o rodapé em vez de mensagem não suportada', () => {
+  const got = provider.parseInboundWebhook({
+    event: 'messages.upsert',
+    data: {
+      key: { remoteJid: '5511999998888@s.whatsapp.net', fromMe: false, id: 'TPL1' },
+      message: {
+        templateMessage: {
+          hydratedTemplate: {
+            hydratedContentText: 'Seu atendimento foi confirmado.',
+            hydratedFooterText: 'Equipe MegaCRM',
+            hydratedButtons: [{ quickReplyButton: { displayText: 'Confirmar', id: 'ok' } }],
+          },
+        },
+      },
+    },
+  });
+  assert.equal(got?.contentType, 'text');
+  assert.equal(got?.text, 'Seu atendimento foi confirmado.\nEquipe MegaCRM');
+});
+
+test('templateMessage sem texto conhecido recebe rótulo legível', () => {
+  const got = provider.parseInboundWebhook({
+    event: 'messages.upsert',
+    data: {
+      key: { remoteJid: '5511999998888@s.whatsapp.net', fromMe: false, id: 'TPL2' },
+      message: { templateMessage: { hydratedTemplate: { hydratedButtons: [] } } },
+    },
+  });
+  assert.equal(got?.text, 'Mensagem interativa do WhatsApp');
+});
+
+test('resposta de botão exibe a opção escolhida', () => {
+  const got = provider.parseInboundWebhook({
+    event: 'messages.upsert',
+    data: {
+      key: { remoteJid: '5511999998888@s.whatsapp.net', fromMe: false, id: 'BTN1' },
+      message: { buttonsResponseMessage: { selectedButtonId: 'sim', selectedDisplayText: 'Sim, confirmar' } },
+    },
+  });
+  assert.equal(got?.text, 'Sim, confirmar');
+});
+
 test('mensagem de grupo é ignorada (senão a IA responderia no privado de quem falou)', () => {
   const got = provider.parseInboundWebhook({
     event: 'messages.upsert',
