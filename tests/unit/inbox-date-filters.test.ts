@@ -45,6 +45,17 @@ describe('filtros de data do dashboard', () => {
     expect(matchesFilters(conversation({ closed_at: '2026-09-02T02:59:59Z' }), filters, Date.now(), 'user-1')).toBe(false);
   });
 
+  test('fila Encerrados mostra somente hoje e Histórico recebe os dias anteriores', () => {
+    const now = new Date('2026-09-02T15:00:00Z').getTime();
+    const encerrados = { ...DEFAULT_FILTERS, queue: 'encerrados' as const };
+    const historico = { ...DEFAULT_FILTERS, queue: 'historico' as const };
+
+    expect(matchesFilters(conversation({ closed_at: '2026-09-02T03:00:00Z' }), encerrados, now, 'user-1')).toBe(true);
+    expect(matchesFilters(conversation({ closed_at: '2026-09-02T02:59:59Z' }), encerrados, now, 'user-1')).toBe(false);
+    expect(matchesFilters(conversation({ closed_at: '2026-09-02T02:59:59Z' }), historico, now, 'user-1')).toBe(true);
+    expect(matchesFilters(conversation({ closed_at: '2026-09-02T03:00:00Z' }), historico, now, 'user-1')).toBe(false);
+  });
+
   test('dia do gráfico inclui conversas criadas no dia independentemente do status atual', () => {
     const filters = { ...DEFAULT_FILTERS, status: [], createdOn: '2026-09-01' };
 

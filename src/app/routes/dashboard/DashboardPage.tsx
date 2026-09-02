@@ -12,12 +12,20 @@ import { LoadErrorBanner } from '@/components/LoadErrorBanner';
 export default function DashboardPage() {
   const [departmentId, setDepartmentId] = useState('all');
   const [connectionId, setConnectionId] = useState('all');
+  const [metricsMonth, setMetricsMonth] = useState(() => {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit',
+    }).formatToParts(new Date());
+    const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? '';
+    return `${part('year')}-${part('month')}`;
+  });
   const { operators } = useOperators();
   const { departments, lines, loading: loadingDepartments } = useDepartments();
   const { data: aiStats } = useAiObservability(7);
   const attendance = useAttendanceMetrics(
     departmentId === 'all' ? null : departmentId,
     connectionId === 'all' ? null : connectionId,
+    metricsMonth,
   );
   const inboxScope = new URLSearchParams();
   if (departmentId !== 'all') inboxScope.set('fdp', departmentId);
@@ -42,7 +50,7 @@ export default function DashboardPage() {
             </p>
           </div>
         </div>
-        <div className="grid w-full gap-3 sm:w-auto sm:grid-cols-2">
+        <div className="grid w-full gap-3 sm:w-auto sm:grid-cols-3">
           <label className="w-full sm:w-56">
             <span className="mb-1.5 block text-label">Setor</span>
             <select
@@ -78,6 +86,15 @@ export default function DashboardPage() {
               })}
             </select>
           </label>
+          <label className="w-full sm:w-44">
+            <span className="mb-1.5 block text-label">Mês das métricas</span>
+            <input
+              type="month"
+              value={metricsMonth}
+              onChange={(event) => setMetricsMonth(event.target.value)}
+              className="min-h-11 w-full rounded-lg border border-[rgba(236,72,153,0.3)] bg-[var(--color-bg-elevated)] px-3 text-sm text-[var(--color-text-primary)] outline-none transition focus:border-[#EC4899]"
+            />
+          </label>
         </div>
       </div>
 
@@ -88,7 +105,7 @@ export default function DashboardPage() {
           Carregando atendimento...
         </div>
       ) : (
-        <AttendancePanel metrics={attendance.metrics} operators={operators} inboxScope={inboxScope.toString()} />
+        <AttendancePanel metrics={attendance.metrics} operators={operators} inboxScope={inboxScope.toString()} metricsMonth={metricsMonth} />
       )}
 
       {aiStats.messages > 0 && (

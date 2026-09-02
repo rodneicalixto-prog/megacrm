@@ -62,7 +62,7 @@ function SevenDayChart({ data, inboxLink }: { data: { dia: string; novas: number
           >
             <span className="text-[10px] text-[var(--color-text-secondary)]">{d.novas}</span>
             <div
-              className="w-full rounded-t bg-gradient-to-t from-[#1E3A8A] to-[#3B82F6] transition-[filter,transform] duration-150 group-hover/day:brightness-125 group-hover/day:-translate-y-0.5"
+              className="w-full rounded-t bg-gradient-to-t from-[#16A34A] via-[#25D366] to-[#EC4899] transition-[filter,transform] duration-150 group-hover/day:brightness-125 group-hover/day:-translate-y-0.5"
               style={{ height: `${Math.max(4, (d.novas / max) * 100)}%` }}
               title={`${d.novas} conversa(s)`}
             />
@@ -80,11 +80,12 @@ function SevenDayChart({ data, inboxLink }: { data: { dia: string; novas: number
 }
 
 export function AttendancePanel({
-  metrics, operators, inboxScope = '',
+  metrics, operators, inboxScope = '', metricsMonth,
 }: {
   metrics: AttendanceMetrics;
   operators: Operator[];
   inboxScope?: string;
+  metricsMonth: string;
 }) {
   const nameOf = (userId: string) => {
     const operator = operators.find((item) => item.user_id === userId);
@@ -148,12 +149,26 @@ export function AttendancePanel({
       </div>
 
       {/* Tempos e presença */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card
           icon={Timer}
-          label="1ª resposta (média)"
+          label="1ª resposta hoje"
+          value={formatDuration(metrics.tempo_medio_primeira_resposta_hoje)}
+          hint="Média das conversas iniciadas hoje"
+          href={inboxLink()}
+        />
+        <Card
+          icon={Timer}
+          label="1ª resposta no mês"
+          value={formatDuration(metrics.tempo_medio_primeira_resposta_periodo)}
+          hint={`Média de ${new Date(`${metricsMonth}-01T12:00:00`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`}
+          href={inboxLink()}
+        />
+        <Card
+          icon={Timer}
+          label="1ª resposta acumulada"
           value={formatDuration(metrics.tempo_medio_primeira_resposta)}
-          hint="Do 1º contato à 1ª resposta humana"
+          hint="Média de todo o histórico"
           href={inboxLink()}
         />
         <Card

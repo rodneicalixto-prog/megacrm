@@ -360,12 +360,22 @@ export async function handleInbound(req: Request): Promise<Response> {
   // mensagens em dobro.
   if (provider.name !== 'zernio') {
     let conversationId: string | null = null;
+    type ExistingConversationRow = {
+      id: string;
+      status: string;
+      archived: boolean;
+      ai_paused: boolean;
+    };
+    let existingConversation: ExistingConversationRow | null = null;
     const { data: existingConv } = await admin
-      .from('conversations').select('id')
+      .from('conversations').select('id, status, archived, ai_paused')
       .eq('contact_id', contactId)
       .eq('department_id', departmentId)
       .maybeSingle();
-    if (existingConv) conversationId = (existingConv as { id: string }).id;
+    if (existingConv) {
+      existingConversation = existingConv as ExistingConversationRow;
+      conversationId = existingConversation.id;
+    }
     else {
       const { data: createdConv, error: conversationError } = await admin
         .from('conversations')
@@ -401,9 +411,17 @@ export async function handleInbound(req: Request): Promise<Response> {
         is_private_note: false,
       });
       if (!msgErr) {
+        const reopenPatch = existingConversation
+          && (existingConversation.status === 'closed' || existingConversation.archived)
+          ? {
+              status: existingConversation.ai_paused ? 'human_active' : 'ai_active',
+              closed_at: null,
+              archived: false,
+            }
+          : {};
         await admin
           .from('conversations')
-          .update({ last_message_at: new Date().toISOString() })
+          .update({ last_message_at: new Date().toISOString(), ...reopenPatch })
           .eq('id', conversationId);
         await admin.rpc('increment_unread_count', { p_conversation_id: conversationId });
       } else if ((msgErr as { code?: string }).code !== '23505') {

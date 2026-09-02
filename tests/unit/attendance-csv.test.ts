@@ -8,6 +8,8 @@ const metrics: AttendanceMetrics = {
   sem_resposta: 1,
   finalizados_hoje: 4,
   tempo_medio_primeira_resposta: 90,
+  tempo_medio_primeira_resposta_hoje: 45,
+  tempo_medio_primeira_resposta_periodo: 75,
   tempo_medio_atendimento: 600,
   agentes_online: 1,
   agentes_total: 2,
@@ -32,6 +34,8 @@ describe('buildAttendanceCsv', () => {
 
     expect(csv.startsWith('\uFEFF')).toBe(true);
     expect(csv).toContain('"Aguardando";"2"');
+    expect(csv).toContain('"Tempo médio da primeira resposta hoje (segundos)";"45"');
+    expect(csv).toContain('"Tempo médio da primeira resposta no mês (segundos)";"75"');
     expect(csv).toContain('"atendente@example.com";"Sim";"3";"4"');
     expect(csv).toContain('"2026-08-11";"5"');
     expect(csv).toContain('"conversation-1"');

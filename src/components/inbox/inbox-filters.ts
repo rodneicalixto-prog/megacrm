@@ -18,6 +18,7 @@ export type QueueId =
   | 'em_atendimento'
   | 'aguardando_cliente'
   | 'encerrados'
+  | 'historico'
   | 'prioridade_alta'
   | 'nao_lidos'
   | 'favoritos';
@@ -29,7 +30,8 @@ export const QUEUES: Array<{ id: QueueId; label: string }> = [
   { id: 'aguardando', label: 'Aguardando' },
   { id: 'em_atendimento', label: 'Em atendimento' },
   { id: 'aguardando_cliente', label: 'Aguardando cliente' },
-  { id: 'encerrados', label: 'Encerrados' },
+  { id: 'encerrados', label: 'Encerrados hoje' },
+  { id: 'historico', label: 'Histórico' },
   { id: 'prioridade_alta', label: 'Prioridade alta' },
   { id: 'nao_lidos', label: 'Não lidos' },
   { id: 'favoritos', label: 'Favoritos' },
@@ -119,6 +121,7 @@ export function matchesQueue(
   c: ConversationWithContact,
   queue: QueueId,
   userId: string | null,
+  now: number = Date.now(),
 ): boolean {
   switch (queue) {
     case 'todos':
@@ -138,7 +141,11 @@ export function matchesQueue(
     case 'aguardando_cliente':
       return !c.archived && c.status !== 'closed' && lastSpeaker(c) === 'nos';
     case 'encerrados':
-      return !c.archived && c.status === 'closed';
+      return !c.archived && c.status === 'closed' && Boolean(c.closed_at)
+        && dateInSaoPaulo(c.closed_at as string) === dateInSaoPaulo(new Date(now).toISOString());
+    case 'historico':
+      return !c.archived && c.status === 'closed' && Boolean(c.closed_at)
+        && dateInSaoPaulo(c.closed_at as string) < dateInSaoPaulo(new Date(now).toISOString());
     case 'prioridade_alta':
       return !c.archived && c.priority === 'alta';
     case 'nao_lidos':
@@ -221,7 +228,7 @@ export function matchesFilters(
   now: number,
   userId: string | null = null,
 ): boolean {
-  return matchesQueue(c, f.queue, userId) && matchesNonQueueFilters(c, f, now);
+  return matchesQueue(c, f.queue, userId, now) && matchesNonQueueFilters(c, f, now);
 }
 
 // Quantos eixos (fora canal e fila) estão ativos — alimenta o badge do botão

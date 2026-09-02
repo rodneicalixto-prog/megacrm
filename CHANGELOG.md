@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-09-02
+
+- A fila `Encerrados hoje` agora contém somente atendimentos finalizados no dia vigente em São Paulo; os anteriores ficam em `Histórico`.
+- Novas mensagens reabrem conversas encerradas ou arquivadas para que apareçam na Inbox, preservando responsável e modo de atendimento.
+- O dashboard separa a média de primeira resposta de hoje, do mês selecionado e do acumulado histórico.
+- O gráfico operacional usa verde WhatsApp e rosa pink em substituição ao azul.
+
 All notable changes to this project are documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
@@ -8,6 +15,21 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 ## [Unreleased]
 
 ### Added
+
+- **Equipe agrupada por departamento**: “Membros atuais” agora organiza os
+  usuários em seções expansíveis por departamento, mostrando nome como
+  identificação principal, cargo vinculado, papel de acesso, e-mail, estado da
+  conta e totais de membros ativos. Usuários sem setor aparecem em um grupo
+  próprio para que cadastros incompletos não fiquem escondidos.
+
+- **Grupos privados, contatos fixados e encaminhamento pontual**: a Inbox agora
+  permite criar grupos pessoais para filtrar atendimentos e manter até cinco
+  conversas favoritas no topo. A aba Contatos encaminha somente os cadastros
+  selecionados, com validação de papel e departamento, sem compartilhar listas
+  completas nem transferir conversas. O webhook Evolution também passa a
+  receber `CONTACTS_UPSERT` para salvar contatos individuais após o pareamento,
+  preservando nomes já editados. O contexto funcional e o roteiro-base do
+  futuro manual estão em `docs/memory/2026-09-inbox-groups-contacts.md`.
 
 - **Equipe agrupada por departamento**: “Membros atuais” agora organiza os
   usuários em seções expansíveis por departamento, mostrando nome como
