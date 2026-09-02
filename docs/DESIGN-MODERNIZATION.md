@@ -1,5 +1,9 @@
 # Direção de modernização visual
 
+Para a proposta específica de identidade e acabamento premium do cliente
+Athenas, consultar `docs/DESIGN-ATHENAS-PREMIUM.md`. Este documento continua
+como diagnóstico estrutural geral do produto.
+
 Auditoria feita em 01/09/2026 por um agente dedicado, sem alterar a experiência
 visual nesta entrega de segurança. A direção recomendada é **operational calm**:
 menos “glass azul em tudo”, mais hierarquia, superfícies sólidas, densidade

@@ -9,6 +9,21 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ### Added
 
+- **Equipe agrupada por departamento**: “Membros atuais” agora organiza os
+  usuários em seções expansíveis por departamento, mostrando nome como
+  identificação principal, cargo vinculado, papel de acesso, e-mail, estado da
+  conta e totais de membros ativos. Usuários sem setor aparecem em um grupo
+  próprio para que cadastros incompletos não fiquem escondidos.
+
+- **Grupos privados, contatos fixados e encaminhamento pontual**: a Inbox agora
+  permite criar grupos pessoais para filtrar atendimentos e manter até cinco
+  conversas favoritas no topo. A aba Contatos encaminha somente os cadastros
+  selecionados, com validação de papel e departamento, sem compartilhar listas
+  completas nem transferir conversas. O webhook Evolution também passa a
+  receber `CONTACTS_UPSERT` para salvar contatos individuais após o pareamento,
+  preservando nomes já editados. O contexto funcional e o roteiro-base do
+  futuro manual estão em `docs/memory/2026-09-inbox-groups-contacts.md`.
+
 - **Ativação e desativação hierárquica de usuários**: em Configurações →
   Equipe, `super_admin` pode suspender/reativar admins, supervisores e
   operadores; `admin` pode fazer o mesmo com supervisores e operadores. A
@@ -37,6 +52,26 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   (`schedule-meeting`, `cancel-meeting`, `recall-webhook`).
 
 ### Fixed
+
+- **Dashboard abria um conjunto maior que o número do card**: “Finalizados
+  hoje” continua sendo calculado desde 00h no fuso de São Paulo, mas agora abre
+  a Inbox com o mesmo recorte de data, em vez de listar todo o histórico de
+  encerrados. O gráfico foi renomeado para “Novas conversas · últimos 7 dias” e
+  cada barra abre exatamente as conversas criadas naquele dia. As linhas de
+  “Conversas por atendente” também passam a abrir a Inbox filtrada pelo usuário.
+
+- **Contato já salvo aparecia apenas como número na Inbox**: quando uma
+  mensagem Evolution encontra o telefone exato de um contato existente cujo
+  nome ainda está vazio, o `pushName` recebido agora completa o cadastro. Um
+  nome editado manualmente pelo operador continua preservado.
+
+- **`[Mensagem não suportada: templateMessage]` na Inbox**: o decoder da
+  Evolution agora extrai corpo e rodapé de templates hidratados, além de
+  mensagens e respostas de botões/listas. Quando uma versão do Baileys não
+  entrega nenhum texto conhecido, a conversa mostra “Mensagem interativa do
+  WhatsApp” em vez do nome técnico do payload. A migration também troca o
+  rótulo técnico das linhas antigas; o corpo original dessas linhas não pode ser
+  recuperado porque o payload bruto histórico não era persistido.
 
 - **Certos tipos de mensagem do WhatsApp chegavam como bolha em branco no
   Inbox** (relatado como "não visualizo o que chegou"): confirmado no banco

@@ -28,6 +28,8 @@ import {
 } from '@/components/inbox/inbox-filters';
 import { LoadErrorBanner } from '@/components/LoadErrorBanner';
 import { getSupabase } from '@/lib/supabase';
+import { useAttendanceGroups } from '@/hooks/useAttendanceGroups';
+import { AttendanceGroups } from '@/components/inbox/AttendanceGroups';
 
 export default function InboxPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -44,10 +46,14 @@ export default function InboxPage() {
   const [showTransfer, setShowTransfer] = useState(false);
   const [forwardMessage, setForwardMessage] = useState<ThreadMessage | null>(null);
   const [replyMessage, setReplyMessage] = useState<ThreadMessage | null>(null);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(
+    searchParams.get('group'),
+  );
   const { operators } = useOperators();
   const { tags } = useTags();
   const { departments, lines } = useDepartments();
   const { userId, role } = useAppUser();
+  const { groups, create: createGroup, remove: removeGroup, setConversationGroups } = useAttendanceGroups();
 
   // Persiste os filtros na querystring (namespace f*), preservando ?conversation.
   const updateFilters = (next: InboxFilterState) => {
@@ -102,13 +108,27 @@ export default function InboxPage() {
     const now = Date.now();
     const q = search.trim().toLowerCase();
     return conversations.filter((c) => {
+      if (selectedGroupId) {
+        const group = groups.find((item) => item.id === selectedGroupId);
+        if (!group?.conversationIds.includes(c.id)) return false;
+      }
       if (!matchesFilters(c, filters, now, userId)) return false;
       if (!q) return true;
       const name = c.contact?.name?.toLowerCase() ?? '';
       const phone = c.contact?.phone?.toLowerCase() ?? '';
       return name.includes(q) || phone.includes(q);
     });
-  }, [conversations, search, filters, userId]);
+  }, [conversations, search, filters, userId, selectedGroupId, groups]);
+
+  const selectGroup = (id: string | null) => {
+    setSelectedGroupId(id);
+    setSearchParams((previous) => {
+      const next = new URLSearchParams(previous);
+      if (id) next.set('group', id);
+      else next.delete('group');
+      return next;
+    }, { replace: true });
+  };
 
   const { messages, loading: loadingMsgs, sendText, retry, dismissFailed } = useMessages(selectedId);
 
@@ -178,6 +198,20 @@ export default function InboxPage() {
         key: 'jw',
         label: filters.janela === 'dentro' ? 'Dentro de 24h' : 'Fora de 24h',
         clear: () => updateFilters({ ...filters, janela: 'any' }),
+      });
+    }
+    if (filters.closedOn) {
+      chips.push({
+        key: 'cl',
+        label: `Finalizadas em: ${new Date(`${filters.closedOn}T12:00:00`).toLocaleDateString('pt-BR')}`,
+        clear: () => updateFilters({ ...filters, closedOn: null }),
+      });
+    }
+    if (filters.createdOn) {
+      chips.push({
+        key: 'cr',
+        label: `Criadas em: ${new Date(`${filters.createdOn}T12:00:00`).toLocaleDateString('pt-BR')}`,
+        clear: () => updateFilters({ ...filters, createdOn: null }),
       });
     }
     return chips;
@@ -307,6 +341,16 @@ export default function InboxPage() {
             onChange={(queue) => updateFilters({ ...filters, queue })}
             userId={userId}
           />
+          <AttendanceGroups
+            groups={groups}
+            selectedGroupId={selectedGroupId}
+            onSelect={selectGroup}
+            onCreate={createGroup}
+            onRemove={async (id) => {
+              await removeGroup(id);
+              if (selectedGroupId === id) selectGroup(null);
+            }}
+          />
         </div>
 
         {/* Left: conversation list — no mobile some quando há conversa aberta */}
@@ -355,6 +399,18 @@ export default function InboxPage() {
               />
             </div>
 
+            {selected && groups.length > 0 && (
+              <select
+                value={groups.find((group) => group.conversationIds.includes(selected.id))?.id ?? ''}
+                onChange={(event) => void setConversationGroups(selected.id, event.target.value ? [event.target.value] : [])}
+                aria-label="Mover atendimento para grupo"
+                className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-2.5 py-2 text-xs text-[var(--color-text-primary)]"
+              >
+                <option value="">Sem grupo</option>
+                {groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
+              </select>
+            )}
+
             {/* Chips de filtros ativos + contador */}
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <div className="flex flex-wrap gap-1.5">
@@ -396,7 +452,7 @@ export default function InboxPage() {
               selectedId={selectedId}
               onSelect={setSelectedId}
               onToggleFavorite={(id, fav) => {
-                void toggleFavorite(id, fav);
+                void toggleFavorite(id, fav).catch((error) => toast.error(error instanceof Error ? error.message : 'Não foi possível fixar o contato.'));
               }}
             />
           </div>
