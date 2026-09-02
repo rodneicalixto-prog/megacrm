@@ -311,7 +311,7 @@ export default function InboxPage() {
     <div className="h-[calc(100vh-6rem)] flex flex-col">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-4">
-          <div className="h-12 w-12 rounded-xl glass-card flex items-center justify-center">
+          <div className="h-12 w-12 rounded-xl icon-chip flex items-center justify-center">
             <InboxIcon className="h-5 w-5 text-[var(--accent-primary)]" />
           </div>
           <div>

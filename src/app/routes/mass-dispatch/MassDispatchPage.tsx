@@ -47,7 +47,7 @@ export default function MassDispatchPage() {
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       <div className="flex items-center gap-4">
-        <div className="h-12 w-12 rounded-xl glass-card flex items-center justify-center">
+        <div className="h-12 w-12 rounded-xl icon-chip flex items-center justify-center">
           <Send className="h-5 w-5 text-[var(--accent-primary)]" />
         </div>
         <div>

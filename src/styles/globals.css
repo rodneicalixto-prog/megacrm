@@ -30,6 +30,7 @@
 
   /* Typography */
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fraunces", "Inter", ui-sans-serif, system-ui, sans-serif;
 
   /* Radii */
   --radius-card: 16px;
@@ -186,15 +187,27 @@ body {
   }
 
   .text-display {
-    font-weight: 700;
+    font-family: var(--font-display);
+    font-weight: 600;
     letter-spacing: -0.01em;
   }
 
   .text-stat {
+    font-family: var(--font-display);
     font-size: 2.5rem;
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: -0.02em;
     font-variant-numeric: tabular-nums;
+  }
+
+  /* Badge de ícone dos cabeçalhos de página — mais presença que o glass-card
+     plano, sem sair da paleta azul da marca (CLAUDE.md). */
+  .icon-chip {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.22), rgba(59, 130, 246, 0.06));
+    border: 1px solid rgba(59, 130, 246, 0.32);
+    box-shadow:
+      0 0 24px rgba(59, 130, 246, 0.18),
+      inset 0 1px 0 rgba(255, 255, 255, 0.12);
   }
 
   .text-label {

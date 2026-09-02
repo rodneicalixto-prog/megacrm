@@ -277,7 +277,7 @@ export default function VendasPage() {
       {/* Título + botão de upload na MESMA linha */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-4">
-          <div className="h-12 w-12 rounded-xl glass-card flex items-center justify-center">
+          <div className="h-12 w-12 rounded-xl icon-chip flex items-center justify-center">
             <BarChart3 className="h-5 w-5 text-[var(--accent-primary)]" />
           </div>
           <div>

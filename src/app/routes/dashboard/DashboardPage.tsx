@@ -39,7 +39,7 @@ export default function DashboardPage() {
     <div className="mx-auto max-w-7xl space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex items-center gap-4">
-          <div className="glass-card flex h-12 w-12 items-center justify-center rounded-xl">
+          <div className="icon-chip flex h-12 w-12 items-center justify-center rounded-xl">
             <LayoutDashboard className="h-5 w-5 text-[var(--accent-primary)]" />
           </div>
           <div>

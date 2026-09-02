@@ -122,7 +122,7 @@ export default function AgendaPage() {
     <div className="flex h-[calc(100vh-6rem)] flex-col">
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <div className="glass-card flex h-12 w-12 items-center justify-center rounded-xl">
+          <div className="icon-chip flex h-12 w-12 items-center justify-center rounded-xl">
             <CalendarDays className="h-5 w-5 text-[var(--accent-primary)]" />
           </div>
           <div>
