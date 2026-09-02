@@ -84,8 +84,8 @@ async function registerWebhook(
   const hook = `${supabaseUrl}/functions/v1/whatsapp-inbound?provider=evolution&token=${encodeURIComponent(secret)}`;
   const endpoint = `${serverUrl}/webhook/set/${encodeURIComponent(instance)}`;
   const payloads = [
-    { webhook: { enabled: true, url: hook, byEvents: false, base64: false, events: ['MESSAGES_UPSERT'] } },
-    { enabled: true, url: hook, webhookByEvents: false, webhookBase64: false, events: ['MESSAGES_UPSERT'] },
+    { webhook: { enabled: true, url: hook, byEvents: false, base64: false, events: ['MESSAGES_UPSERT', 'CONTACTS_UPSERT'] } },
+    { enabled: true, url: hook, webhookByEvents: false, webhookBase64: false, events: ['MESSAGES_UPSERT', 'CONTACTS_UPSERT'] },
   ];
   const errors: string[] = [];
   for (const payload of payloads) {
