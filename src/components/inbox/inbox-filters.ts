@@ -70,6 +70,24 @@ export const DEFAULT_FILTERS: InboxFilterState = {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+// O inbox e operacional, nao historico: todas as filas exibem somente
+// atendimentos que tiveram atividade no dia local do operador. Para conversas
+// encerradas, o fechamento tambem conta como atividade, mesmo que a ultima
+// mensagem tenha sido enviada no dia anterior.
+export function hasActivityToday(c: ConversationWithContact, now: number): boolean {
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+
+  const timestamps = [c.last_message_at, c.status === 'closed' ? c.closed_at : null];
+  return timestamps.some((value) => {
+    if (!value) return false;
+    const timestamp = new Date(value).getTime();
+    return timestamp >= start.getTime() && timestamp < end.getTime();
+  });
+}
+
 // Bucket de status derivado: arquivada domina; senão closed → fechadas; senão
 // aberta (ai_active | human_active).
 function statusBucket(c: ConversationWithContact): StatusBucket {
@@ -145,6 +163,8 @@ export function matchesNonQueueFilters(
   f: InboxFilterState,
   now: number,
 ): boolean {
+  if (!hasActivityToday(c, now)) return false;
+
   if (f.channel !== 'all' && c.channel !== f.channel) return false;
 
   if (f.connectionId !== 'any' && c.connection_id !== f.connectionId) return false;
