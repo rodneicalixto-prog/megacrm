@@ -321,6 +321,9 @@ export function useConversations(): UseConversationsResult {
   const toggleFavorite: UseConversationsResult['toggleFavorite'] = async (id, favorite) => {
     const supabase = getSupabase();
     if (!userId) return;
+    if (favorite && conversations.filter((conversation) => conversation.isFavorite).length >= 5) {
+      throw new Error('Você já fixou os 5 contatos permitidos. Remova um favorito antes de adicionar outro.');
+    }
     // Otimista: a estrela responde ao clique sem esperar o round-trip. O
     // realtime não cobre conversation_favorites, então sem isso a lista só
     // mudaria no próximo reload.
