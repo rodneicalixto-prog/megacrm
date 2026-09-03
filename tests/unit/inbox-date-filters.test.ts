@@ -39,10 +39,14 @@ function conversation(patch: Partial<ConversationWithContact> = {}): Conversatio
 
 describe('filtros de data do dashboard', () => {
   test('finalizados hoje usa a data de São Paulo e não todo o histórico encerrado', () => {
+    // now fixo (não Date.now()): closedOn é uma data hardcoded, então o teste
+    // precisa de um "agora" hardcoded também — Date.now() fazia o teste só
+    // passar no dia 2026-09-02 de verdade (ver ISSUES.md).
+    const now = new Date('2026-09-02T15:00:00Z').getTime();
     const filters = { ...DEFAULT_FILTERS, queue: 'encerrados' as const, closedOn: '2026-09-02' };
 
-    expect(matchesFilters(conversation(), filters, Date.now(), 'user-1')).toBe(true);
-    expect(matchesFilters(conversation({ closed_at: '2026-09-02T02:59:59Z' }), filters, Date.now(), 'user-1')).toBe(false);
+    expect(matchesFilters(conversation(), filters, now, 'user-1')).toBe(true);
+    expect(matchesFilters(conversation({ closed_at: '2026-09-02T02:59:59Z' }), filters, now, 'user-1')).toBe(false);
   });
 
   test('fila Encerrados mostra somente hoje e Histórico recebe os dias anteriores', () => {
@@ -57,10 +61,12 @@ describe('filtros de data do dashboard', () => {
   });
 
   test('dia do gráfico inclui conversas criadas no dia independentemente do status atual', () => {
+    // now fixo pelo mesmo motivo do teste acima — ver ISSUES.md.
+    const now = new Date('2026-09-02T15:00:00Z').getTime();
     const filters = { ...DEFAULT_FILTERS, status: [], createdOn: '2026-09-01' };
 
-    expect(matchesFilters(conversation(), filters, Date.now(), 'user-1')).toBe(true);
-    expect(matchesFilters(conversation({ created_at: '2026-09-02T12:00:00Z' }), filters, Date.now(), 'user-1')).toBe(false);
+    expect(matchesFilters(conversation(), filters, now, 'user-1')).toBe(true);
+    expect(matchesFilters(conversation({ created_at: '2026-09-02T12:00:00Z' }), filters, now, 'user-1')).toBe(false);
   });
 
   test('datas persistem na URL e valores inválidos são descartados', () => {
