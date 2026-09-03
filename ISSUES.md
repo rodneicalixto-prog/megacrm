@@ -4,19 +4,65 @@
 > aqui deve virar uma issue real — este arquivo é o backlog enquanto isso não
 > acontece.
 
-## Setup pendente — secrets do workflow `drift-check.yml`
+## ✅ Secrets do workflow `drift-check.yml` — cadastrados
 
-- **Status:** aberta — depende de ação manual do usuário no GitHub.
-- **O que é:** `.github/workflows/drift-check.yml` (adicionado 01/09/2026)
-  roda `scripts/check-drift.mjs` diariamente pra detectar os dois problemas
-  achados nesta sessão antes que virem incidente de novo: migration aplicada
-  em produção sem arquivo commitado, e tabela de `whatsapp_hub` sem RLS.
-- **Falta:** cadastrar dois repo secrets em Settings → Secrets and variables
-  → Actions — `SUPABASE_ACCESS_TOKEN` (PAT do Supabase) e `PROJECT_REF`
-  (`lstbxeaasyysboavdati`). Sem eles o workflow falha logo de cara (mensagem
-  clara, não silenciosa) em toda execução agendada.
-- **Próximo passo:** usuário cadastrar os secrets; depois disso, rodar o
-  workflow manualmente uma vez (`workflow_dispatch`) pra confirmar que passa.
+- **Status:** fechada em 03/09/2026 — `SUPABASE_ACCESS_TOKEN` e `PROJECT_REF`
+  cadastrados pelo usuário em Settings → Secrets and variables → Actions.
+  Workflow rodado manualmente (`workflow_dispatch`, run
+  [33797513465](https://github.com/rodneicalixto-prog/megacrm/actions/runs/33797513465))
+  e confirmado lendo produção de verdade — ver as duas entradas abaixo pro
+  que essa primeira execução revelou.
+
+## ✅ `check-drift.mjs` comparava só por `version` — 25 falsos positivos
+
+- **Status:** fechada em 03/09/2026 — PR
+  [#47](https://github.com/rodneicalixto-prog/megacrm/pull/47).
+- **O que era:** a primeira execução real do `drift-check.yml` (após
+  cadastrar os secrets) reportou 28 "migrations aplicadas em produção sem
+  arquivo local". Investigação (comparando cada `name` devolvido pelo
+  Supabase contra `supabase/migrations/`, rodado num sandbox contra o clone
+  real do repo): **25 das 28 tinham arquivo local de verdade**
+  (`mass_dispatch`, `internal_chat`, `meetings`, etc.) — o Supabase registra
+  em `schema_migrations.version` o timestamp de QUANDO a migration foi
+  aplicada via `push-migrations.mjs` (Management API), que diverge do
+  timestamp no nome do arquivo commitado; o campo `name` devolvido junto,
+  porém, sempre bate com o arquivo real.
+- **Fix:** `scripts/check-drift.mjs` agora aceita match por `version` OU por
+  `name` (stem completo ou slug). Validado localmente contra os 28 registros
+  reais dessa execução antes do PR: resultado é exatamente as 3 exceções já
+  documentadas abaixo, zero drift real não-documentado.
+
+## ✅ 3 migrations sem arquivo — já eram exceções documentadas, não drift
+
+- **Status:** confirmado em 03/09/2026, nenhuma ação nova necessária.
+- `fix_handle_new_user_hierarchy_aware` e
+  `remediate_users_affected_by_old_trigger` — fix pontual de dado em
+  `app_users` pra 4 usuários afetados + restauração de function pro texto
+  que o repo já tinha (ver entrada mais abaixo sobre `handle_new_user()`).
+  Não recriável como migration de forma que faça sentido — instância nova
+  nunca teve o bug.
+- `lock_down_unprotected_public_tables` — `ENABLE ROW LEVEL SECURITY` +
+  `REVOKE` nas 9 tabelas do schema "Tomik CRM" (`public.*`, sistema alheio
+  ao `whatsapp_hub`, ver entrada mais abaixo). Não é schema deste
+  repositório, não pertence a `supabase/migrations/`.
+- Essas 3 agora estão em `KNOWN_EXCEPTIONS` no script — aparecem como `INFO`
+  no log do workflow, não derrubam o job.
+
+## ✅ `tests/unit/inbox-date-filters.test.ts` — 2 testes com data hardcoded ("bomba-relógio")
+
+- **Status:** fechada em 03/09/2026 — PR
+  [#47](https://github.com/rodneicalixto-prog/megacrm/pull/47).
+- **O que era:** achada ao investigar uma falha de CI não-relacionada nesse
+  mesmo PR. Dois testes usavam `Date.now()` (hora real de quando o teste
+  roda) comparado contra uma data **hardcoded** no próprio teste (`closedOn:
+  '2026-09-02'`, `createdOn: '2026-09-01'`) — só passavam no dia exato em
+  que foram escritos, falhando sozinhos a partir do dia seguinte (03/09 foi
+  o primeiro dia a quebrar). O teste vizinho no mesmo arquivo (`fila
+  Encerrados mostra somente hoje...`) já fazia certo: `now = new
+  Date('2026-09-02T15:00:00Z').getTime()` fixo em vez de `Date.now()`.
+- **Fix:** os dois testes (`finalizados hoje usa a data de São Paulo...` e
+  `dia do gráfico inclui conversas criadas no dia...`) agora usam o mesmo
+  `now` fixo do teste vizinho.
 
 ## `xlsx@0.18.5` — Prototype Pollution + ReDoS, sem fix no npm
 
