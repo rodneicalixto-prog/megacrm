@@ -64,47 +64,23 @@
   `dia do gráfico inclui conversas criadas no dia...`) agora usam o mesmo
   `now` fixo do teste vizinho.
 
-## `xlsx@0.18.5` — Prototype Pollution + ReDoS, sem fix no npm
+## ✅ `xlsx@0.18.5` — Prototype Pollution + ReDoS — corrigido
 
-- **Status:** aberta.
-- **Severidade:** 🔴 high (duas CVEs).
-  - [GHSA-4r6h-8v6p-xvw6](https://github.com/advisories/GHSA-4r6h-8v6p-xvw6) —
-    Prototype Pollution (corrigida em 0.19.3).
-  - [GHSA-5pgg-2g8v-p4x9](https://github.com/advisories/GHSA-5pgg-2g8v-p4x9) —
-    ReDoS (corrigida em 0.20.2).
-- **Onde:** `src/components/contacts/ImportContactsDialog.tsx` e
-  `src/hooks/useSalesUpload.ts`. Ambos usam só `XLSX.read` + `sheet_to_json`.
-- **Causa:** a SheetJS deixou de publicar no registry npm. A versão que está
-  lá (`0.18.5`) é anterior às duas correções e **nunca será atualizada**.
-
-### Exposição real
-
-O parse acontece **no browser**, em arquivo que o próprio usuário escolheu —
-não há ingestão server-side de planilha de terceiro. Isso reduz o impacto em
-relação ao rótulo "high": o pior caso é um admin ser induzido a importar uma
-planilha hostil, e a poluição de protótipo escalar para XSS na sessão dele.
-Sério, mas não é comprometimento de servidor.
-
-### Como corrigir
-
-Caminho oficial do fornecedor — mesma API, sem mudança de código:
-
-```bash
-npm rm xlsx
-npm i https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
-```
-
-Rodar em máquina/CI com acesso a `cdn.sheetjs.com`, e commitar o
-`package-lock.json` resultante.
-
-- **Por que não foi aplicado:** o sandbox onde a correção foi tentada bloqueia
-  `cdn.sheetjs.com` por política de rede. Alterar o `package.json` sem
-  conseguir instalar deixaria o `package-lock.json` dessincronizado e quebraria
-  o `npm ci` da CI — pior do que a issue em aberto.
-- **Sobre `@e965/xlsx`:** existe no npm, na 0.20.3, e corrige as duas CVEs.
-  **Não é publicado pela SheetJS**, é republicação de terceiro. Para um pacote
-  que faz parse de arquivo enviado pelo usuário, isso troca uma CVE conhecida
-  por um mantenedor desconhecido. Usar só como último recurso.
+- **Status:** fechada em 03/09/2026 — PR [#48](https://github.com/rodneicalixto-prog/megacrm/pull/48).
+- **O que era:** duas CVEs sem fix no npm (SheetJS parou de publicar lá) —
+  [GHSA-4r6h-8v6p-xvw6](https://github.com/advisories/GHSA-4r6h-8v6p-xvw6)
+  (Prototype Pollution) e
+  [GHSA-5pgg-2g8v-p4x9](https://github.com/advisories/GHSA-5pgg-2g8v-p4x9)
+  (ReDoS).
+- **Fix:** trocado pro build oficial da SheetJS via CDN
+  (`npm i https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz`), mesma API,
+  sem mudança de código em `ImportContactsDialog.tsx`/`useSalesUpload.ts`.
+- **Causa real do CI ter ficado quebrado por várias tentativas antes do
+  merge:** não era o xlsx — era o `package-lock.json`, gerado no Windows,
+  com metadados de plataforma incompletos para uma dependência opcional do
+  `esbuild@0.28.2` (puxada pelo `vitest@4`, não relacionada ao xlsx).
+  Corrigido gerando o lockfile num Linux real (WSL local, mesma versão de
+  Node/npm do runner do CI) antes do push final.
 
 ## ✅ Migration drift — RLS de `contacts`/`products` corrigida direto em produção — resolvido
 
@@ -237,3 +213,40 @@ regressão. A dívida fica registrada.
   presente, mas as policies em si não foram lidas) e se o mesmo problema
   existe nos outros schemas citados no `CLAUDE.md` (`agentise_chat`,
   `prospector`, `crm_sofia`) — não verificados nesta sessão.
+
+## CORS wildcard + rate limit parcial nos webhooks públicos — reconfirmado em 03/09/2026
+
+- **Status:** aberta. Reconfirmado direto contra `main` (não é achado de memória
+  antiga) — `supabase/functions/_shared/cors.ts` ainda tem
+  `Access-Control-Allow-Origin: '*'` em toda função.
+- **Severidade:** 🟡 moderate. Auth é via bearer token (não cookie), então o
+  wildcard de CORS não abre CSRF nas rotas autenticadas — mas amplia
+  desnecessariamente a superfície.
+- **5 funções realmente públicas** (`verify_jwt = false` em `supabase/config.toml`):
+  `ingest-lead`, `redirect-tracker`, `whatsapp-inbound`, `zernio-webhook`,
+  `recall-webhook`.
+- **Rate limit real (`whatsapp_hub.bump_rate_limit`, migration
+  `20260808130000_rate_limit.sql`) só está ligado em `ingest-lead`.** As
+  outras 4:
+  - `whatsapp-inbound` e `zernio-webhook` — protegidas por HMAC-SHA256
+    constant-time (`X-Zernio-Signature` vs `zernio_webhook_secret`), mas sem
+    limite de taxa mesmo em tráfego com assinatura válida.
+  - `recall-webhook` — segredo compartilhado via query string (`?token=`),
+    mais fraco que HMAC, sem rate limit.
+  - `redirect-tracker` — **sem autenticação nenhuma por design** (é um link
+    clicável público) e sem rate limit. É o de maior exposição real dos 5:
+    dá pra inundar de hits sem precisar forjar nada.
+- **`dispatch-campaign`** tem throttling próprio de tier Meta (mecanismo
+  diferente, não usa `bump_rate_limit`) — não confundir com os 5 acima.
+
+### Sugestão (não aplicada — decisão de produto/risco do dono)
+
+- CORS: trocar `'*'` por allowlist de origem (`APP_ORIGIN` do `.env`), já que
+  as 5 funções públicas não dependem de origem arbitrária pra funcionar
+  (native app/browser sempre chama do mesmo domínio; webhooks de terceiro nem
+  olham CORS, é o navegador que aplica).
+- `redirect-tracker`: aplicar o mesmo `bump_rate_limit` já usado em
+  `ingest-lead` (bucket por IP ou por slug de redirect).
+- `whatsapp-inbound`/`zernio-webhook`/`recall-webhook`: rate limit adicional
+  como defesa em profundidade, mesmo já tendo HMAC/secret — um segredo
+  vazado ou reaproveitado não deveria virar flood ilimitado.
