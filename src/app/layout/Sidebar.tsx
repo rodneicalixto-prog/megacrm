@@ -6,6 +6,7 @@ import { NAV_ITEMS, canSeeAdminNav } from './nav-config';
 import { useAppUser } from '@/app/providers/AppUserProvider';
 import { useBranding } from '@/hooks/useBranding';
 import { useEnabledModules } from '@/hooks/useEnabledModules';
+import { useCanAccessLegal } from '@/hooks/useCanAccessLegal';
 
 const STORAGE_KEY = 'mch:sidebar-collapsed';
 
@@ -25,8 +26,12 @@ export function Sidebar() {
   const { branding } = useBranding();
   const { role } = useAppUser();
   const { hasModule } = useEnabledModules();
+  const { canAccess: canAccessLegal } = useCanAccessLegal();
   const items = NAV_ITEMS.filter(
-    (item) => (!item.adminOnly || canSeeAdminNav(role)) && (!item.module || hasModule(item.module)),
+    (item) =>
+      (!item.adminOnly || canSeeAdminNav(role))
+      && (!item.module || hasModule(item.module))
+      && (!item.legalOnly || canAccessLegal),
   );
   const [collapsed, setCollapsed] = useState(readStoredCollapsed);
 
