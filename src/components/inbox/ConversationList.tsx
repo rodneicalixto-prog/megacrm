@@ -8,7 +8,7 @@ function channelBadge(channel: ConversationChannel | undefined) {
     return { Icon: Instagram, label: 'Instagram', color: 'text-[#E1306C]' };
   }
   if (channel === 'evolution') {
-    return { Icon: Smartphone, label: 'Evolution', color: 'text-[#F59E0B]' };
+    return { Icon: Smartphone, label: 'Evolution', color: 'text-[#25D366]' };
   }
   return { Icon: MessageCircle, label: 'WhatsApp', color: 'text-[#25D366]' };
 }
