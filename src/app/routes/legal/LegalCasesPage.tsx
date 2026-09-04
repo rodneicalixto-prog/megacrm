@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { BarChart3, Loader2, Plus, Scale, Search } from 'lucide-react';
+import { BarChart3, FileUp, Loader2, Plus, Scale, Search } from 'lucide-react';
+import { NewIntimationDialog } from './NewIntimationDialog';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { useLegalCases, type CreateLegalCaseInput } from '@/hooks/useLegalCases';
@@ -181,6 +182,7 @@ export default function LegalCasesPage() {
   const { departments } = useDepartments();
   const { operators } = useOperators();
   const [showNew, setShowNew] = useState(false);
+  const [showIntimation, setShowIntimation] = useState(false);
   const [query, setQuery] = useState('');
 
   const departmentName = useMemo(() => {
@@ -224,6 +226,10 @@ export default function LegalCasesPage() {
               Painel de inteligência
             </Button>
           </Link>
+          <Button type="button" variant="outline" onClick={() => setShowIntimation(true)}>
+            <FileUp className="h-4 w-4" />
+            Nova intimação
+          </Button>
           <Button type="button" onClick={() => setShowNew(true)}>
             <Plus className="h-4 w-4" />
             Novo processo
@@ -261,6 +267,7 @@ export default function LegalCasesPage() {
       )}
 
       <NewCaseDialog open={showNew} onClose={() => setShowNew(false)} onCreated={() => {}} />
+      <NewIntimationDialog open={showIntimation} onClose={() => setShowIntimation(false)} />
     </div>
   );
 }
