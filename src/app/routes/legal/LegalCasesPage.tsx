@@ -6,6 +6,7 @@ import { NewIntimationDialog } from './NewIntimationDialog';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { useLegalCases, type CreateLegalCaseInput } from '@/hooks/useLegalCases';
+import { useLegalEmployeeContexts } from '@/hooks/useLegalEmployeeContexts';
 import { useDepartments } from '@/hooks/useDepartments';
 import { useOperators, operatorLabel } from '@/hooks/useOperators';
 import { dueBadge } from '@/lib/nextAction';
@@ -192,6 +193,7 @@ function CaseCard({ legalCase, departmentName, ownerName }: { legalCase: LegalCa
 
 export default function LegalCasesPage() {
   const { cases, loading } = useLegalCases();
+  const { contexts: employeeContexts } = useLegalEmployeeContexts();
   const { departments } = useDepartments();
   const { operators } = useOperators();
   const [showNew, setShowNew] = useState(false);
@@ -206,7 +208,16 @@ export default function LegalCasesPage() {
   const outcomeFilter = searchParams.get('outcome');
   const instanceFilter = searchParams.get('instance') as LegalCaseInstance | null;
   const yearFilter = searchParams.get('year');
-  const hasUrlFilter = Boolean(statusFilter || outcomeFilter || instanceFilter || yearFilter);
+  const shiftFilter = searchParams.get('shift');
+  const managerFilter = searchParams.get('manager');
+  const employeeDeptFilter = searchParams.get('employee_department');
+  const unionFilter = searchParams.get('union'); // 'true'
+  const warningFilter = searchParams.get('warning'); // 'true'
+  const basketMissingFilter = searchParams.get('basket_missing'); // 'true'
+  const hasUrlFilter = Boolean(
+    statusFilter || outcomeFilter || instanceFilter || yearFilter
+    || shiftFilter || managerFilter || employeeDeptFilter || unionFilter || warningFilter || basketMissingFilter,
+  );
 
   const clearUrlFilter = () => setSearchParams({});
 
@@ -220,12 +231,26 @@ export default function LegalCasesPage() {
     return (id: string | null) => (id ? map.get(id) ?? null : null);
   }, [operators]);
 
+  const employeeContextByCase = useMemo(() => {
+    const map = new Map(employeeContexts.map((ec) => [ec.case_id, ec]));
+    return map;
+  }, [employeeContexts]);
+
   const filtered = useMemo(() => {
     let list = cases;
     if (statusFilter) list = list.filter((c) => c.status === statusFilter);
     if (outcomeFilter) list = list.filter((c) => c.outcome === outcomeFilter);
     if (instanceFilter) list = list.filter((c) => c.instance === instanceFilter);
     if (yearFilter) list = list.filter((c) => new Date(c.created_at).getFullYear().toString() === yearFilter);
+    if (shiftFilter) list = list.filter((c) => employeeContextByCase.get(c.id)?.shift === shiftFilter);
+    if (managerFilter) list = list.filter((c) => employeeContextByCase.get(c.id)?.manager_name === managerFilter);
+    if (employeeDeptFilter) list = list.filter((c) => employeeContextByCase.get(c.id)?.department === employeeDeptFilter);
+    if (unionFilter === 'true') list = list.filter((c) => employeeContextByCase.get(c.id)?.union_engaged === true);
+    if (warningFilter === 'true') list = list.filter((c) => {
+      const ec = employeeContextByCase.get(c.id);
+      return Boolean(ec?.had_written_warning || ec?.had_suspension);
+    });
+    if (basketMissingFilter === 'true') list = list.filter((c) => employeeContextByCase.get(c.id)?.received_basic_basket_in_period === false);
 
     const q = query.trim().toLowerCase();
     if (!q) return list;
@@ -233,7 +258,11 @@ export default function LegalCasesPage() {
       c.title.toLowerCase().includes(q)
       || (c.case_number ?? '').toLowerCase().includes(q)
       || (c.classification ?? '').toLowerCase().includes(q));
-  }, [cases, query, statusFilter, outcomeFilter, instanceFilter, yearFilter]);
+  }, [
+    cases, query, statusFilter, outcomeFilter, instanceFilter, yearFilter,
+    shiftFilter, managerFilter, employeeDeptFilter, unionFilter, warningFilter, basketMissingFilter,
+    employeeContextByCase,
+  ]);
 
   const activeFilterLabel = statusFilter
     ? `Status: ${STATUS_LABEL[statusFilter]}`
@@ -243,7 +272,19 @@ export default function LegalCasesPage() {
         ? `Instância: ${INSTANCE_LABEL[instanceFilter]}`
         : yearFilter
           ? `Ano: ${yearFilter}`
-          : null;
+          : shiftFilter
+            ? `Turno: ${shiftFilter}`
+            : managerFilter
+              ? `Gestor: ${managerFilter}`
+              : employeeDeptFilter
+                ? `Setor do funcionário: ${employeeDeptFilter}`
+                : unionFilter === 'true'
+                  ? 'Sindicato acionado'
+                  : warningFilter === 'true'
+                    ? 'Com advertência/suspensão'
+                    : basketMissingFilter === 'true'
+                      ? 'Não recebeu cesta básica no período'
+                      : null;
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 pb-12">

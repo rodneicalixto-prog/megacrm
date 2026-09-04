@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, BarChart3, Loader2, Pencil, Plus } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, BarChart3, Loader2, Pencil, Plus, ShieldAlert, Users2 } from 'lucide-react';
 import { useLegalDashboardStats } from '@/hooks/useLegalDashboardStats';
 import { useLegalActionPlans } from '@/hooks/useLegalActionPlans';
 import { useOperators, operatorLabel } from '@/hooks/useOperators';
@@ -80,11 +80,17 @@ export default function LegalDashboardPage() {
     [stats],
   );
   const ranking = stats?.classification_ranking ?? [];
+  const shiftEntries = Object.entries(stats?.shift_breakdown ?? {});
+  const employeeDeptEntries = Object.entries(stats?.employee_department_breakdown ?? {});
+  const managerRanking = stats?.manager_ranking ?? [];
   const maxStatus = Math.max(1, ...statusEntries.map(([, v]) => v));
   const maxOutcome = Math.max(1, ...outcomeEntries.map(([, v]) => v));
   const maxInstance = Math.max(1, ...instanceEntries.map(([, v]) => v));
   const maxYear = Math.max(1, ...yearEntries.map(([, v]) => v));
   const maxCause = Math.max(1, ...ranking.map((r) => r.count));
+  const maxShift = Math.max(1, ...shiftEntries.map(([, v]) => v));
+  const maxManager = Math.max(1, ...managerRanking.map((m) => m.count));
+  const maxEmployeeDept = Math.max(1, ...employeeDeptEntries.map(([, v]) => v));
 
   const ownerLabel = (id: string | null) => {
     if (!id) return 'Sem responsável';
@@ -168,6 +174,62 @@ export default function LegalDashboardPage() {
                 <BarRow key={year} label={year} value={count} max={maxYear} colorClass="bg-[#F59E0B]" to={`/juridico?year=${year}`} />
               ))
             )}
+          </div>
+
+          {/* Cruzamento com o contexto de RH — turno, gestor, setor do
+              funcionário. Só aparece quando alguém já preencheu algo (senão
+              três blocos vazios não ajudam ninguém). */}
+          {(shiftEntries.length > 0 || managerRanking.length > 0 || employeeDeptEntries.length > 0) && (
+            <>
+              {shiftEntries.length > 0 && (
+                <div className="glass-card p-5">
+                  <h2 className="text-label mb-3">Reclamações por turno</h2>
+                  {shiftEntries.map(([shift, count]) => (
+                    <BarRow key={shift} label={shift} value={count} max={maxShift} colorClass="bg-[#22D3EE]" to={`/juridico?shift=${encodeURIComponent(shift)}`} />
+                  ))}
+                </div>
+              )}
+              {managerRanking.length > 0 && (
+                <div className="glass-card p-5">
+                  <h2 className="text-label mb-3">Reclamações por gestor</h2>
+                  {managerRanking.map((m, i) => (
+                    <BarRow key={m.manager} label={`${i + 1}º ${m.manager}`} value={m.count} max={maxManager} colorClass="bg-[#F472B6]" to={`/juridico?manager=${encodeURIComponent(m.manager)}`} />
+                  ))}
+                </div>
+              )}
+              {employeeDeptEntries.length > 0 && (
+                <div className="glass-card p-5">
+                  <h2 className="text-label mb-3">Reclamações por setor do funcionário</h2>
+                  {employeeDeptEntries.map(([dept, count]) => (
+                    <BarRow key={dept} label={dept} value={count} max={maxEmployeeDept} colorClass="bg-[#34D399]" to={`/juridico?employee_department=${encodeURIComponent(dept)}`} />
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <Link to="/juridico?union=true" className="glass-card flex items-center gap-3 p-4 transition-colors hover:border-[rgba(59,130,246,0.4)]">
+              <Users2 className="h-5 w-5 shrink-0 text-[#8B5CF6]" />
+              <div>
+                <div className="text-lg font-bold tabular-nums text-[var(--color-text-primary)]">{stats?.union_engaged_count ?? 0}</div>
+                <div className="text-xs text-[var(--color-text-secondary)]">Acionaram o sindicato</div>
+              </div>
+            </Link>
+            <Link to="/juridico?warning=true" className="glass-card flex items-center gap-3 p-4 transition-colors hover:border-[rgba(59,130,246,0.4)]">
+              <ShieldAlert className="h-5 w-5 shrink-0 text-[#FBBF24]" />
+              <div>
+                <div className="text-lg font-bold tabular-nums text-[var(--color-text-primary)]">{stats?.warning_or_suspension_count ?? 0}</div>
+                <div className="text-xs text-[var(--color-text-secondary)]">Com advertência/suspensão</div>
+              </div>
+            </Link>
+            <Link to="/juridico?basket_missing=true" className="glass-card flex items-center gap-3 p-4 transition-colors hover:border-[rgba(59,130,246,0.4)]">
+              <AlertTriangle className="h-5 w-5 shrink-0 text-[#EF4444]" />
+              <div>
+                <div className="text-lg font-bold tabular-nums text-[var(--color-text-primary)]">{stats?.basic_basket_missing_count ?? 0}</div>
+                <div className="text-xs text-[var(--color-text-secondary)]">Sem cesta básica no período</div>
+              </div>
+            </Link>
           </div>
 
           <div className="glass-card p-5">

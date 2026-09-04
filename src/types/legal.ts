@@ -140,6 +140,36 @@ export interface LegalDashboardStats {
   instance_breakdown: Partial<Record<LegalCaseInstance, number>>;
   // Chave é o ano como string (ex.: "2026"), vindo de extract(year from created_at)::text.
   year_breakdown: Record<string, number>;
+  shift_breakdown: Record<string, number>;
+  manager_ranking: Array<{ manager: string; count: number }>;
+  employee_department_breakdown: Record<string, number>;
+  union_engaged_count: number;
+  warning_or_suspension_count: number;
+  basic_basket_missing_count: number;
+}
+
+export interface LegalCaseEmployeeContext {
+  id: string;
+  case_id: string;
+  employee_name: string | null;
+  department: string | null;
+  role_title: string | null;
+  manager_name: string | null;
+  shift: string | null;
+  hire_date: string | null;
+  termination_date: string | null;
+  had_written_warning: boolean;
+  had_suspension: boolean;
+  warning_suspension_notes: string | null;
+  had_abandonment_notice: boolean;
+  // null = não verificado ainda (não presumir sim nem não).
+  received_basic_basket_in_period: boolean | null;
+  basic_basket_notes: string | null;
+  union_engaged: boolean;
+  union_notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface LegalActionPlan {
