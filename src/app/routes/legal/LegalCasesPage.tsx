@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { BarChart3, FileUp, Loader2, Plus, Scale, Search } from 'lucide-react';
+import { BarChart3, FileUp, Loader2, Plus, Scale, Search, X } from 'lucide-react';
 import { NewIntimationDialog } from './NewIntimationDialog';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
@@ -9,7 +9,7 @@ import { useLegalCases, type CreateLegalCaseInput } from '@/hooks/useLegalCases'
 import { useDepartments } from '@/hooks/useDepartments';
 import { useOperators, operatorLabel } from '@/hooks/useOperators';
 import { dueBadge } from '@/lib/nextAction';
-import type { LegalCase, LegalCaseStatus } from '@/types/legal';
+import type { LegalCase, LegalCaseInstance, LegalCaseStatus } from '@/types/legal';
 
 const STATUS_LABEL: Record<LegalCaseStatus, string> = {
   em_andamento: 'Em andamento',
@@ -17,6 +17,19 @@ const STATUS_LABEL: Record<LegalCaseStatus, string> = {
   elaborando_defesa: 'Elaborando defesa',
   pendente_documentacao: 'Pendente documentação',
   encerrado: 'Encerrado',
+};
+
+const INSTANCE_LABEL: Record<LegalCaseInstance, string> = {
+  primeira_instancia: '1ª instância',
+  segunda_instancia: '2ª instância',
+  terceira_instancia: '3ª instância',
+  tribunal_superior: 'Tribunal superior',
+};
+
+const OUTCOME_LABEL: Record<string, string> = {
+  acordo: 'Encerrado em acordo',
+  procedente: 'Julgado contra a empresa (procedente)',
+  improcedente: 'Julgado a favor da empresa (improcedente)',
 };
 
 function NewCaseDialog({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: (id: string) => void }) {
@@ -184,6 +197,18 @@ export default function LegalCasesPage() {
   const [showNew, setShowNew] = useState(false);
   const [showIntimation, setShowIntimation] = useState(false);
   const [query, setQuery] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Filtros vindos dos cards clicáveis do painel de inteligência
+  // (?status=/?outcome=/?instance=/?year=) — aplicados em cima da lista já
+  // carregada, mesmo espírito do filtro de busca por texto abaixo.
+  const statusFilter = searchParams.get('status') as LegalCaseStatus | null;
+  const outcomeFilter = searchParams.get('outcome');
+  const instanceFilter = searchParams.get('instance') as LegalCaseInstance | null;
+  const yearFilter = searchParams.get('year');
+  const hasUrlFilter = Boolean(statusFilter || outcomeFilter || instanceFilter || yearFilter);
+
+  const clearUrlFilter = () => setSearchParams({});
 
   const departmentName = useMemo(() => {
     const map = new Map(departments.map((d) => [d.id, d.name]));
@@ -196,13 +221,29 @@ export default function LegalCasesPage() {
   }, [operators]);
 
   const filtered = useMemo(() => {
+    let list = cases;
+    if (statusFilter) list = list.filter((c) => c.status === statusFilter);
+    if (outcomeFilter) list = list.filter((c) => c.outcome === outcomeFilter);
+    if (instanceFilter) list = list.filter((c) => c.instance === instanceFilter);
+    if (yearFilter) list = list.filter((c) => new Date(c.created_at).getFullYear().toString() === yearFilter);
+
     const q = query.trim().toLowerCase();
-    if (!q) return cases;
-    return cases.filter((c) =>
+    if (!q) return list;
+    return list.filter((c) =>
       c.title.toLowerCase().includes(q)
       || (c.case_number ?? '').toLowerCase().includes(q)
       || (c.classification ?? '').toLowerCase().includes(q));
-  }, [cases, query]);
+  }, [cases, query, statusFilter, outcomeFilter, instanceFilter, yearFilter]);
+
+  const activeFilterLabel = statusFilter
+    ? `Status: ${STATUS_LABEL[statusFilter]}`
+    : outcomeFilter
+      ? `Desfecho: ${OUTCOME_LABEL[outcomeFilter] ?? outcomeFilter}`
+      : instanceFilter
+        ? `Instância: ${INSTANCE_LABEL[instanceFilter]}`
+        : yearFilter
+          ? `Ano: ${yearFilter}`
+          : null;
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 pb-12">
@@ -236,6 +277,17 @@ export default function LegalCasesPage() {
           </Button>
         </div>
       </header>
+
+      {hasUrlFilter && (
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-2 rounded-full bg-[rgba(59,130,246,0.12)] px-3 py-1 text-xs font-semibold text-[var(--accent-secondary)]">
+            {activeFilterLabel}
+            <button type="button" onClick={clearUrlFilter} aria-label="Limpar filtro" className="hover:text-[var(--color-text-primary)]">
+              <X className="h-3 w-3" />
+            </button>
+          </span>
+        </div>
+      )}
 
       <div className="relative">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-secondary)]" />

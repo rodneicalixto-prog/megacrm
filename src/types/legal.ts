@@ -6,7 +6,13 @@ export type LegalCaseStatus =
   | 'encerrado';
 
 export type LegalCaseOutcome = 'acordo' | 'procedente' | 'improcedente';
+export type LegalCaseInstance =
+  | 'primeira_instancia'
+  | 'segunda_instancia'
+  | 'terceira_instancia'
+  | 'tribunal_superior';
 export type LegalCaseSide = 'empresa' | 'reclamante';
+export type LegalActionPlanStatus = 'planejado' | 'em_andamento' | 'concluido';
 export type LegalBriefingTriggerType =
   | 'manual'
   | 'versao_inicial'
@@ -23,6 +29,7 @@ export interface LegalCase {
   department_id: string;
   status: LegalCaseStatus;
   outcome: LegalCaseOutcome | null;
+  instance: LegalCaseInstance;
   next_deadline_at: string | null;
   next_deadline_label: string | null;
   owner_id: string | null;
@@ -130,6 +137,31 @@ export interface LegalDashboardStats {
   volume_by_status: Partial<Record<LegalCaseStatus, number>>;
   outcome_breakdown: Partial<Record<LegalCaseOutcome, number>>;
   classification_ranking: Array<{ classification: string; count: number }>;
+  instance_breakdown: Partial<Record<LegalCaseInstance, number>>;
+  // Chave é o ano como string (ex.: "2026"), vindo de extract(year from created_at)::text.
+  year_breakdown: Record<string, number>;
+}
+
+export interface LegalActionPlan {
+  id: string;
+  classification: string;
+  title: string;
+  owner_id: string | null;
+  status: LegalActionPlanStatus;
+  swot_strengths: string[];
+  swot_weaknesses: string[];
+  swot_opportunities: string[];
+  swot_threats: string[];
+  w5h2_what: string | null;
+  w5h2_why: string | null;
+  w5h2_where: string | null;
+  w5h2_when: string | null;
+  w5h2_who: string | null;
+  w5h2_how: string | null;
+  w5h2_how_much: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export const LEGAL_ATTACHMENTS_BUCKET = 'whatsapp-hub-legal-attachments';
