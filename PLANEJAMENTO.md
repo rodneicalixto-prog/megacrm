@@ -1,7 +1,7 @@
 # MegaCRM — PRD e Estado Operacional
 
 > Avaliação original: 2026-08-08, sobre o commit `f01d683`.
-> Última atualização: 2026-08-21, branch `main`, commit operacional `34e4429`.
+> Última atualização: 2026-09-03, branch `main`, commit operacional `c5e4b55`.
 
 ---
 
@@ -131,17 +131,19 @@ só as cadeias que as functions usam).
 | variável faltante não reportada no template | 5 |
 | filtro de grupo removido | 2 |
 
-### 🟠 R4 — Vulnerabilidades de dependência — parcialmente aberto
+### 🟡 R4 — Vulnerabilidades de dependência — em grande parte resolvido
 
-O `npm audit` atual reporta **5 pacotes**: 2 high e 3 moderate. Nenhum bloqueia o
-início do teste controlado, mas planilhas de origem desconhecida permanecem
-proibidas até a substituição do parser vulnerável.
+**Atualizado em 03/09/2026**, esta seção estava desatualizada desde 21/08 — o
+`xlsx` foi corrigido nesse meio-tempo (PR #48) e o CORS wildcard ganhou opt-out
+(PR #51), nenhum dos dois refletido aqui até agora. Ver `ISSUES.md` para o
+detalhe completo de cada item.
 
-| Pacote | Severidade | Situação |
+| Pacote/item | Severidade | Situação |
 |---|---|---|
-| `xlsx@0.18.5` | high | ⏳ aberto — risco ao processar planilhas não confiáveis; não há fix no npm |
+| `xlsx@0.18.5` | high | ✅ fechado em 03/09/2026 (#48) — trocado pro build oficial da SheetJS via CDN, mesma API |
 | `vite` / `esbuild` | high / moderate | ⏳ aberto — superfície principal no servidor de desenvolvimento; upgrade é major |
-| `react-router-dom` / `react-router` | moderate | ⏳ aberto — revisar junto da migração de router, sem atualização cega |
+| `react-router-dom` / `react-router` | moderate | ⏳ aberto, sem ação planejada — não alcançável nesta base (SPA sem SSR, sem destino de navegação controlado pelo usuário); reavaliar quando houver cobertura de teste de rotas |
+| CORS wildcard nos 5 webhooks públicos | moderate | 🟡 parcialmente aberto (#51) — mecanismo opt-in `APP_ORIGIN` adicionado, mas segue `'*'` por padrão até alguém configurar; rate limit segue faltando em 4 das 5 funções públicas (só `ingest-lead` tem) |
 
 ### 🟡 R5 — Peso do bundle
 
