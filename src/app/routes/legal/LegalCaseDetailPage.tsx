@@ -6,6 +6,7 @@ import {
   Scale, Send, Sparkles, Trash2, Upload, Users,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { EmployeeContextDialog } from './EmployeeContextDialog';
 import { useLegalCaseDetail } from '@/hooks/useLegalCaseDetail';
 import { useDepartments } from '@/hooks/useDepartments';
 import { useOperators, operatorLabel } from '@/hooks/useOperators';
@@ -107,9 +108,25 @@ export default function LegalCaseDetailPage() {
 }
 
 // ---------------------------------------------------------------------------
+function tenureLabel(hireDate: string | null, terminationDate: string | null): string | null {
+  if (!hireDate) return null;
+  const start = new Date(hireDate);
+  const end = terminationDate ? new Date(terminationDate) : new Date();
+  const months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+  const years = Math.floor(months / 12);
+  const rem = months % 12;
+  const parts: string[] = [];
+  if (years > 0) parts.push(`${years} ano${years > 1 ? 's' : ''}`);
+  if (rem > 0 || years === 0) parts.push(`${rem} ${rem === 1 ? 'mês' : 'meses'}`);
+  return parts.join(' e ') + (terminationDate ? ' (até o desligamento)' : ' de casa');
+}
+
 function OverviewTab({ detail, departmentName, ownerLabel }: { detail: ReturnType<typeof useLegalCaseDetail>; departmentName: string; ownerLabel: string | null }) {
   const c = detail.legalCase!;
   const [witnessOpen, setWitnessOpen] = useState(false);
+  const [employeeContextOpen, setEmployeeContextOpen] = useState(false);
+  const ec = detail.employeeContext;
+  const tenure = ec ? tenureLabel(ec.hire_date, ec.termination_date) : null;
 
   return (
     <div className="space-y-4">
@@ -132,6 +149,31 @@ function OverviewTab({ detail, departmentName, ownerLabel }: { detail: ReturnTyp
             ))}
           </dl>
         </div>
+      </div>
+
+      <div className="glass-card p-5">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-label">Contexto do funcionário (RH)</h3>
+          <Button type="button" variant="ghost" size="sm" onClick={() => setEmployeeContextOpen(true)}>
+            {ec ? 'Editar' : 'Preencher'}
+          </Button>
+        </div>
+        {!ec ? (
+          <p className="text-sm text-[var(--color-text-secondary)]">Não preenchido ainda — turno, gestor, setor e histórico disciplinar cruzam com o painel de inteligência.</p>
+        ) : (
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+            <Row label="Nome" value={ec.employee_name ?? '—'} />
+            <Row label="Setor" value={ec.department ?? '—'} />
+            <Row label="Função" value={ec.role_title ?? '—'} />
+            <Row label="Gestor" value={ec.manager_name ?? '—'} />
+            <Row label="Turno" value={ec.shift ?? '—'} />
+            <Row label="Tempo de casa" value={tenure ?? '—'} />
+            <Row label="Advertência / suspensão" value={ec.had_written_warning || ec.had_suspension ? 'Sim' : 'Não'} />
+            <Row label="Aviso de abandono" value={ec.had_abandonment_notice ? 'Sim' : 'Não'} />
+            <Row label="Cesta básica no período" value={ec.received_basic_basket_in_period === null ? 'Não verificado' : ec.received_basic_basket_in_period ? 'Sim' : 'Não'} />
+            <Row label="Acionou o sindicato" value={ec.union_engaged ? 'Sim' : 'Não'} />
+          </dl>
+        )}
       </div>
 
       {c.summary && (
@@ -186,6 +228,7 @@ function OverviewTab({ detail, departmentName, ownerLabel }: { detail: ReturnTyp
       )}
 
       <WitnessDialog open={witnessOpen} onClose={() => setWitnessOpen(false)} onAdd={detail.addWitness} />
+      <EmployeeContextDialog open={employeeContextOpen} onClose={() => setEmployeeContextOpen(false)} existing={ec} onSave={detail.saveEmployeeContext} />
     </div>
   );
 }

@@ -7,6 +7,7 @@ import type {
   LegalCaseBriefing,
   LegalCaseChecklistItem,
   LegalCaseCourtMovement,
+  LegalCaseEmployeeContext,
   LegalCaseMessage,
   LegalCaseParticipant,
   LegalCaseSide,
@@ -24,6 +25,7 @@ interface DetailState {
   messages: LegalCaseMessage[];
   briefings: LegalCaseBriefing[];
   movements: LegalCaseCourtMovement[];
+  employeeContext: LegalCaseEmployeeContext | null;
 }
 
 const EMPTY: DetailState = {
@@ -36,6 +38,7 @@ const EMPTY: DetailState = {
   messages: [],
   briefings: [],
   movements: [],
+  employeeContext: null,
 };
 
 // Um processo é bastante coisa junta (7 tabelas) — carregado num hook só
@@ -49,7 +52,7 @@ export function useLegalCaseDetail(caseId: string | undefined) {
   const reload = useCallback(async () => {
     if (!caseId) return;
     const supabase = getSupabase().schema('whatsapp_hub');
-    const [caseRes, peopleRes, tasksRes, checklistRes, witnessesRes, filesRes, msgsRes, briefingsRes, movementsRes] =
+    const [caseRes, peopleRes, tasksRes, checklistRes, witnessesRes, filesRes, msgsRes, briefingsRes, movementsRes, employeeRes] =
       await Promise.all([
         supabase.from('legal_cases').select('*').eq('id', caseId).maybeSingle(),
         supabase.from('legal_case_participants').select('*').eq('case_id', caseId).order('created_at'),
@@ -60,11 +63,12 @@ export function useLegalCaseDetail(caseId: string | undefined) {
         supabase.from('legal_case_messages').select('*').eq('case_id', caseId).order('created_at'),
         supabase.from('legal_case_briefings').select('*').eq('case_id', caseId).order('version', { ascending: false }),
         supabase.from('legal_case_court_movements').select('*').eq('case_id', caseId).order('occurred_at', { ascending: false }),
+        supabase.from('legal_case_employee_context').select('*').eq('case_id', caseId).maybeSingle(),
       ]);
 
     const firstError =
       caseRes.error || peopleRes.error || tasksRes.error || checklistRes.error || witnessesRes.error
-      || filesRes.error || msgsRes.error || briefingsRes.error || movementsRes.error;
+      || filesRes.error || msgsRes.error || briefingsRes.error || movementsRes.error || employeeRes.error;
     if (firstError) {
       console.error('[useLegalCaseDetail] falha ao carregar processo', firstError);
       setError(firstError.message);
@@ -88,6 +92,7 @@ export function useLegalCaseDetail(caseId: string | undefined) {
       messages: (msgsRes.data ?? []) as LegalCaseMessage[],
       briefings: (briefingsRes.data ?? []) as LegalCaseBriefing[],
       movements: (movementsRes.data ?? []) as LegalCaseCourtMovement[],
+      employeeContext: (employeeRes.data ?? null) as LegalCaseEmployeeContext | null,
     });
     setLoading(false);
   }, [caseId]);
@@ -242,6 +247,17 @@ export function useLegalCaseDetail(caseId: string | undefined) {
     return { ok: true as const };
   }, [caseId, reload]);
 
+  // Upsert por case_id (unique na tabela) — um único registro por processo,
+  // criado na primeira edição e atualizado depois.
+  const saveEmployeeContext = useCallback(async (input: Partial<Omit<LegalCaseEmployeeContext, 'id' | 'case_id' | 'created_at' | 'updated_at' | 'created_by'>>) => {
+    if (!caseId) return { ok: false as const, error: 'sem processo' };
+    const { error: err } = await getSupabase().schema('whatsapp_hub').from('legal_case_employee_context')
+      .upsert({ case_id: caseId, ...input }, { onConflict: 'case_id' });
+    if (err) return { ok: false as const, error: err.message };
+    await reload();
+    return { ok: true as const };
+  }, [caseId, reload]);
+
   const addCourtMovement = useCallback(async (occurredAt: string, description: string) => {
     if (!caseId) return { ok: false as const, error: 'sem processo' };
     const { error: err } = await getSupabase().schema('whatsapp_hub').from('legal_case_court_movements')
@@ -270,5 +286,6 @@ export function useLegalCaseDetail(caseId: string | undefined) {
     addParticipant,
     appendBriefing,
     addCourtMovement,
+    saveEmployeeContext,
   };
 }
