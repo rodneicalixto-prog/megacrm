@@ -12,6 +12,7 @@ import {
   Send,
   MessageCircle,
   Video,
+  Scale,
 } from 'lucide-react';
 import type { CommercialModule } from '@/lib/plan';
 
@@ -36,6 +37,11 @@ export interface NavItem {
   // esse módulo (ver useEnabledModules / get-instance-plan). Independente de
   // adminOnly — os dois filtros se combinam.
   module?: CommercialModule;
+  // Item restrito ao módulo Jurídico: super_admin, admin, ou supervisor de um
+  // departamento com grants_legal_access. Gate real é a RLS
+  // (whatsapp_hub.can_access_legal()) — isto só esconde o item do menu, ver
+  // useCanAccessLegal().
+  legalOnly?: boolean;
 }
 
 // Single source of truth for both the Sidebar and the router. Adding a new
@@ -50,6 +56,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/funil', label: 'Funil', icon: SquareKanban },
   { to: '/agenda', label: 'Agenda', icon: CalendarDays },
   { to: '/meetings', label: 'Reuniões', icon: Video },
+  { to: '/juridico', label: 'Jurídico', icon: Scale, legalOnly: true },
   { to: '/contacts', label: 'Contatos', icon: Users },
   { to: '/campaigns', label: 'Campanhas', icon: Megaphone, module: 'campaigns' },
   { to: '/disparo-massa', label: 'Disparo em massa', icon: Send, module: 'disparo_massa' },
