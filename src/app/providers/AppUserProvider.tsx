@@ -55,7 +55,14 @@ function usePresenceHeartbeat(userId: string | null) {
     const supabase = getSupabase();
 
     const ping = (online: boolean) => {
-      void supabase.schema('whatsapp_hub').rpc('set_own_presence', { p_online: online });
+      console.debug('[presence] ping', online, userId);
+      supabase
+        .schema('whatsapp_hub')
+        .rpc('set_own_presence', { p_online: online })
+        .then(({ error }) => {
+          if (error) console.error('[presence] set_own_presence falhou', error);
+        })
+        .catch((err) => console.error('[presence] set_own_presence rejeitou', err));
     };
 
     ping(true);
