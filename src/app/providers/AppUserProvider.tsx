@@ -54,25 +54,24 @@ function usePresenceHeartbeat(userId: string | null) {
     if (!userId) return;
     const supabase = getSupabase();
 
-    const ping = (online: boolean) => {
+    const ping = async (online: boolean) => {
       console.debug('[presence] ping', online, userId);
-      supabase
-        .schema('whatsapp_hub')
-        .rpc('set_own_presence', { p_online: online })
-        .then(({ error }) => {
-          if (error) console.error('[presence] set_own_presence falhou', error);
-        })
-        .catch((err) => console.error('[presence] set_own_presence rejeitou', err));
+      try {
+        const { error } = await supabase.schema('whatsapp_hub').rpc('set_own_presence', { p_online: online });
+        if (error) console.error('[presence] set_own_presence falhou', error);
+      } catch (err) {
+        console.error('[presence] set_own_presence rejeitou', err);
+      }
     };
 
-    ping(true);
-    const interval = window.setInterval(() => ping(true), HEARTBEAT_INTERVAL_MS);
+    void ping(true);
+    const interval = window.setInterval(() => void ping(true), HEARTBEAT_INTERVAL_MS);
 
     return () => {
       window.clearInterval(interval);
       // Melhor esforço: cobre logout/troca de usuário na mesma aba. Fechar a
       // aba direto não dispara isso — para esse caso vale a expiração acima.
-      ping(false);
+      void ping(false);
     };
   }, [userId]);
 }
