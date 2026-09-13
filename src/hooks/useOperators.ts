@@ -51,7 +51,10 @@ let sharedOperators: Operator[] = [];
 let sharedError: string | null = null;
 let hasLoadedOnce = false;
 let inFlight = false;
-let intervalId: ReturnType<typeof window.setInterval> | null = null;
+// number, não ReturnType<typeof setInterval>: com @types/node no projeto,
+// esse ReturnType resolve para NodeJS.Timeout mesmo em código de browser
+// (window.setInterval sempre devolve number), e trava o build (TS2322).
+let intervalId: number | null = null;
 const listeners = new Set<Listener>();
 
 function notify() {
