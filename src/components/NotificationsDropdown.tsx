@@ -77,10 +77,19 @@ export function NotificationsDropdown() {
               const n = item.latest;
               const Icon = n.type === 'handoff' ? UserRoundCog : n.type === 'sla_breach' ? AlarmClock : n.type === 'mention' ? AtSign : MessageSquare;
               const iconCls = n.type === 'sla_breach' ? 'bg-red-500/15 text-red-400' : n.type === 'handoff' ? 'bg-amber-500/15 text-amber-300' : 'bg-blue-500/15 text-[var(--accent-primary)]';
-              const subtitle = n.type === 'handoff' ? 'Aguardando atendimento humano' : (n.body || 'Nova mensagem');
+              // new_message não carrega mais nome de contato nem prévia (título/corpo
+              // genéricos desde a migration reenable_new_message_notify_no_preview) —
+              // usar contactName(title) aqui só duplicaria "Nova mensagem" nos dois
+              // campos.
+              const heading = n.type === 'new_message' ? 'Nova mensagem' : contactName(n.title);
+              const subtitle = n.type === 'handoff'
+                ? 'Aguardando atendimento humano'
+                : n.type === 'new_message'
+                  ? 'Toque para abrir a conversa'
+                  : (n.body || '');
               return <li key={n.conversation_id ?? n.id}><button type="button" onClick={() => void openConversation(item)} className={cn('flex w-full items-center gap-3 p-3 text-left transition hover:bg-[rgba(59,130,246,0.06)]', item.unread && 'bg-[rgba(59,130,246,0.04)]')}>
               <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-full', iconCls)}><Icon className="h-4 w-4" /></span>
-              <span className="min-w-0 flex-1"><span className="flex items-center gap-2"><strong className="truncate text-sm text-[var(--color-text-primary)]">{contactName(n.title)}</strong><span className="ml-auto shrink-0 text-[10px] text-[var(--color-text-secondary)]">{relativeTime(n.created_at)}</span></span><span className="block truncate text-xs text-[var(--color-text-secondary)]">{subtitle}</span></span>
+              <span className="min-w-0 flex-1"><span className="flex items-center gap-2"><strong className="truncate text-sm text-[var(--color-text-primary)]">{heading}</strong><span className="ml-auto shrink-0 text-[10px] text-[var(--color-text-secondary)]">{relativeTime(n.created_at)}</span></span><span className="block truncate text-xs text-[var(--color-text-secondary)]">{subtitle}</span></span>
               {item.unread > 0 && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--accent-primary)] px-1 text-[10px] font-bold text-white">{item.unread}</span>}
             </button></li>;
             })}
