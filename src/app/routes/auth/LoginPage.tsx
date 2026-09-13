@@ -30,8 +30,9 @@ export default function LoginPage() {
   };
 
   // Esqueci minha senha: dispara o e-mail de recuperação do Supabase. O link
-  // aponta para /invite (mesma tela reusa updateUser p/ definir nova senha) no
-  // domínio atual (produção na Vercel).
+  // aponta para /reset-password (rota própria, separada de /invite — que só
+  // funciona para o primeiro aceite de convite, ver ResetPasswordPage.tsx)
+  // no domínio atual (produção na Vercel).
   const handleForgotPassword = async () => {
     const target = email.trim();
     if (!target) {
@@ -41,7 +42,7 @@ export default function LoginPage() {
     setResetting(true);
     const supabase = getSupabase();
     const { error } = await supabase.auth.resetPasswordForEmail(target, {
-      redirectTo: `${window.location.origin}/invite`,
+      redirectTo: `${window.location.origin}/reset-password`,
     });
     setResetting(false);
     if (error) {
