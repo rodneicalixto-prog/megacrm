@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { decrypt, getCredential } from '../src/lib/credentials.js';
 import { requireAdmin } from '../src/lib/admin-auth.js';
-import { isEvolutionConnected, readEvolutionConnectionState } from '../src/lib/evolutionState.js';
+import { isEvolutionConnected, readEvolutionConnectionState, readEvolutionOwnerInfo } from '../src/lib/evolutionState.js';
 
 type ApiRequest = {
   method?: string;
@@ -19,6 +19,7 @@ interface ConnectionRow {
   instance: string;
   server_url: string | null;
   api_key_encrypted: string | null;
+  phone_number: string | null;
 }
 
 function getAdmin() {
@@ -39,11 +40,11 @@ async function inspect(
     try {
       apiKey = decrypt(row.api_key_encrypted);
     } catch {
-      return { id: row.id, configured: false, connected: false, state: null, error: 'Chave da linha inválida.' };
+      return { id: row.id, configured: false, connected: false, state: null, phoneNumber: null, profileName: null, error: 'Chave da linha inválida.' };
     }
   }
   if (!serverUrl || !apiKey) {
-    return { id: row.id, configured: false, connected: false, state: null };
+    return { id: row.id, configured: false, connected: false, state: null, phoneNumber: null, profileName: null };
   }
 
   try {
@@ -57,16 +58,41 @@ async function inspect(
         configured: true,
         connected: false,
         state: null,
+        phoneNumber: null,
+        profileName: null,
         error: `Evolution respondeu ${response.status}.`,
       };
     }
     const body = await response.json() as Record<string, unknown>;
     const state = readEvolutionConnectionState(body);
+    const connected = isEvolutionConnected(state);
+
+    let phoneNumber: string | null = null;
+    let profileName: string | null = null;
+    if (connected) {
+      try {
+        const ownerResponse = await fetch(
+          `${serverUrl}/instance/fetchInstances?instanceName=${encodeURIComponent(row.instance)}`,
+          { headers: { apikey: apiKey }, signal: AbortSignal.timeout(10000) },
+        );
+        if (ownerResponse.ok) {
+          const ownerBody = await ownerResponse.json();
+          const owner = readEvolutionOwnerInfo(ownerBody);
+          phoneNumber = owner.phoneNumber;
+          profileName = owner.profileName;
+        }
+      } catch {
+        // Melhor esforço: sem dono resolvido, segue só com o estado de conexão.
+      }
+    }
+
     return {
       id: row.id,
       configured: true,
-      connected: isEvolutionConnected(state),
+      connected,
       state,
+      phoneNumber,
+      profileName,
       error: state ? undefined : 'Resposta sem estado reconhecido.',
     };
   } catch (error) {
@@ -75,6 +101,8 @@ async function inspect(
       configured: true,
       connected: false,
       state: null,
+      phoneNumber: null,
+      profileName: null,
       error: error instanceof Error ? error.message : 'Falha ao consultar a Evolution.',
     };
   }
@@ -86,18 +114,33 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     const auth = await requireAdmin(req.headers?.authorization ?? req.headers?.Authorization);
     if (auth.ok === false) return res.status(auth.status).json({ success: false, message: auth.message });
 
-    const { data, error } = await getAdmin()
+    const admin = getAdmin();
+    const { data, error } = await admin
       .schema('whatsapp_hub')
       .from('department_connections')
-      .select('id, instance, server_url, api_key_encrypted')
+      .select('id, instance, server_url, api_key_encrypted, phone_number')
       .order('created_at');
     if (error) throw error;
 
     const globalServerUrl = (await getCredential('evolution_server_url')) ?? '';
     const globalApiKey = (await getCredential('evolution_api_key')) ?? '';
-    const statuses = await Promise.all(
-      ((data ?? []) as ConnectionRow[]).map((row) => inspect(row, globalServerUrl, globalApiKey)),
-    );
+    const rows = (data ?? []) as ConnectionRow[];
+    const statuses = await Promise.all(rows.map((row) => inspect(row, globalServerUrl, globalApiKey)));
+
+    // Melhor esforço: guarda o número real assim que a Evolution o revela, para
+    // que o restante da UI (lista de linhas, inbox) não dependa de digitação manual.
+    await Promise.all(statuses.map((status, index) => {
+      const row = rows[index];
+      if (status.phoneNumber && status.phoneNumber !== row.phone_number) {
+        return admin
+          .schema('whatsapp_hub')
+          .from('department_connections')
+          .update({ phone_number: status.phoneNumber })
+          .eq('id', row.id);
+      }
+      return Promise.resolve();
+    }));
+
     return res.status(200).json({ success: true, statuses });
   } catch (error) {
     return res.status(500).json({

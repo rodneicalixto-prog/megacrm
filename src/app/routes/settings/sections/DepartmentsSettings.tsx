@@ -42,6 +42,8 @@ interface LinhaStatus {
   configured: boolean;
   connected: boolean;
   state: string | null;
+  phoneNumber?: string | null;
+  profileName?: string | null;
   error?: string;
 }
 
@@ -701,14 +703,16 @@ export function DepartmentsSettings() {
                   <div className="space-y-2">
                     {linhasDoSetor.map((linha) => {
                       const cargo = doSetor.find((item) => item.id === linha.position_id);
+                      const titular = cargo?.user_id ? operators.find((o) => o.user_id === cargo.user_id) : null;
                       const status = statusLinhas[linha.id];
+                      const telefone = status?.phoneNumber ?? linha.phone_number;
                       return (
                         <div key={linha.id} className="rounded-lg border border-[rgba(59,130,246,0.1)] px-3 py-2">
                           <div className="flex items-center gap-3">
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
                               <div className="truncate text-sm font-medium text-[var(--color-text-primary)]">
-                                {linha.label ?? linha.phone_number ?? linha.instance}
+                                {titular ? operatorLabel(titular) : linha.label ?? telefone ?? linha.instance}
                               </div>
                               {loadingStatus && !status ? (
                                 <Loader2 className="h-3 w-3 shrink-0 animate-spin text-[var(--accent-secondary)]" />
@@ -734,7 +738,7 @@ export function DepartmentsSettings() {
                               )}
                             </div>
                             <div className="truncate text-xs text-[var(--color-text-secondary)]">
-                              {linha.phone_number ? `${linha.phone_number} · ` : ''}{linha.instance} · {cargo?.name ?? 'Fila do setor'} · {linha.server_url ? 'credencial própria' : 'credencial global'}
+                              {telefone ? `${telefone} · ` : ''}{linha.instance} · {cargo?.name ?? 'Fila do setor'} · {linha.server_url ? 'credencial própria' : 'credencial global'}
                             </div>
                           </div>
                           <button
