@@ -9,6 +9,7 @@ const SetupPage = lazy(() => import('./routes/setup/SetupPage'));
 const LoginPage = lazy(() => import('./routes/auth/LoginPage'));
 const SignupPage = lazy(() => import('./routes/auth/SignupPage'));
 const InvitePage = lazy(() => import('./routes/invite/InvitePage'));
+const ResetPasswordPage = lazy(() => import('./routes/auth/ResetPasswordPage'));
 const DashboardPage = lazy(() => import('./routes/dashboard/DashboardPage'));
 const InboxPage = lazy(() => import('./routes/inbox/InboxPage'));
 const TeamChatPage = lazy(() => import('./routes/team-chat/TeamChatPage'));
@@ -126,6 +127,17 @@ export function AppRouter() {
           element={
             <RequireSetup>
               <InvitePage />
+            </RequireSetup>
+          }
+        />
+        {/* /reset-password também não usa RedirectIfAuthenticated pelo mesmo
+            motivo: o link de "esqueci minha senha" do Supabase estabelece uma
+            sessão de recovery que a tela precisa enxergar. */}
+        <Route
+          path="/reset-password"
+          element={
+            <RequireSetup>
+              <ResetPasswordPage />
             </RequireSetup>
           }
         />
