@@ -90,6 +90,57 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ### Fixed
 
+- **RLS de conversas escondia a fila inteira de admin/super_admin** — uma
+  migration aplicada direto em produção (`20260913223426`, fora do fluxo
+  git) trocou "esconder só quem está atribuído a outro admin/super_admin"
+  por "só mostrar quem já está atribuído a supervisor/operador". Efeito:
+  toda conversa sem responsável e o `attendance_dashboard` (SECURITY
+  INVOKER, herda a mesma RLS) ficaram zerados para qualquer admin/super_admin,
+  em qualquer departamento. Restaurada a versão anterior
+  (`20260914120000_restore_admin_queue_visibility`), que já resolvia o
+  vazamento real (linha pessoal do dono visível para outro admin) sem
+  bloquear a fila.
+- **Dashboard "Em andamento"/"Aguardando" ignoravam atendimento pelo
+  celular**: as duas métricas usavam `assigned_to IS NOT NULL` como proxy de
+  "tem humano cuidando", mas o handler `isFromMe` do `whatsapp-inbound`
+  (resposta enviada direto do celular, fora do CRM) só muda `status` para
+  `human_active` — nunca seta `assigned_to` (depende de
+  `department_positions`, ainda incompleto em alguns setores). Resultado
+  real: 77 de 101 conversas do setor Recrutamento Humano já tinham resposta
+  humana e apareciam como "aguardando" pra sempre. `attendance_dashboard`
+  agora usa `status` diretamente (`20260914150000_dashboard_status_not_assigned_to`).
+- **Sininho de notificações misturava agenda com chegada de mensagem**:
+  removidos os gatilhos `on_inbound_notify`/`on_handoff_notify` — o
+  sininho agora é reservado a `sla_breach`/`legal_task_overdue` (prazo/tarefa),
+  nunca chegada de WhatsApp (`20260914130000_notifications_agenda_only`).
+- **Nenhuma conversa fechava sozinha quando o atendimento é feito pelo
+  celular** (o operador não tem como clicar em "Finalizar" na tela): novo
+  cron `wh-close-idle-conversations` fecha automaticamente qualquer
+  conversa aberta sem troca de mensagem há mais de 2h
+  (`20260914140000_auto_close_idle_conversations`).
+
+### Known gaps (levantados em 14/09/2026, não corrigidos nesta rodada)
+
+- `assigned_to` continua NULL quando a resposta vem do celular — a métrica
+  de dashboard já foi corrigida via `status`, mas o roteamento "de quem é
+  a conversa" ainda depende de `department_connections.position_id` estar
+  vinculado a um operador real. Departamento Recrutamento Humano tem 8
+  linhas sem nenhum cargo cadastrado (achado ao investigar mensagens que
+  chegavam e não apareciam no CRM) — cadastro pendente do mapeamento
+  operador↔número.
+- Convite de equipe (`invite-team-member`/`accept-team-invite`) ganhou
+  suporte a criar cargo + linha + QR no momento do aceite do convite
+  (não mais no envio), mas ainda não foi comitado/deployado — ver
+  `supabase/functions/invite-team-member`, `accept-team-invite`,
+  `finalize-team-invite` (novo) e `InvitePage.tsx`.
+- Não existe nenhum gatilho de "reunião/tarefa da agenda atrasada" (pedido
+  do usuário pro sininho) — feature nova ainda não planejada em detalhe.
+- Migrations `20260913222507_disable_new_message_notifications` e
+  `20260913222625_reenable_new_message_notify_no_preview` foram aplicadas
+  em produção mas nunca chegaram ao git — só a correção final
+  (`20260914130000`) foi sincronizada; o histórico completo do que rodou
+  em produção entre 13 e 14/09 fica documentado aqui, não no `supabase/migrations/`.
+
 - **Dashboard abria um conjunto maior que o número do card**: “Finalizados
   hoje” continua sendo calculado desde 00h no fuso de São Paulo, mas agora abre
   a Inbox com o mesmo recorte de data, em vez de listar todo o histórico de
