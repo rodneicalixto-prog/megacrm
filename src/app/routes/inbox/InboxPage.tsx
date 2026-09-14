@@ -255,13 +255,18 @@ export default function InboxPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visibleConversations, selectedId]);
 
-  // Clear unread count when a conversation is open AND visible.
+  // Clear unread count when a conversation is open AND visible — mas só para
+  // quem de fato atende (supervisor/operator, ou o próprio dono da conversa).
+  // Admin/super_admin abrem em modo "sigilo": olhar pra auditar/monitorar não
+  // pode zerar o badge de quem está na ponta, senão o operador real acha que
+  // já foi visto/tratado e a mensagem fica sem resposta.
+  const isFrontlineViewer = role === 'supervisor' || role === 'operator' || selected?.assigned_to === userId;
   useEffect(() => {
-    if (selected && selected.unread_count > 0) {
+    if (selected && selected.unread_count > 0 && isFrontlineViewer) {
       void markRead(selected.id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedId, selected?.unread_count]);
+  }, [selectedId, selected?.unread_count, isFrontlineViewer]);
 
   const reactToMessage = async (message: ThreadMessage, emoji: string) => {
     if (!selected) return;
