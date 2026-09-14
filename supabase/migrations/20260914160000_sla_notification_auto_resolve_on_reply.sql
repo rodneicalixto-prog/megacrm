@@ -44,4 +44,24 @@ CREATE TRIGGER on_outbound_resolve_sla
   FOR EACH ROW
   EXECUTE FUNCTION whatsapp_hub._on_outbound_resolve_sla();
 
+-- Backfill (apontado por review no PR #70): a trigger acima so observa
+-- INSERTs futuros -- conversas que ja tinham sido respondidas por humano
+-- ANTES desta migration existir ficariam com o sla_breach preso pra
+-- sempre, exigindo clique manual. Resolve o estoque existente de uma vez
+-- so: qualquer sla_breach nao lida cuja conversa ja tenha uma mensagem
+-- outbound humana mais recente que a propria notificacao vira lida.
+-- Rodado em producao em 14/09/2026: 12 notificacoes presas resolvidas.
+UPDATE whatsapp_hub.notifications n
+SET is_read = true
+WHERE n.type = 'sla_breach'
+  AND n.is_read = false
+  AND EXISTS (
+    SELECT 1 FROM whatsapp_hub.messages m
+    WHERE m.conversation_id = n.conversation_id
+      AND m.direction = 'outbound'
+      AND COALESCE(m.is_private_note, false) = false
+      AND m.sender_type <> 'ai'
+      AND m.created_at > n.created_at
+  );
+
 NOTIFY pgrst, 'reload schema';
