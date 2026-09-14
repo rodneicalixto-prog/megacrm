@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import {
-  AlertTriangle, CheckCircle2, Clock, Download, Inbox, MessageSquareWarning,
+  AlertTriangle, CheckCircle2, Clock, Download, Inbox, Layers, MessageSquareWarning,
   Settings, Timer, Users,
 } from 'lucide-react';
 import { formatDuration, type AttendanceMetrics } from '@/hooks/useAttendanceMetrics';
@@ -120,7 +120,14 @@ export function AttendancePanel({
       </div>
 
       {/* Fila e volume */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <Card
+          icon={Layers}
+          label="Fila atual + finalizados hoje"
+          value={metrics.aguardando + metrics.em_andamento + metrics.finalizados_hoje}
+          hint="Aguardando e em andamento são o backlog atual (não só hoje); finalizados hoje sim é do dia"
+          href={inboxLink()}
+        />
         <Card
           icon={Inbox}
           label="Aguardando"
