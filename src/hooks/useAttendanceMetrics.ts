@@ -27,6 +27,8 @@ export interface AttendanceMetrics {
   em_andamento: number;
   sem_resposta: number;
   finalizados_hoje: number;
+  /** Conversas com atividade hoje (ultima mensagem ou fechamento), somando todas as etapas. */
+  conversas_atividade_hoje: number;
   /** Segundos; null quando ainda não há amostra. */
   tempo_medio_primeira_resposta: number | null;
   tempo_medio_primeira_resposta_hoje: number | null;
@@ -44,6 +46,7 @@ const EMPTY: AttendanceMetrics = {
   em_andamento: 0,
   sem_resposta: 0,
   finalizados_hoje: 0,
+  conversas_atividade_hoje: 0,
   tempo_medio_primeira_resposta: null,
   tempo_medio_primeira_resposta_hoje: null,
   tempo_medio_primeira_resposta_periodo: null,
