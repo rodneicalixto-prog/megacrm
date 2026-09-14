@@ -123,9 +123,9 @@ export function AttendancePanel({
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Card
           icon={Layers}
-          label="Total de conversas hoje"
+          label="Fila atual + finalizados hoje"
           value={metrics.aguardando + metrics.em_andamento + metrics.finalizados_hoje}
-          hint="Aguardando + em andamento + finalizados hoje"
+          hint="Aguardando e em andamento são o backlog atual (não só hoje); finalizados hoje sim é do dia"
           href={inboxLink()}
         />
         <Card
