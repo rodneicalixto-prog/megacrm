@@ -73,6 +73,12 @@ export function TeamSettings() {
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<Role>('operator');
   const [departmentId, setDepartmentId] = useState('');
+  // Cargo + linha pessoal: opcionais, só fazem sentido pra supervisor/operator.
+  // Preenchidos aqui, o convidado recebe o QR de pareamento na hora que aceita
+  // o convite (InvitePage) — sem isso, a linha fica cadastrada mas sem
+  // ninguém dono, o mesmo buraco achado no departamento Recrutamento Humano.
+  const [positionName, setPositionName] = useState('');
+  const [instance, setInstance] = useState('');
   const [inviting, setInviting] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
@@ -188,10 +194,21 @@ export function TeamSettings() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, isOwner]);
 
+  const needsLine = role === 'supervisor' || role === 'operator';
+
   const handleInvite = async (e: FormEvent) => {
     e.preventDefault();
     if (!email.trim()) {
       toast.error('Informe um e-mail.');
+      return;
+    }
+
+    if ((positionName.trim() || instance.trim()) && !(positionName.trim() && instance.trim())) {
+      toast.error('Informe o cargo e a instância da linha juntos, ou deixe os dois em branco.');
+      return;
+    }
+    if (needsLine && positionName.trim() && !departmentId) {
+      toast.error('Selecione um setor específico pra cadastrar cargo e linha.');
       return;
     }
 
@@ -206,6 +223,9 @@ export function TeamSettings() {
         role,
         app_url: window.location.origin,
         ...(departmentId ? { department_id: departmentId } : {}),
+        ...(needsLine && positionName.trim() && instance.trim()
+          ? { position_name: positionName.trim(), instance: instance.trim() }
+          : {}),
       },
     });
     setInviting(false);
@@ -218,11 +238,15 @@ export function TeamSettings() {
     }
 
     toast.success(`Convite enviado para ${email.trim()}`, {
-      description: 'O Supabase enviou o e-mail; o convidado define a senha pelo link.',
+      description: needsLine && positionName.trim()
+        ? 'O convidado vai gerar o QR Code da própria linha ao definir a senha.'
+        : 'O Supabase enviou o e-mail; o convidado define a senha pelo link.',
     });
 
     setEmail('');
     setDepartmentId('');
+    setPositionName('');
+    setInstance('');
     void loadAll();
   };
 
@@ -347,6 +371,36 @@ export function TeamSettings() {
                 </>
               )}
             </Button>
+
+            {needsLine && (
+              <>
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="invite_position">Cargo (opcional)</Label>
+                  <Input
+                    id="invite_position"
+                    value={positionName}
+                    onChange={(e) => setPositionName(e.target.value)}
+                    placeholder="Ex.: Jhenifer — Recrutamento"
+                    disabled={inviting}
+                  />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="invite_instance">Instância WhatsApp (opcional)</Label>
+                  <Input
+                    id="invite_instance"
+                    value={instance}
+                    onChange={(e) => setInstance(e.target.value)}
+                    placeholder="Nome da instância na Evolution"
+                    disabled={inviting}
+                  />
+                  <p className="text-xs text-[var(--color-text-secondary)]">
+                    Preenchendo os dois, o convidado gera o próprio QR Code ao
+                    definir a senha — sem isso, o cargo/linha precisam ser
+                    cadastrados depois em Configurações → Setores.
+                  </p>
+                </div>
+              </>
+            )}
           </form>
         )}
 

@@ -27,7 +27,16 @@ Deno.serve(async (req) => {
   try {
     const caller = await requireAdmin(req);
 
-    let body: { email?: string; role?: Role; app_url?: string; department_id?: string };
+    let body: {
+      email?: string;
+      role?: Role;
+      app_url?: string;
+      department_id?: string;
+      position_name?: string;
+      instance?: string;
+      server_url?: string;
+      api_key?: string;
+    };
     try {
       body = await req.json();
     } catch {
@@ -37,6 +46,15 @@ Deno.serve(async (req) => {
     const email = (body.email ?? '').trim().toLowerCase();
     const role = body.role as Role | undefined;
     const department_id = (body.department_id ?? '').trim() || null;
+    // Linha pessoal do convidado (Módulo "Evolution multi-número"): opcional,
+    // só faz sentido para supervisor/operador. O QR de pareamento NÃO é
+    // gerado aqui — o admin não tem o celular da pessoa em mãos. Só criamos
+    // o cargo + a linha "a conectar"; accept-team-invite mostra o QR para o
+    // próprio convidado, no momento em que ele define a senha.
+    const positionName = (body.position_name ?? '').trim() || null;
+    const instance = (body.instance ?? '').trim() || null;
+    const serverUrl = (body.server_url ?? '').trim() || null;
+    const apiKey = (body.api_key ?? '').trim() || null;
 
     // Regex mais estrita: bloqueia HTML/JS na parte local e exige TLD com 2+ chars.
     if (!email || email.length > 254 || !/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(email)) {
@@ -44,6 +62,18 @@ Deno.serve(async (req) => {
     }
     if (!role || !ROLES.has(role)) {
       return jsonResponse({ ok: false, error: 'role inválido.' }, { status: 400 });
+    }
+    if ((positionName || instance) && !(positionName && instance)) {
+      return jsonResponse(
+        { ok: false, error: 'Informe o cargo e a instância da linha juntos, ou deixe os dois em branco.' },
+        { status: 400 },
+      );
+    }
+    if (positionName && instance && !department_id) {
+      return jsonResponse(
+        { ok: false, error: 'Selecione um setor específico para cadastrar cargo e linha (não use o padrão).' },
+        { status: 400 },
+      );
     }
     // Só o topo cria outro topo. Sem isto um admin escalaria o próprio nível
     // convidando um super_admin e entrando com ele.
@@ -115,11 +145,77 @@ Deno.serve(async (req) => {
       throw pendingError;
     }
 
+    // Cargo + linha pessoal, só para supervisor/operator com os dois campos
+    // preenchidos. Falha em qualquer etapa desfaz tudo (cargo, linha e o
+    // próprio convite) — nunca deixa um convite "pela metade" (setor sem
+    // número, ou número sem dono), que foi exatamente o buraco encontrado no
+    // departamento Recrutamento Humano.
+    let positionId: string | null = null;
+    if ((role === 'supervisor' || role === 'operator') && positionName && instance) {
+      try {
+        const { data: position, error: positionError } = await getAdminClient()
+          .from('department_positions')
+          .insert({
+            department_id: department_id,
+            name: positionName,
+            user_id: data.user.id,
+          })
+          .select('id')
+          .single();
+        if (positionError || !position) throw positionError ?? new Error('Falha ao criar o cargo.');
+        positionId = position.id as string;
+
+        if (!appUrl) {
+          throw new Error(
+            'Não foi possível determinar a URL do app para cadastrar a linha. Configure a credencial app_url em Configurações.',
+          );
+        }
+        const connRes = await fetch(`${appUrl}/api/department-connections`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            // Repassa o token de quem chamou este convite (já validado como
+            // admin/super_admin por requireAdmin acima) — a rota de conexões
+            // tem sua própria checagem de admin, e usar o mesmo token evita
+            // duplicar essa lógica aqui.
+            Authorization: req.headers.get('Authorization') ?? '',
+          },
+          body: JSON.stringify({
+            departmentId: department_id,
+            positionId,
+            instance,
+            label: positionName,
+            ...(serverUrl ? { serverUrl } : {}),
+            ...(apiKey ? { apiKey } : {}),
+          }),
+        });
+        const connBody = await connRes.json().catch(() => ({}));
+        if (!connRes.ok || !connBody?.success) {
+          throw new Error(connBody?.message ?? 'Falha ao cadastrar a linha do convidado.');
+        }
+      } catch (provisionError) {
+        if (positionId) {
+          await getAdminClient().from('department_positions').delete().eq('id', positionId);
+        }
+        await admin.auth.admin.deleteUser(data.user.id);
+        return jsonResponse(
+          {
+            ok: false,
+            error: provisionError instanceof Error
+              ? provisionError.message
+              : 'Não foi possível provisionar o cargo/linha do convidado.',
+          },
+          { status: 400 },
+        );
+      }
+    }
+
     return jsonResponse({
       ok: true,
       user_id: data.user.id,
       email,
       role,
+      position_id: positionId,
     });
   } catch (err) {
     if (err instanceof AuthError) {

@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
-import { requireAdmin } from '../src/lib/admin-auth.js';
+import { requireAdminOrLineOwner } from '../src/lib/admin-auth.js';
 import { decrypt, getCredential, setCredential } from '../src/lib/credentials.js';
 import { readEvolutionQr } from '../src/lib/evolutionQr.js';
 
@@ -99,10 +99,10 @@ async function registerWebhook(
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   try {
     if (req.method !== 'POST') return res.status(405).end();
-    const auth = await requireAdmin(req.headers?.authorization ?? req.headers?.Authorization);
+    const connectionId = uuid((req.body as { connectionId?: unknown } | null)?.connectionId);
+    const auth = await requireAdminOrLineOwner(req.headers?.authorization ?? req.headers?.Authorization, connectionId);
     if (auth.ok === false) return res.status(auth.status).json({ success: false, message: auth.message });
 
-    const connectionId = uuid((req.body as { connectionId?: unknown } | null)?.connectionId);
     const { data, error } = await getAdmin().schema('whatsapp_hub')
       .from('department_connections')
       .select('id, instance, server_url, api_key_encrypted')

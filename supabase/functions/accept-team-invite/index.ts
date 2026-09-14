@@ -76,13 +76,30 @@ Deno.serve(async (req) => {
     return jsonResponse({ ok: false, error: 'Não foi possível finalizar o aceite do convite.' }, { status: 500 });
   }
 
-  // Revoga a sessão criada pelo link. O usuário entra novamente com a senha
-  // recém-definida; copiar a URL redirecionada não reaproveita o refresh token.
-  const { error: signOutError } = await authAdmin.auth.admin.signOut(token, 'global');
-  if (signOutError) {
-    console.error('accept-team-invite signout error', signOutError);
+  // NÃO revoga a sessão aqui ainda: se esta pessoa tem uma linha pessoal
+  // (department_positions.user_id = ela) a conectar, o frontend precisa do
+  // token ainda válido para chamar /api/evolution-instance e mostrar o QR
+  // agora, com o celular dela em mãos — é o único momento em que isso é
+  // possível. A revogação (mesmo motivo do comentário antigo: copiar a URL
+  // do e-mail não deve reaproveitar o refresh token) fica pro
+  // finalize-team-invite, chamado pelo InvitePage depois do QR (ou de pular
+  // essa etapa, se não houver linha pendente).
+  const { data: pendingConnections, error: connError } = await db
+    .from('department_connections')
+    .select('id, instance, label, department_positions!inner(user_id)')
+    .eq('department_positions.user_id', authData.user.id)
+    .is('connected_at', null);
+  if (connError) {
+    console.error('accept-team-invite pending connections lookup error', connError);
   }
 
   console.log(JSON.stringify({ event: 'team_invite_consumed', user_id: authData.user.id }));
-  return jsonResponse({ ok: true });
+  return jsonResponse({
+    ok: true,
+    pending_connections: (pendingConnections ?? []).map((c) => ({
+      id: c.id as string,
+      instance: c.instance as string,
+      label: (c.label as string | null) ?? (c.instance as string),
+    })),
+  });
 });
