@@ -76,14 +76,13 @@ Deno.serve(async (req) => {
     return jsonResponse({ ok: false, error: 'Não foi possível finalizar o aceite do convite.' }, { status: 500 });
   }
 
-  // NÃO revoga a sessão aqui ainda: se esta pessoa tem uma linha pessoal
-  // (department_positions.user_id = ela) a conectar, o frontend precisa do
-  // token ainda válido para chamar /api/evolution-instance e mostrar o QR
-  // agora, com o celular dela em mãos — é o único momento em que isso é
-  // possível. A revogação (mesmo motivo do comentário antigo: copiar a URL
-  // do e-mail não deve reaproveitar o refresh token) fica pro
-  // finalize-team-invite, chamado pelo InvitePage depois do QR (ou de pular
-  // essa etapa, se não houver linha pendente).
+  // Se esta pessoa tem uma linha pessoal (department_positions.user_id = ela)
+  // a conectar, o frontend precisa do token ainda válido para chamar
+  // /api/evolution-instance e mostrar o QR agora, com o celular dela em mãos.
+  // Nesse caso a revogação (copiar a URL do e-mail não deve reaproveitar o
+  // refresh token) fica com o finalize-team-invite, chamado pelo InvitePage
+  // depois do QR. Sem linha pendente — ou se a consulta falhar — revoga já,
+  // para não depender de o cliente lembrar de chamar o finalize.
   const { data: pendingConnections, error: connError } = await db
     .from('department_connections')
     .select('id, instance, label, department_positions!inner(user_id)')
@@ -93,10 +92,22 @@ Deno.serve(async (req) => {
     console.error('accept-team-invite pending connections lookup error', connError);
   }
 
+  const pending = connError ? [] : (pendingConnections ?? []);
+  if (pending.length === 0) {
+    const { error: signOutError } = await authAdmin.auth.admin.signOut(token, 'others');
+    if (signOutError) {
+      console.error('accept-team-invite signout error', signOutError);
+      return jsonResponse(
+        { ok: false, error: 'Falha ao finalizar a sessão de convite. Tente novamente.' },
+        { status: 500 },
+      );
+    }
+  }
+
   console.log(JSON.stringify({ event: 'team_invite_consumed', user_id: authData.user.id }));
   return jsonResponse({
     ok: true,
-    pending_connections: (pendingConnections ?? []).map((c) => ({
+    pending_connections: pending.map((c) => ({
       id: c.id as string,
       instance: c.instance as string,
       label: (c.label as string | null) ?? (c.instance as string),

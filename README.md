@@ -73,6 +73,18 @@ no Deno); `tenant-credentials.ts` e apenas um wrapper tipado sobre ele.
 Nao delete `CRYPTO_KEY` da Vercel. Sem ela, os valores criptografados em
 `public.app_settings` nao podem ser recuperados.
 
+## Convite de Equipe
+
+Admins convidam por e-mail via `invite-team-member`. Para supervisor/operador
+o convite pode trazer cargo + linha pessoal da Evolution (setor especifico,
+cargo e instancia informados juntos; falha em qualquer etapa desfaz o convite).
+
+No aceite (`/invite`), `accept-team-invite` consome o convite e define a senha.
+Se a pessoa tem linha pendente, a sessao do link segue viva so o tempo de ela
+escanear o QR (`/api/evolution-instance`, permitido a admin ou ao dono da
+linha) e `finalize-team-invite` a revoga. Sem linha pendente, a sessao e
+revogada no proprio aceite.
+
 ## Desenvolvimento Local
 
 ```bash
