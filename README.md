@@ -1,3 +1,15 @@
+> ⚠️ **ARQUIVADO — Consolidação WhatsApp/CRM (18/09/2026)**
+>
+> Este repositório foi **descontinuado** na consolidação dos hubs WhatsApp do ecossistema.
+>
+> - **Hub SaaS canônico:** SmartZap (WhatsApp + IA multi-provider, mem0, multi-tenant).
+> - **Canal WhatsApp único:** Evolution API.
+> - **Motivo do arquivamento:** redundante com super_calixto_crm — mesmo Agentise WhatsApp Hub (Zernio→Meta), rota legada.
+>
+> Histórico preservado apenas para referência — nenhuma feature nova neste repositório.
+
+---
+
 # Agentise WhatsApp Hub
 
 Plataforma self-hosted de automacao WhatsApp para uma unica organizacao:
