@@ -20,7 +20,7 @@ const STATUS_LABEL: Record<MeetingStatus, string> = {
 };
 
 const STATUS_CLASS: Record<MeetingStatus, string> = {
-  scheduled: 'bg-[rgba(59,130,246,0.12)] text-[#60A5FA]',
+  scheduled: 'bg-[rgb(var(--accent-rgb)/0.12)] text-[color:var(--accent-secondary)]',
   recording: 'bg-[rgba(239,68,68,0.12)] text-[#EF4444]',
   processing: 'bg-[rgba(245,158,11,0.12)] text-[#FBBF24]',
   completed: 'bg-[rgba(16,185,129,0.12)] text-[#10B981]',
@@ -115,7 +115,7 @@ function ScheduleDialog({ open, onClose, onScheduled }: { open: boolean; onClose
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Alinhamento semanal — Comercial"
-            className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
+            className="w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
           />
         </div>
         <div>
@@ -124,7 +124,7 @@ function ScheduleDialog({ open, onClose, onScheduled }: { open: boolean; onClose
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={2}
-            className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)] resize-none"
+            className="w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)] resize-none"
           />
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -134,7 +134,7 @@ function ScheduleDialog({ open, onClose, onScheduled }: { open: boolean; onClose
               type="datetime-local"
               value={startsAt}
               onChange={(e) => setStartsAt(e.target.value)}
-              className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
+              className="w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
             />
           </div>
           <div>
@@ -143,7 +143,7 @@ function ScheduleDialog({ open, onClose, onScheduled }: { open: boolean; onClose
               type="datetime-local"
               value={endsAt}
               onChange={(e) => setEndsAt(e.target.value)}
-              className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
+              className="w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
             />
           </div>
         </div>
@@ -152,7 +152,7 @@ function ScheduleDialog({ open, onClose, onScheduled }: { open: boolean; onClose
           <select
             value={departmentId}
             onChange={(e) => setDepartmentId(e.target.value)}
-            className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
+            className="w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
           >
             <option value="">Geral (sem departamento)</option>
             {departments.map((d) => (
@@ -166,7 +166,7 @@ function ScheduleDialog({ open, onClose, onScheduled }: { open: boolean; onClose
             value={attendeesText}
             onChange={(e) => setAttendeesText(e.target.value)}
             placeholder="fulano@empresa.com, ciclana@empresa.com"
-            className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
+            className="w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
           />
         </div>
         <div className="flex justify-end gap-2 pt-2">
@@ -234,7 +234,7 @@ function MeetingCard({ meeting, departmentName, canManage, onCancel }: {
       )}
 
       {hasArchive && (
-        <div className="mt-3 border-t border-[rgba(59,130,246,0.08)] pt-3">
+        <div className="mt-3 border-t border-[rgb(var(--accent-rgb)/0.08)] pt-3">
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
@@ -332,7 +332,7 @@ export default function MeetingsPage() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Buscar por título, resumo ou transcrição…"
-          className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] py-2.5 pl-10 pr-3 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
+          className="w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] py-2.5 pl-10 pr-3 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
         />
       </div>
 

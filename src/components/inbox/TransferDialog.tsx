@@ -84,8 +84,8 @@ export function TransferDialog({
               className={[
                 'flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
                 modo === m
-                  ? 'border-[var(--accent-primary)] bg-[rgba(59,130,246,0.15)] text-[var(--color-text-primary)]'
-                  : 'border-[rgba(59,130,246,0.15)] text-[var(--color-text-secondary)] hover:border-[rgba(59,130,246,0.35)]',
+                  ? 'border-[var(--accent-primary)] bg-[rgb(var(--accent-rgb)/0.15)] text-[var(--color-text-primary)]'
+                  : 'border-[rgb(var(--accent-rgb)/0.15)] text-[var(--color-text-secondary)] hover:border-[rgb(var(--accent-rgb)/0.35)]',
               ].join(' ')}
             >
               {m === 'setor' ? 'Para um setor' : 'Para uma pessoa'}
@@ -99,7 +99,7 @@ export function TransferDialog({
             <select
               value={departmentId}
               onChange={(e) => setDepartmentId(e.target.value)}
-              className="h-11 w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)]"
+              className="h-11 w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)]"
             >
               <option value="">Selecione…</option>
               {setores.map((d) => (
@@ -116,7 +116,7 @@ export function TransferDialog({
             <select
               value={userId}
               onChange={(e) => setUserId(e.target.value)}
-              className="h-11 w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)]"
+              className="h-11 w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)]"
             >
               <option value="">Selecione…</option>
               {operators.map((o) => (
@@ -135,7 +135,7 @@ export function TransferDialog({
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="Ex.: assunto de folha, não de recrutamento"
-            className="h-11 w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)]"
+            className="h-11 w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)]"
           />
           <p className="text-xs text-[var(--color-text-secondary)]">
             Fica como nota interna na conversa. O contato não vê.
@@ -145,14 +145,14 @@ export function TransferDialog({
         <div className="mt-5 flex justify-end gap-2">
           <button
             onClick={onClose}
-            className="rounded-lg border border-[rgba(59,130,246,0.2)] px-4 py-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+            className="rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] px-4 py-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
           >
             Cancelar
           </button>
           <button
             onClick={submit}
             disabled={!destinoOk || saving}
-            className="rounded-lg bg-gradient-to-br from-[#1E3A8A] to-[#3B82F6] px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
+            className="rounded-lg bg-gradient-to-br from-[#1E3A8A] to-[var(--accent-primary)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
           >
             {saving ? 'Transferindo…' : 'Transferir'}
           </button>

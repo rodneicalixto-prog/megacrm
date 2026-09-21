@@ -44,6 +44,7 @@
 :root {
   --accent-primary: #3B82F6;
   --accent-secondary: #60A5FA;
+  --accent-rgb: 59 130 246; /* canal RGB p/ alpha: rgb(var(--accent-rgb)/0.2) */
   --color-bg-primary: #0A0A0F;
   --color-bg-elevated: #111525;
   --color-text-primary: #F8FAFC;
@@ -57,6 +58,7 @@
 :root[data-theme='light'] {
   --accent-primary: #2563EB;
   --accent-secondary: #1D4ED8;
+  --accent-rgb: 37 99 235;
   --color-bg-primary: #F4F7FB;
   --color-bg-elevated: #FFFFFF;
   --color-text-primary: #172033;
@@ -119,11 +121,13 @@ body {
     box-shadow:
       0 0 20px rgba(59, 130, 246, 0.06),
       inset 0 1px 0 rgba(59, 130, 246, 0.1);
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: border-color 180ms ease, box-shadow 180ms ease;
   }
 
   .glass-card-hover:hover,
-  .glass-card:hover {
+  a.glass-card:hover,
+  button.glass-card:hover,
+  [role='button'].glass-card:hover {
     border-color: rgba(59, 130, 246, 0.45);
     box-shadow:
       0 0 30px rgba(59, 130, 246, 0.12),

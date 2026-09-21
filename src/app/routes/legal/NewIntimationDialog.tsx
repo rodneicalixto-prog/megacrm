@@ -170,7 +170,7 @@ export function NewIntimationDialog({ open, onClose }: { open: boolean; onClose:
             type="button"
             onClick={() => inputRef.current?.click()}
             disabled={extracting}
-            className="flex w-full flex-col items-center gap-2 rounded-2xl border border-dashed border-[rgba(59,130,246,0.3)] py-10 text-center text-[var(--color-text-secondary)] hover:border-[var(--accent-primary)] hover:text-[var(--color-text-primary)]"
+            className="flex w-full flex-col items-center gap-2 rounded-2xl border border-dashed border-[rgb(var(--accent-rgb)/0.3)] py-10 text-center text-[var(--color-text-secondary)] hover:border-[var(--accent-primary)] hover:text-[var(--color-text-primary)]"
           >
             {extracting ? <Loader2 className="h-6 w-6 animate-spin text-[var(--accent-primary)]" /> : <Upload className="h-6 w-6 text-[var(--accent-primary)]" />}
             <div className="text-sm"><b>{extracting ? 'Lendo o PDF…' : 'Clique para enviar a intimação'}</b></div>
@@ -189,18 +189,18 @@ export function NewIntimationDialog({ open, onClose }: { open: boolean; onClose:
           <div>
             <label className="text-label mb-1.5 block">Título</label>
             <input value={title} onChange={(e) => setTitle(e.target.value)}
-              className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]" />
+              className="w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-label mb-1.5 block">Nº do processo</label>
               <input value={caseNumber} onChange={(e) => setCaseNumber(e.target.value)}
-                className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]" />
+                className="w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]" />
             </div>
             <div>
               <label className="text-label mb-1.5 block">Setor</label>
               <select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)}
-                className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]">
+                className="w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]">
                 <option value="">Selecione…</option>
                 {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
               </select>
@@ -210,35 +210,35 @@ export function NewIntimationDialog({ open, onClose }: { open: boolean; onClose:
             <div>
               <label className="text-label mb-1.5 block">Classificação</label>
               <input value={classification} onChange={(e) => setClassification(e.target.value)}
-                className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]" />
+                className="w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]" />
             </div>
             <div>
               <label className="text-label mb-1.5 block">Parte contrária</label>
               <input value={opposingParty} onChange={(e) => setOpposingParty(e.target.value)}
-                className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]" />
+                className="w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]" />
             </div>
           </div>
           <div>
             <label className="text-label mb-1.5 block">Vara / tribunal</label>
             <input value={courtReference} onChange={(e) => setCourtReference(e.target.value)}
-              className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]" />
+              className="w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-label mb-1.5 block">Próximo prazo</label>
               <input type="date" value={deadlineAt} onChange={(e) => setDeadlineAt(e.target.value)}
-                className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]" />
+                className="w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]" />
             </div>
             <div>
               <label className="text-label mb-1.5 block">O que é o prazo</label>
               <input value={deadlineLabel} onChange={(e) => setDeadlineLabel(e.target.value)}
-                className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]" />
+                className="w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]" />
             </div>
           </div>
           <div>
             <label className="text-label mb-1.5 block">Resumo (vira a primeira versão da contracapa)</label>
             <textarea value={summary} onChange={(e) => setSummary(e.target.value)} rows={4}
-              className="w-full resize-none rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]" />
+              className="w-full resize-none rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]" />
           </div>
 
           <div className="flex justify-end gap-2 pt-2">

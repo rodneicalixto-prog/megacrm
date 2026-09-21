@@ -333,7 +333,7 @@ export function TeamSettings() {
                 value={role}
                 onChange={(e) => setRole(e.target.value as Role)}
                 disabled={inviting}
-                className="h-11 w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-4 text-sm text-[var(--color-text-primary)]"
+                className="h-11 w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-4 text-sm text-[var(--color-text-primary)]"
               >
                 {callerRole === 'super_admin' && <option value="super_admin">Owner</option>}
                 <option value="admin">Admin</option>
@@ -348,7 +348,7 @@ export function TeamSettings() {
                 value={departmentId}
                 onChange={(e) => setDepartmentId(e.target.value)}
                 disabled={inviting}
-                className="h-11 w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-4 text-sm text-[var(--color-text-primary)]"
+                className="h-11 w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-4 text-sm text-[var(--color-text-primary)]"
               >
                 <option value="">Padrão</option>
                 {departments.map((d) => (
@@ -420,7 +420,7 @@ export function TeamSettings() {
                 const expanded = expandedDepartments.has(department.id);
                 const activeCount = department.members.filter((member) => member.is_active).length;
                 return (
-                  <section key={department.id} className="overflow-hidden rounded-xl border border-[rgba(59,130,246,0.12)] bg-white/[0.02]">
+                  <section key={department.id} className="overflow-hidden rounded-xl border border-[rgb(var(--accent-rgb)/0.12)] bg-white/[0.02]">
                     <button
                       type="button"
                       onClick={() => toggleDepartment(department.id)}
@@ -428,7 +428,7 @@ export function TeamSettings() {
                       aria-controls={`team-department-${department.id}`}
                       className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-white/[0.035]"
                     >
-                      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[rgba(59,130,246,0.1)] text-[var(--accent-primary)]">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[rgb(var(--accent-rgb)/0.1)] text-[var(--accent-primary)]">
                         <Building2 className="h-4 w-4" />
                       </span>
                       <span className="min-w-0 flex-1">
@@ -441,7 +441,7 @@ export function TeamSettings() {
                     </button>
 
                     {expanded && (
-                      <ul id={`team-department-${department.id}`} className="divide-y divide-[rgba(59,130,246,0.08)] border-t border-[rgba(59,130,246,0.08)]">
+                      <ul id={`team-department-${department.id}`} className="divide-y divide-[rgb(var(--accent-rgb)/0.08)] border-t border-[rgb(var(--accent-rgb)/0.08)]">
                         {department.members.map((m) => {
                           const displayName = m.full_name?.trim() || m.email || m.user_id;
                           const positionLabel = m.position_names.length > 0

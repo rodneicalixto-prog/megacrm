@@ -162,7 +162,7 @@ function toggle<T>(arr: T[], v: T): T[] {
 }
 
 const inputCls =
-  'w-full rounded-md border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-2 py-1 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)]';
+  'w-full rounded-md border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-2 py-1 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)]';
 
 function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
@@ -172,7 +172,7 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
       className={`rounded-full px-2.5 py-1 text-xs font-medium transition ${
         active
           ? 'bg-[var(--accent-primary)] text-white'
-          : 'border border-[rgba(59,130,246,0.25)] text-[var(--color-text-secondary)] hover:border-[var(--accent-primary)]'
+          : 'border border-[rgb(var(--accent-rgb)/0.25)] text-[var(--color-text-secondary)] hover:border-[var(--accent-primary)]'
       }`}
     >
       {children}
@@ -225,8 +225,8 @@ export function FunilFilter({
         onClick={() => setOpen((v) => !v)}
         className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition ${
           active
-            ? 'border-[var(--accent-primary)] bg-[rgba(59,130,246,0.1)] text-[var(--accent-secondary)]'
-            : 'border-[rgba(59,130,246,0.25)] bg-white/[0.03] text-[var(--color-text-primary)] hover:border-[var(--accent-primary)]'
+            ? 'border-[var(--accent-primary)] bg-[rgb(var(--accent-rgb)/0.1)] text-[var(--accent-secondary)]'
+            : 'border-[rgb(var(--accent-rgb)/0.25)] bg-white/[0.03] text-[var(--color-text-primary)] hover:border-[var(--accent-primary)]'
         }`}
       >
         <Filter className="h-4 w-4 opacity-80" />
@@ -241,7 +241,7 @@ export function FunilFilter({
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 z-20 mt-1 max-h-[75vh] w-[22rem] overflow-y-auto rounded-lg border border-[var(--color-border-card)] bg-[var(--color-bg-elevated)] p-4 shadow-[0_0_30px_rgba(59,130,246,0.15)]">
+          <div className="absolute right-0 z-20 mt-1 max-h-[75vh] w-[22rem] overflow-y-auto rounded-lg border border-[var(--color-border-card)] bg-[var(--color-bg-elevated)] p-4 shadow-[0_0_30px_rgb(var(--accent-rgb)/0.15)]">
             <div className="mb-3 flex items-center justify-between">
               <span className="text-sm font-semibold text-[var(--color-text-primary)]">Filtros</span>
               <div className="flex items-center gap-2">
@@ -389,7 +389,7 @@ export function FunilFilter({
                       className={`flex w-full items-center justify-between gap-2 rounded-md border px-2 py-1.5 text-sm transition ${
                         value.productIds.length
                           ? 'border-[var(--accent-primary)] text-[var(--color-text-primary)]'
-                          : 'border-[rgba(59,130,246,0.2)] text-[var(--color-text-secondary)] hover:border-[var(--accent-primary)]'
+                          : 'border-[rgb(var(--accent-rgb)/0.2)] text-[var(--color-text-secondary)] hover:border-[var(--accent-primary)]'
                       }`}
                     >
                       <span className="truncate">
@@ -400,7 +400,7 @@ export function FunilFilter({
                       <ChevronDown className={`h-4 w-4 shrink-0 opacity-70 transition ${productsOpen ? 'rotate-180' : ''}`} />
                     </button>
                     {productsOpen && (
-                      <div className="mt-1 max-h-44 space-y-0.5 overflow-y-auto rounded-md border border-[rgba(59,130,246,0.2)] bg-white/[0.02] p-1">
+                      <div className="mt-1 max-h-44 space-y-0.5 overflow-y-auto rounded-md border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.02] p-1">
                         {products.map((p) => {
                           const on = value.productIds.includes(p.id);
                           return (

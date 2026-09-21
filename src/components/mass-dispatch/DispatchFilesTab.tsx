@@ -75,7 +75,7 @@ export function DispatchFilesTab() {
         </div>
         <div className="flex flex-wrap items-end gap-2">
           <Input value={listName} onChange={(e) => setListName(e.target.value)} placeholder="Nome da lista (opcional)" className="max-w-xs" />
-          <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-gradient-to-br from-[#1E3A8A] to-[#3B82F6] px-4 py-2.5 text-sm font-semibold text-white">
+          <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-gradient-to-br from-[#1E3A8A] to-[var(--accent-primary)] px-4 py-2.5 text-sm font-semibold text-white">
             {uploadingList ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
             Importar CSV/XLSX
             <input
@@ -92,7 +92,7 @@ export function DispatchFilesTab() {
             <p className="text-sm text-[var(--color-text-secondary)] opacity-70">Nenhuma lista importada ainda.</p>
           )}
           {contactLists.map((f) => (
-            <div key={f.id} className="flex items-center justify-between rounded-lg border border-[rgba(59,130,246,0.12)] bg-white/[0.02] px-3 py-2 text-sm">
+            <div key={f.id} className="flex items-center justify-between rounded-lg border border-[rgb(var(--accent-rgb)/0.12)] bg-white/[0.02] px-3 py-2 text-sm">
               <div>
                 <div className="font-medium text-[var(--color-text-primary)]">{f.name}</div>
                 <div className="text-xs text-[var(--color-text-secondary)]">{(f.contact_ids ?? []).length} contatos · {formatSize(f.file_size_bytes)}</div>
@@ -112,7 +112,7 @@ export function DispatchFilesTab() {
         </div>
         <div className="flex flex-wrap items-end gap-2">
           <Input value={attachName} onChange={(e) => setAttachName(e.target.value)} placeholder="Nome do arquivo (opcional)" className="max-w-xs" />
-          <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-gradient-to-br from-[#1E3A8A] to-[#3B82F6] px-4 py-2.5 text-sm font-semibold text-white">
+          <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-gradient-to-br from-[#1E3A8A] to-[var(--accent-primary)] px-4 py-2.5 text-sm font-semibold text-white">
             {uploadingAttach ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
             Subir arquivo
             <input
@@ -128,7 +128,7 @@ export function DispatchFilesTab() {
             <p className="text-sm text-[var(--color-text-secondary)] opacity-70">Nenhum anexo salvo ainda.</p>
           )}
           {attachments.map((f) => (
-            <div key={f.id} className="flex items-center justify-between rounded-lg border border-[rgba(59,130,246,0.12)] bg-white/[0.02] px-3 py-2 text-sm">
+            <div key={f.id} className="flex items-center justify-between rounded-lg border border-[rgb(var(--accent-rgb)/0.12)] bg-white/[0.02] px-3 py-2 text-sm">
               <div className="flex items-center gap-2">
                 <FileText className="h-4 w-4 text-[var(--color-text-secondary)]" />
                 <div>

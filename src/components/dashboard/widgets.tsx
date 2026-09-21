@@ -22,7 +22,7 @@ import { brl, formatDuration } from '@/lib/dashboard';
 
 const TOOLTIP_STYLE = {
   background: 'rgba(15,18,35,0.95)',
-  border: '1px solid rgba(59,130,246,0.25)',
+  border: '1px solid rgb(var(--accent-rgb)/0.25)',
   borderRadius: 10,
   fontSize: 12,
 } as const;
@@ -135,8 +135,8 @@ export function RankingWidget({
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} layout="vertical" margin={{ top: 4, right: 12, left: 90, bottom: 0 }}>
-              <XAxis type="number" tick={{ fontSize: 11, fill: '#94A3B8' }} stroke="rgba(59,130,246,0.2)" tickFormatter={(v) => brl(Number(v))} />
-              <YAxis type="category" dataKey="name" width={90} tick={{ fontSize: 11, fill: '#CBD5E1' }} stroke="rgba(59,130,246,0.2)" />
+              <XAxis type="number" tick={{ fontSize: 11, fill: '#94A3B8' }} stroke="rgb(var(--accent-rgb)/0.2)" tickFormatter={(v) => brl(Number(v))} />
+              <YAxis type="category" dataKey="name" width={90} tick={{ fontSize: 11, fill: '#CBD5E1' }} stroke="rgb(var(--accent-rgb)/0.2)" />
               <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v) => [brl(Number(v)), 'Ganho']} />
               <Bar dataKey="value" fill="#10B981" radius={[0, 4, 4, 0]} />
             </BarChart>
@@ -163,7 +163,7 @@ export function ForecastWidget({
       headerRight={
         <span className="group relative inline-flex cursor-help text-[var(--color-text-secondary)] transition hover:text-[var(--color-text-primary)]">
           <HelpCircle className="h-4 w-4" />
-          <span className="pointer-events-none absolute right-0 top-6 z-20 w-64 rounded-lg border border-[var(--color-border-card)] bg-[var(--color-bg-elevated)] px-3 py-2 text-xs leading-5 text-[var(--color-text-primary)] opacity-0 shadow-[0_0_30px_rgba(59,130,246,0.15)] transition-opacity duration-200 group-hover:opacity-100">
+          <span className="pointer-events-none absolute right-0 top-6 z-20 w-64 rounded-lg border border-[var(--color-border-card)] bg-[var(--color-bg-elevated)] px-3 py-2 text-xs leading-5 text-[var(--color-text-primary)] opacity-0 shadow-[0_0_30px_rgb(var(--accent-rgb)/0.15)] transition-opacity duration-200 group-hover:opacity-100">
             Receita projetada de todo o pipeline aberto, não depende do período selecionado
           </span>
         </span>
@@ -303,8 +303,8 @@ export function OriginBarsWidget({
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={rows} layout="vertical" margin={{ top: 4, right: 36, left: 100, bottom: 0 }}>
-              <XAxis type="number" tick={{ fontSize: 11, fill: '#94A3B8' }} stroke="rgba(59,130,246,0.2)" allowDecimals={false} />
-              <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 11, fill: '#CBD5E1' }} stroke="rgba(59,130,246,0.2)" />
+              <XAxis type="number" tick={{ fontSize: 11, fill: '#94A3B8' }} stroke="rgb(var(--accent-rgb)/0.2)" allowDecimals={false} />
+              <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 11, fill: '#CBD5E1' }} stroke="rgb(var(--accent-rgb)/0.2)" />
               <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v, _n, item) => [`${v} (${(item?.payload as { pct: number }).pct}%)`, 'Leads']} />
               <Bar dataKey="count" fill="#3B82F6" radius={[0, 4, 4, 0]} />
             </BarChart>

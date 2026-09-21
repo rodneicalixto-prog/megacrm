@@ -183,7 +183,7 @@ export default function CredentialsPage() {
   if (loading || hydrating) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
-        <Loader2 className="h-5 w-5 animate-spin text-[#60A5FA]" />
+        <Loader2 className="h-5 w-5 animate-spin text-[color:var(--accent-secondary)]" />
       </div>
     );
   }
@@ -195,8 +195,8 @@ export default function CredentialsPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-6 pb-24">
       <header className="flex items-center gap-4">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-[rgba(59,130,246,0.15)] bg-white/[0.02] backdrop-blur-[40px]">
-          <KeyRound className="h-5 w-5 text-[#60A5FA]" />
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-[rgb(var(--accent-rgb)/0.15)] bg-white/[0.02] backdrop-blur-[40px]">
+          <KeyRound className="h-5 w-5 text-[color:var(--accent-secondary)]" />
         </div>
         <div>
           <div className="text-[11px] font-medium uppercase tracking-[0.1em] text-[#94A3B8]">
@@ -210,10 +210,10 @@ export default function CredentialsPage() {
       </header>
 
       {zernio ? (
-        <div className="rounded-xl border border-[rgba(59,130,246,0.15)] bg-white/[0.02] p-5 backdrop-blur-[40px]">
+        <div className="rounded-xl border border-[rgb(var(--accent-rgb)/0.15)] bg-white/[0.02] p-5 backdrop-blur-[40px]">
           <div className="flex items-start gap-4">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[rgba(59,130,246,0.15)] bg-white/[0.02]">
-              <Smartphone className="h-5 w-5 text-[#60A5FA]" />
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[rgb(var(--accent-rgb)/0.15)] bg-white/[0.02]">
+              <Smartphone className="h-5 w-5 text-[color:var(--accent-secondary)]" />
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
@@ -251,7 +251,7 @@ export default function CredentialsPage() {
                       .map(([label, value]) => (
                         <span
                           key={label}
-                          className="rounded-full border border-[rgba(59,130,246,0.2)] bg-white/[0.02] px-3 py-1 text-[11px] text-[#CBD5E1]"
+                          className="rounded-full border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.02] px-3 py-1 text-[11px] text-[#CBD5E1]"
                         >
                           {label}: <span className="font-mono text-[#F8FAFC]">{value}</span>
                         </span>
@@ -269,7 +269,7 @@ export default function CredentialsPage() {
                     Webhook para receber mensagens (cadastre no Zernio)
                   </div>
                   <div className="flex items-start gap-2">
-                    <code className="min-w-0 flex-1 break-all rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-xs text-[var(--color-text-primary)]">
+                    <code className="min-w-0 flex-1 break-all rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-xs text-[var(--color-text-primary)]">
                       {zernio.webhook_url}
                     </code>
                     <button
@@ -280,7 +280,7 @@ export default function CredentialsPage() {
                           .catch(() => toast.error('Não foi possível copiar — copie manualmente.'));
                       }}
                       aria-label="Copiar URL do webhook"
-                      className="rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] p-2 text-[var(--color-text-secondary)] transition hover:border-[var(--accent-primary)] hover:text-[var(--color-text-primary)]"
+                      className="rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] p-2 text-[var(--color-text-secondary)] transition hover:border-[var(--accent-primary)] hover:text-[var(--color-text-primary)]"
                     >
                       <Copy className="h-4 w-4" />
                     </button>
@@ -312,7 +312,7 @@ export default function CredentialsPage() {
         ))}
       </div>
 
-      <div className="rounded-xl border border-[rgba(59,130,246,0.12)] bg-white/[0.02]">
+      <div className="rounded-xl border border-[rgb(var(--accent-rgb)/0.12)] bg-white/[0.02]">
         <button
           type="button"
           onClick={() => setAdvancedOpen((v) => !v)}
@@ -329,9 +329,9 @@ export default function CredentialsPage() {
           />
         </button>
         {advancedOpen && (
-          <div className="space-y-4 border-t border-[rgba(59,130,246,0.1)] p-5">
+          <div className="space-y-4 border-t border-[rgb(var(--accent-rgb)/0.1)] p-5">
             {/* Modo de Demonstração */}
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[rgba(59,130,246,0.12)] bg-white/[0.02] p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[rgb(var(--accent-rgb)/0.12)] bg-white/[0.02] p-4">
               <div className="min-w-0">
                 <div className="text-sm font-semibold text-[#F8FAFC]">Modo de Demonstração</div>
                 <p className="text-[13px] text-[#94A3B8]">
@@ -345,8 +345,8 @@ export default function CredentialsPage() {
                 className={[
                   'rounded-lg px-4 py-2 text-sm font-semibold transition disabled:opacity-50',
                   demoMode
-                    ? 'bg-gradient-to-br from-[#1E3A8A] to-[#3B82F6] text-white'
-                    : 'border border-[rgba(59,130,246,0.25)] text-[#94A3B8] hover:border-[#3B82F6] hover:text-[#F8FAFC]',
+                    ? 'bg-gradient-to-br from-[#1E3A8A] to-[var(--accent-primary)] text-white'
+                    : 'border border-[rgb(var(--accent-rgb)/0.25)] text-[#94A3B8] hover:border-[color:var(--accent-primary)] hover:text-[#F8FAFC]',
                 ].join(' ')}
               >
                 {demoMode === null ? '…' : demoMode ? 'Ativado' : 'Desativado'}
@@ -365,13 +365,13 @@ export default function CredentialsPage() {
         )}
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 border-t border-[rgba(59,130,246,0.15)] bg-[var(--color-bg-elevated)]/90 px-4 py-4 backdrop-blur-xl">
+      <div className="fixed inset-x-0 bottom-0 border-t border-[rgb(var(--accent-rgb)/0.15)] bg-[var(--color-bg-elevated)]/90 px-4 py-4 backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl justify-end">
           <button
             type="button"
             disabled={!canSave || saving}
             onClick={save}
-            className="min-h-12 w-full rounded-xl bg-[linear-gradient(135deg,#1E3A8A_0%,#3B82F6_100%)] px-8 py-4 text-base font-medium text-white shadow-[0_8px_40px_rgba(59,130,246,0.4),0_0_60px_rgba(59,130,246,0.2)] transition-[box-shadow,opacity] duration-[400ms] ease-[cubic-bezier(0.4,0,0.2,1)] hover:shadow-[0_8px_50px_rgba(59,130,246,0.6),0_0_80px_rgba(59,130,246,0.3)] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none sm:w-auto"
+            className="min-h-12 w-full rounded-xl bg-[linear-gradient(135deg,#1E3A8A_0%,var(--accent-primary)_100%)] px-8 py-4 text-base font-medium text-white shadow-[0_8px_40px_rgb(var(--accent-rgb)/0.4),0_0_60px_rgb(var(--accent-rgb)/0.2)] transition-[box-shadow,opacity] duration-[400ms] ease-[cubic-bezier(0.4,0,0.2,1)] hover:shadow-[0_8px_50px_rgb(var(--accent-rgb)/0.6),0_0_80px_rgb(var(--accent-rgb)/0.3)] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none sm:w-auto"
           >
             {saving ? 'Salvando...' : 'Salvar alteracoes'}
           </button>

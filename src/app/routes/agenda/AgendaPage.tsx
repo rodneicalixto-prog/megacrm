@@ -134,7 +134,7 @@ export default function AgendaPage() {
           <button
             onClick={() => setMes(new Date(mes.getFullYear(), mes.getMonth() - 1, 1))}
             aria-label="Mês anterior"
-            className="flex h-10 w-10 items-center justify-center rounded-lg border border-[rgba(59,130,246,0.2)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+            className="flex h-10 w-10 items-center justify-center rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
@@ -144,7 +144,7 @@ export default function AgendaPage() {
           <button
             onClick={() => setMes(new Date(mes.getFullYear(), mes.getMonth() + 1, 1))}
             aria-label="Próximo mês"
-            className="flex h-10 w-10 items-center justify-center rounded-lg border border-[rgba(59,130,246,0.2)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+            className="flex h-10 w-10 items-center justify-center rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
           >
             <ChevronRight className="h-4 w-4" />
           </button>
@@ -181,7 +181,7 @@ export default function AgendaPage() {
                 className={[
                   'group min-h-[92px] rounded-lg border p-1.5 transition-colors',
                   doMes
-                    ? 'border-[rgba(59,130,246,0.12)] bg-white/[0.02]'
+                    ? 'border-[rgb(var(--accent-rgb)/0.12)] bg-white/[0.02]'
                     : 'border-transparent opacity-40',
                   mesmoDia(d, hoje) ? 'ring-1 ring-[var(--accent-primary)]' : '',
                 ].join(' ')}
@@ -250,7 +250,7 @@ export default function AgendaPage() {
                 <input
                   value={titulo}
                   onChange={(e) => setTitulo(e.target.value)}
-                  className="h-11 w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)]"
+                  className="h-11 w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)]"
                 />
               </div>
               <div className="space-y-1.5">
@@ -258,7 +258,7 @@ export default function AgendaPage() {
                 <select
                   value={calendarioId}
                   onChange={(e) => setCalendarioId(e.target.value)}
-                  className="h-11 w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)]"
+                  className="h-11 w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)]"
                 >
                   {calendars
                     // O da empresa só aparece para quem pode escrever nele.
@@ -275,7 +275,7 @@ export default function AgendaPage() {
                     type="datetime-local"
                     value={inicioHora}
                     onChange={(e) => setInicioHora(e.target.value)}
-                    className="h-11 w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)]"
+                    className="h-11 w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)]"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -284,7 +284,7 @@ export default function AgendaPage() {
                     type="datetime-local"
                     value={fimHora}
                     onChange={(e) => setFimHora(e.target.value)}
-                    className="h-11 w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)]"
+                    className="h-11 w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)]"
                   />
                 </div>
               </div>
@@ -292,7 +292,7 @@ export default function AgendaPage() {
             <div className="mt-5 flex justify-end gap-2">
               <button
                 onClick={() => setNovoDia(null)}
-                className="rounded-lg border border-[rgba(59,130,246,0.2)] px-4 py-2 text-sm text-[var(--color-text-secondary)]"
+                className="rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] px-4 py-2 text-sm text-[var(--color-text-secondary)]"
               >
                 Cancelar
               </button>

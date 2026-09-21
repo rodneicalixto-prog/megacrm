@@ -72,7 +72,7 @@ export function ApplicationCredentialsStep({
     Salve as chaves usadas pela ferramenta. Elas ficam criptografadas no seu Supabase.
   </p>
   {!ownerToken ? (
-    <div className="rounded-xl border border-[rgba(59,130,246,0.12)] bg-white/[0.02] p-5">
+    <div className="rounded-xl border border-[rgb(var(--accent-rgb)/0.12)] bg-white/[0.02] p-5">
       <h2 className="text-base font-semibold text-[#F8FAFC]">Confirme o login do owner</h2>
       <p className="mt-1 text-[13px] leading-5 text-[#94A3B8]">
         Por seguranca, a senha do owner nao foi salva. Entre novamente para autorizar o salvamento das credenciais.
@@ -84,7 +84,7 @@ export function ApplicationCredentialsStep({
           onChange={(event) => setLoginEmail(event.target.value)}
           placeholder="email do owner"
           autoComplete="username"
-          className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-4 py-3 text-sm text-[#F8FAFC] placeholder:text-[#94A3B8] focus:border-[#3B82F6] focus:outline-none focus:shadow-[0_0_20px_rgba(59,130,246,0.2)]"
+          className="w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-4 py-3 text-sm text-[#F8FAFC] placeholder:text-[#94A3B8] focus:border-[color:var(--accent-primary)] focus:outline-none focus:shadow-[0_0_20px_rgb(var(--accent-rgb)/0.2)]"
         />
         <div className="relative">
           <input
@@ -93,7 +93,7 @@ export function ApplicationCredentialsStep({
             onChange={(event) => setLoginPassword(event.target.value)}
             placeholder="senha do owner"
             autoComplete="current-password"
-            className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-4 py-3 pr-10 text-sm text-[#F8FAFC] placeholder:text-[#94A3B8] focus:border-[#3B82F6] focus:outline-none focus:shadow-[0_0_20px_rgba(59,130,246,0.2)]"
+            className="w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-4 py-3 pr-10 text-sm text-[#F8FAFC] placeholder:text-[#94A3B8] focus:border-[color:var(--accent-primary)] focus:outline-none focus:shadow-[0_0_20px_rgb(var(--accent-rgb)/0.2)]"
           />
           <button
             type="button"
@@ -157,7 +157,7 @@ export function ApplicationCredentialsStep({
           </p>
           {evolutionWebhookUrl ? (
             <div className="mt-3 flex items-start gap-2">
-              <code className="min-w-0 flex-1 break-all rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-xs text-[#F8FAFC]">
+              <code className="min-w-0 flex-1 break-all rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-xs text-[#F8FAFC]">
                 {evolutionWebhookUrl}
               </code>
               <button
@@ -169,7 +169,7 @@ export function ApplicationCredentialsStep({
                     .then(() => toast.success('URL do webhook copiada.'))
                     .catch(() => toast.error('Não foi possível copiar — copie manualmente.'));
                 }}
-                className="rounded-lg border border-[rgba(59,130,246,0.25)] bg-white/[0.03] px-3 py-2 text-sm font-medium text-[#F8FAFC] transition hover:border-[#3B82F6]"
+                className="rounded-lg border border-[rgb(var(--accent-rgb)/0.25)] bg-white/[0.03] px-3 py-2 text-sm font-medium text-[#F8FAFC] transition hover:border-[color:var(--accent-primary)]"
               >
                 Copiar
               </button>
@@ -180,7 +180,7 @@ export function ApplicationCredentialsStep({
               type="button"
               disabled={!ownerToken || registeringHook}
               onClick={() => void registerEvolutionWebhook()}
-              className="rounded-lg bg-gradient-to-br from-[#1E3A8A] to-[#3B82F6] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+              className="rounded-lg bg-gradient-to-br from-[#1E3A8A] to-[var(--accent-primary)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
             >
               {registeringHook ? 'Registrando…' : 'Cadastrar automaticamente'}
             </button>
@@ -192,7 +192,7 @@ export function ApplicationCredentialsStep({
         Credenciais (Configurações Avançadas). Sem isso, a IA usa OpenAI por padrão.
       </p>
       {accountChoices ? (
-        <div className="mt-6 rounded-xl border border-[rgba(59,130,246,0.12)] bg-white/[0.02] p-5">
+        <div className="mt-6 rounded-xl border border-[rgb(var(--accent-rgb)/0.12)] bg-white/[0.02] p-5">
           <h2 className="text-base font-semibold text-[#F8FAFC]">Escolha a conta WhatsApp</h2>
           <p className="mt-1 text-[13px] leading-5 text-[#94A3B8]">
             Sua Zernio API Key tem mais de uma conta. Selecione qual numero esta instancia vai operar.
@@ -204,8 +204,8 @@ export function ApplicationCredentialsStep({
                 className={[
                   'flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition',
                   selectedAccount === acc.id
-                    ? 'border-[#3B82F6] bg-[rgba(59,130,246,0.08)]'
-                    : 'border-[rgba(59,130,246,0.2)] bg-white/[0.02] hover:border-[#3B82F6]',
+                    ? 'border-[color:var(--accent-primary)] bg-[rgb(var(--accent-rgb)/0.08)]'
+                    : 'border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.02] hover:border-[color:var(--accent-primary)]',
                 ].join(' ')}
               >
                 <input
@@ -214,7 +214,7 @@ export function ApplicationCredentialsStep({
                   value={acc.id}
                   checked={selectedAccount === acc.id}
                   onChange={() => setSelectedAccount(acc.id)}
-                  className="accent-[#3B82F6]"
+                  className="accent-[color:var(--accent-primary)]"
                 />
                 <span className="min-w-0 flex-1 truncate text-sm text-[#F8FAFC]">{acc.name}</span>
                 <span className="shrink-0 font-mono text-[11px] text-[#94A3B8]">{acc.id}</span>

@@ -18,7 +18,7 @@ interface MessageThreadProps {
 function StatusTicks({ status }: { status: Message['meta_status'] }) {
   if (!status) return null;
   if (status === 'failed') return <span className="text-[var(--color-error)] text-[10px]">falhou</span>;
-  if (status === 'read') return <CheckCheck className="h-3 w-3 text-[#3B82F6]" />;
+  if (status === 'read') return <CheckCheck className="h-3 w-3 text-[color:var(--accent-primary)]" />;
   if (status === 'delivered') return <CheckCheck className="h-3 w-3 opacity-60" />;
   return <Check className="h-3 w-3 opacity-60" />;
 }
@@ -73,7 +73,7 @@ function formatDaySeparator(iso: string): string {
 function DaySeparator({ iso }: { iso: string }) {
   return (
     <div className="flex justify-center py-1">
-      <span className="text-label rounded-full bg-[rgba(59,130,246,0.08)] px-3 py-1 text-[var(--text-secondary)]">
+      <span className="text-label rounded-full bg-[rgb(var(--accent-rgb)/0.08)] px-3 py-1 text-[var(--text-secondary)]">
         {formatDaySeparator(iso)}
       </span>
     </div>

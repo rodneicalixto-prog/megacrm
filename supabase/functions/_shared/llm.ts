@@ -197,6 +197,184 @@ async function callGemini(input: LLMCallInput, image: InlineImage | null): Promi
   return { content: text, model, usage };
 }
 
+// Streaming version: returns an async generator that yields text chunks
+export async function* callLLMStream(input: LLMCallInput): AsyncGenerator<string, void, unknown> {
+  const image = input.imageUrl ? await fetchImageAsBase64(input.imageUrl) : null;
+  switch (input.provider) {
+    case 'openai':
+      yield* callOpenAIStream(input, image);
+      break;
+    case 'claude':
+      yield* callClaudeStream(input, image);
+      break;
+    case 'gemini':
+      yield* callGeminiStream(input, image);
+      break;
+  }
+}
+
+async function* callOpenAIStream(input: LLMCallInput, image: InlineImage | null): AsyncGenerator<string, void, unknown> {
+  const model = input.model?.trim() || 'gpt-4o-mini';
+  const userContent = image
+    ? [
+        { type: 'text', text: input.userPrompt },
+        { type: 'image_url', image_url: { url: `data:${image.mimeType};base64,${image.base64}` } },
+      ]
+    : input.userPrompt;
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${input.apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model,
+      temperature: input.temperature ?? 0.7,
+      max_tokens: input.maxTokens ?? 1500,
+      messages: [
+        { role: 'system', content: input.systemPrompt },
+        { role: 'user', content: userContent },
+      ],
+      stream: true,
+      ...(input.json ? { response_format: { type: 'json_object' } } : {}),
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`OpenAI ${res.status}: ${err}`);
+  }
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error('No readable stream');
+  const decoder = new TextDecoder();
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = decoder.decode(value);
+      for (const line of chunk.split('\n')) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6);
+          if (data === '[DONE]') break;
+          try {
+            const json = JSON.parse(data);
+            const content = json.choices?.[0]?.delta?.content;
+            if (content) yield content;
+          } catch {
+            // Malformed JSON, skip
+          }
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+async function* callClaudeStream(input: LLMCallInput, image: InlineImage | null): AsyncGenerator<string, void, unknown> {
+  const model = 'claude-opus-5';
+  const userContent = image
+    ? [
+        { type: 'image', source: { type: 'base64', media_type: image.mimeType, data: image.base64 } },
+        { type: 'text', text: input.userPrompt },
+      ]
+    : input.userPrompt;
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': input.apiKey,
+      'anthropic-version': '2023-06-01',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: input.maxTokens ?? 1500,
+      temperature: input.temperature ?? 0.7,
+      system: input.systemPrompt,
+      messages: [{ role: 'user', content: userContent }],
+      stream: true,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Claude ${res.status}: ${err}`);
+  }
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error('No readable stream');
+  const decoder = new TextDecoder();
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = decoder.decode(value);
+      for (const line of chunk.split('\n')) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6);
+          try {
+            const json = JSON.parse(data);
+            if (json.type === 'content_block_delta' && json.delta?.type === 'text_delta') {
+              yield json.delta.text;
+            }
+          } catch {
+            // Malformed JSON, skip
+          }
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+async function* callGeminiStream(input: LLMCallInput, image: InlineImage | null): AsyncGenerator<string, void, unknown> {
+  const model = 'gemini-1.5-flash-latest';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?key=${encodeURIComponent(input.apiKey)}`;
+  const parts = image
+    ? [{ text: input.userPrompt }, { inlineData: { mimeType: image.mimeType, data: image.base64 } }]
+    : [{ text: input.userPrompt }];
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: input.systemPrompt }] },
+      contents: [{ role: 'user', parts }],
+      generationConfig: {
+        temperature: input.temperature ?? 0.7,
+        maxOutputTokens: input.maxTokens ?? 1500,
+        ...(input.json ? { responseMimeType: 'application/json' } : {}),
+      },
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Gemini ${res.status}: ${err}`);
+  }
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error('No readable stream');
+  const decoder = new TextDecoder();
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = decoder.decode(value);
+      for (const line of chunk.split('\n')) {
+        if (line) {
+          try {
+            const json = JSON.parse(line);
+            const text = json.candidates?.[0]?.content?.parts
+              ?.map((p: { text?: string }) => p.text ?? '')
+              .join('');
+            if (text) yield text;
+          } catch {
+            // Malformed JSON, skip
+          }
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
 /**
  * Some models wrap JSON in ```json fences or prose; strip that and parse.
  */

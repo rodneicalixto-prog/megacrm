@@ -93,13 +93,13 @@ export function BrandingSettings() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Ex.: Athenas"
-            className="min-w-0 flex-1 rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-4 py-2.5 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)]"
+            className="min-w-0 flex-1 rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-4 py-2.5 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)]"
           />
           <button
             type="button"
             onClick={() => void saveName()}
             disabled={saving}
-            className="rounded-lg bg-gradient-to-br from-[#1E3A8A] to-[#3B82F6] px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+            className="rounded-lg bg-gradient-to-br from-[#1E3A8A] to-[var(--accent-primary)] px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
           >
             {saving ? 'Salvando…' : 'Salvar'}
           </button>
@@ -109,7 +109,7 @@ export function BrandingSettings() {
       <div className="space-y-2">
         <span className="text-label">Logo</span>
         <div className="flex items-center gap-4">
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl border border-[rgba(59,130,246,0.2)] bg-white/[0.03]">
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03]">
             {branding.logoUrl ? (
               <img src={branding.logoUrl} alt="Logo atual" className="h-14 w-14 object-contain" />
             ) : (
@@ -131,7 +131,7 @@ export function BrandingSettings() {
               type="button"
               onClick={() => fileRef.current?.click()}
               disabled={uploading}
-              className="flex items-center gap-2 rounded-lg border border-[rgba(59,130,246,0.25)] px-4 py-2.5 text-sm font-medium text-[var(--color-text-primary)] transition hover:border-[var(--accent-primary)] disabled:opacity-50"
+              className="flex items-center gap-2 rounded-lg border border-[rgb(var(--accent-rgb)/0.25)] px-4 py-2.5 text-sm font-medium text-[var(--color-text-primary)] transition hover:border-[var(--accent-primary)] disabled:opacity-50"
             >
               {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
               {uploading ? 'Enviando…' : 'Enviar logo'}

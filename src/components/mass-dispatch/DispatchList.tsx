@@ -9,10 +9,10 @@ import { MASS_DISPATCH_STATUS_LABEL, type MassDispatch, type MassDispatchStatus 
 
 const STATUS_STYLE: Record<MassDispatchStatus, string> = {
   draft: 'bg-white/5 text-[var(--color-text-secondary)]',
-  scheduled: 'bg-[rgba(96,165,250,0.14)] text-[#60A5FA]',
+  scheduled: 'bg-[rgba(96,165,250,0.14)] text-[color:var(--accent-secondary)]',
   sending: 'bg-[rgba(16,185,129,0.14)] text-[#10B981]',
   paused: 'bg-[rgba(245,158,11,0.14)] text-[#FBBF24]',
-  completed: 'bg-[rgba(59,130,246,0.14)] text-[var(--accent-primary)]',
+  completed: 'bg-[rgb(var(--accent-rgb)/0.14)] text-[var(--accent-primary)]',
   failed: 'bg-[rgba(239,68,68,0.14)] text-[#F87171]',
 };
 

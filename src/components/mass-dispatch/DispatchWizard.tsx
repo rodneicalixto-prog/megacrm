@@ -158,9 +158,9 @@ export function DispatchWizard({ open, onClose, onSaved }: DispatchWizardProps) 
               key={label}
               className={cn(
                 'flex items-center gap-2 rounded-lg p-2 border text-xs font-semibold uppercase tracking-wide',
-                state === 'current' && 'border-[var(--accent-primary)] bg-[rgba(59,130,246,0.08)] text-[var(--color-text-primary)]',
+                state === 'current' && 'border-[var(--accent-primary)] bg-[rgb(var(--accent-rgb)/0.08)] text-[var(--color-text-primary)]',
                 state === 'done' && 'border-[rgba(16,185,129,0.3)] bg-[rgba(16,185,129,0.04)] text-[var(--color-text-secondary)]',
-                state === 'pending' && 'border-[rgba(59,130,246,0.12)] text-[var(--color-text-secondary)] opacity-60',
+                state === 'pending' && 'border-[rgb(var(--accent-rgb)/0.12)] text-[var(--color-text-secondary)] opacity-60',
               )}
             >
               <span
@@ -197,7 +197,7 @@ export function DispatchWizard({ open, onClose, onSaved }: DispatchWizardProps) 
                 value={connectionId}
                 onChange={(e) => setConnectionId(e.target.value)}
                 disabled={submitting}
-                className="h-11 w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-4 text-sm text-[var(--color-text-primary)]"
+                className="h-11 w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-4 text-sm text-[var(--color-text-primary)]"
               >
                 <option value="">— selecione —</option>
                 {lines.map((l) => (
@@ -223,10 +223,10 @@ export function DispatchWizard({ open, onClose, onSaved }: DispatchWizardProps) 
                 type="button"
                 onClick={() => setAudienceMode(mode)}
                 className={cn(
-                  'p-3 rounded-lg border text-left text-sm font-medium transition-all',
+                  'p-3 rounded-lg border text-left text-sm font-medium transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-150',
                   audienceMode === mode
-                    ? 'border-[var(--accent-primary)] bg-[rgba(59,130,246,0.08)] text-[var(--color-text-primary)]'
-                    : 'border-[rgba(59,130,246,0.12)] bg-white/[0.02] text-[var(--color-text-secondary)]',
+                    ? 'border-[var(--accent-primary)] bg-[rgb(var(--accent-rgb)/0.08)] text-[var(--color-text-primary)]'
+                    : 'border-[rgb(var(--accent-rgb)/0.12)] bg-white/[0.02] text-[var(--color-text-secondary)]',
                 )}
               >
                 {mode === 'all' && 'Todos os contatos'}
@@ -279,7 +279,7 @@ export function DispatchWizard({ open, onClose, onSaved }: DispatchWizardProps) 
                 <select
                   value={fileId}
                   onChange={(e) => setFileId(e.target.value)}
-                  className="h-11 w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-4 text-sm text-[var(--color-text-primary)]"
+                  className="h-11 w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-4 text-sm text-[var(--color-text-primary)]"
                 >
                   <option value="">— selecione —</option>
                   {contactListFiles.map((f) => (
@@ -290,7 +290,7 @@ export function DispatchWizard({ open, onClose, onSaved }: DispatchWizardProps) 
             </div>
           )}
 
-          <div className="rounded-lg border border-[rgba(59,130,246,0.15)] bg-[rgba(59,130,246,0.04)] p-4 text-center">
+          <div className="rounded-lg border border-[rgb(var(--accent-rgb)/0.15)] bg-[rgb(var(--accent-rgb)/0.04)] p-4 text-center">
             <div className="text-label">Contatos alcançados</div>
             <div className="text-stat mt-1">{audienceCount ?? '…'}</div>
           </div>
@@ -307,7 +307,7 @@ export function DispatchWizard({ open, onClose, onSaved }: DispatchWizardProps) 
               </Button>
             </div>
             {messages.map((m, i) => (
-              <div key={i} className="rounded-lg border border-[rgba(59,130,246,0.15)] bg-white/[0.02] p-3 space-y-2">
+              <div key={i} className="rounded-lg border border-[rgb(var(--accent-rgb)/0.15)] bg-white/[0.02] p-3 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-[var(--color-text-secondary)]">Modelo {i + 1}</span>
                   {messages.length > 1 && (
@@ -321,10 +321,10 @@ export function DispatchWizard({ open, onClose, onSaved }: DispatchWizardProps) 
                   onChange={(e) => updateMessage(i, { content: e.target.value })}
                   rows={3}
                   placeholder="Texto da mensagem…"
-                  className="w-full resize-y rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)]"
+                  className="w-full resize-y rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)]"
                 />
                 <div className="flex items-center gap-2">
-                  <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-[rgba(59,130,246,0.2)] px-2.5 py-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]">
+                  <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-[rgb(var(--accent-rgb)/0.2)] px-2.5 py-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]">
                     {uploadingFor === i ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Paperclip className="h-3.5 w-3.5" />}
                     Anexar arquivo
                     <input
@@ -366,14 +366,14 @@ export function DispatchWizard({ open, onClose, onSaved }: DispatchWizardProps) 
             <button
               type="button"
               onClick={() => setScheduleNow(true)}
-              className={cn('p-3 rounded-lg border text-left text-sm font-medium', scheduleNow ? 'border-[var(--accent-primary)] bg-[rgba(59,130,246,0.08)]' : 'border-[rgba(59,130,246,0.12)] bg-white/[0.02]')}
+              className={cn('p-3 rounded-lg border text-left text-sm font-medium', scheduleNow ? 'border-[var(--accent-primary)] bg-[rgb(var(--accent-rgb)/0.08)]' : 'border-[rgb(var(--accent-rgb)/0.12)] bg-white/[0.02]')}
             >
               Disparar imediatamente
             </button>
             <button
               type="button"
               onClick={() => setScheduleNow(false)}
-              className={cn('p-3 rounded-lg border text-left text-sm font-medium', !scheduleNow ? 'border-[var(--accent-primary)] bg-[rgba(59,130,246,0.08)]' : 'border-[rgba(59,130,246,0.12)] bg-white/[0.02]')}
+              className={cn('p-3 rounded-lg border text-left text-sm font-medium', !scheduleNow ? 'border-[var(--accent-primary)] bg-[rgb(var(--accent-rgb)/0.08)]' : 'border-[rgb(var(--accent-rgb)/0.12)] bg-white/[0.02]')}
             >
               Agendar para depois
             </button>
@@ -388,7 +388,7 @@ export function DispatchWizard({ open, onClose, onSaved }: DispatchWizardProps) 
             </div>
           )}
 
-          <div className="rounded-lg border border-[rgba(59,130,246,0.1)] bg-white/[0.02] p-4 space-y-2 text-sm">
+          <div className="rounded-lg border border-[rgb(var(--accent-rgb)/0.1)] bg-white/[0.02] p-4 space-y-2 text-sm">
             <div className="text-label mb-1">Revisão</div>
             <div><span className="text-[var(--color-text-secondary)]">Disparo:</span> <span className="font-mono">{name}</span></div>
             <div><span className="text-[var(--color-text-secondary)]">Modelos de mensagem:</span> {validMessages.length}</div>
@@ -399,7 +399,7 @@ export function DispatchWizard({ open, onClose, onSaved }: DispatchWizardProps) 
         </div>
       )}
 
-      <div className="flex items-center justify-between pt-6 mt-4 border-t border-[rgba(59,130,246,0.08)]">
+      <div className="flex items-center justify-between pt-6 mt-4 border-t border-[rgb(var(--accent-rgb)/0.08)]">
         <Button variant="ghost" onClick={prevStep} disabled={step === 0 || submitting}>
           <ChevronLeft className="h-4 w-4" /> Anterior
         </Button>

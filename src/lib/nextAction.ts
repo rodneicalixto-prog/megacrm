@@ -49,6 +49,6 @@ export function dueBadge(dueAt: string): DueBadge {
     tone: 'future',
     short: dayMonth,
     full: dateTime,
-    className: 'bg-[rgba(96,165,250,0.14)] text-[#60A5FA]',
+    className: 'bg-[rgba(96,165,250,0.14)] text-[color:var(--accent-secondary)]',
   };
 }

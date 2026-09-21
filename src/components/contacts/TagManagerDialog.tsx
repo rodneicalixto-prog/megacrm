@@ -111,7 +111,7 @@ export function TagManagerDialog({ open, onClose }: TagManagerDialogProps) {
                 key={c}
                 type="button"
                 onClick={() => setColor(c)}
-                className={`h-7 w-7 rounded-md border transition-all ${
+                className={`h-7 w-7 rounded-md border transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-150 ${
                   color === c
                     ? 'border-white scale-110'
                     : 'border-transparent opacity-70 hover:opacity-100'
@@ -136,7 +136,7 @@ export function TagManagerDialog({ open, onClose }: TagManagerDialogProps) {
             Nenhuma tag criada ainda.
           </div>
         ) : (
-          <ul className="divide-y divide-[rgba(59,130,246,0.08)] rounded-lg border border-[rgba(59,130,246,0.1)] bg-white/[0.02]">
+          <ul className="divide-y divide-[rgb(var(--accent-rgb)/0.08)] rounded-lg border border-[rgb(var(--accent-rgb)/0.1)] bg-white/[0.02]">
             {tags.map((t) => {
               const isEditing = editing?.id === t.id;
               return (
@@ -149,7 +149,7 @@ export function TagManagerDialog({ open, onClose }: TagManagerDialogProps) {
                             key={c}
                             type="button"
                             onClick={() => setEditing({ ...editing!, color: c })}
-                            className={`h-6 w-6 rounded-md border transition-all ${
+                            className={`h-6 w-6 rounded-md border transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-150 ${
                               editing.color === c ? 'border-white scale-110' : 'border-transparent opacity-70'
                             }`}
                             style={{ backgroundColor: c }}

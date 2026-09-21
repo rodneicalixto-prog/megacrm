@@ -122,7 +122,7 @@ export function getDealOrigin(lead: DealOriginInput | null | undefined): DealOri
 
 // Classes utilitárias por tom (cor coerente com o design system).
 export const TONE_PILL_CLASS: Record<TrafficTone, string> = {
-  pago: 'border-[rgba(59,130,246,0.35)] bg-[rgba(59,130,246,0.12)] text-[var(--accent-secondary)]',
+  pago: 'border-[rgb(var(--accent-rgb)/0.35)] bg-[rgb(var(--accent-rgb)/0.12)] text-[var(--accent-secondary)]',
   organico: 'border-[rgba(16,185,129,0.35)] bg-[rgba(16,185,129,0.12)] text-[#34D399]',
   manual: 'border-[rgba(148,163,184,0.35)] bg-[rgba(148,163,184,0.12)] text-[#CBD5E1]',
   outro: 'border-[rgba(148,163,184,0.25)] bg-[rgba(148,163,184,0.08)] text-[var(--color-text-secondary)]',

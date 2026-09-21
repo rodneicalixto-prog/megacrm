@@ -72,7 +72,7 @@ export function ForwardMessageDialog({ message, conversations, currentConversati
           {options.map((conversation) => {
             const name = conversation.contact?.name?.trim() || conversation.contact?.phone || 'Contato';
             return (
-              <button key={conversation.id} type="button" onClick={() => setTargetId(conversation.id)} className={"flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-sm " + (targetId === conversation.id ? 'border-[var(--accent-primary)] bg-[rgba(59,130,246,0.1)]' : 'border-transparent hover:bg-white/5')}>
+              <button key={conversation.id} type="button" onClick={() => setTargetId(conversation.id)} className={"flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-sm " + (targetId === conversation.id ? 'border-[var(--accent-primary)] bg-[rgb(var(--accent-rgb)/0.1)]' : 'border-transparent hover:bg-white/5')}>
                 <span className="font-medium text-[var(--color-text-primary)]">{name}</span>
                 <span className="text-xs text-[var(--color-text-secondary)]">{conversation.contact?.phone}</span>
               </button>

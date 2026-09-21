@@ -362,7 +362,7 @@ export function ImportContactsDialog({
       {step === 'upload' && (
         <label
           htmlFor="contacts_file"
-          className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[rgba(59,130,246,0.25)] bg-white/[0.02] p-10 cursor-pointer hover:border-[rgba(59,130,246,0.5)]"
+          className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[rgb(var(--accent-rgb)/0.25)] bg-white/[0.02] p-10 cursor-pointer hover:border-[rgb(var(--accent-rgb)/0.5)]"
         >
           <FileUp className="h-8 w-8 text-[var(--accent-primary)]" />
           <div className="text-center">
@@ -405,12 +405,12 @@ export function ImportContactsDialog({
             </label>
           </div>
 
-          <div className="rounded-lg border border-[rgba(59,130,246,0.1)] overflow-auto max-h-[340px]">
+          <div className="rounded-lg border border-[rgb(var(--accent-rgb)/0.1)] overflow-auto max-h-[340px]">
             <table className="w-full text-xs">
               <thead className="bg-white/[0.03] sticky top-0">
                 <tr>
                   {headers.map((h, i) => (
-                    <th key={i} className="p-2 text-left border-b border-[rgba(59,130,246,0.08)] min-w-[140px]">
+                    <th key={i} className="p-2 text-left border-b border-[rgb(var(--accent-rgb)/0.08)] min-w-[140px]">
                       <div className="font-semibold text-[var(--color-text-primary)] mb-1 truncate">
                         {h || `Coluna ${i + 1}`}
                       </div>
@@ -435,7 +435,7 @@ export function ImportContactsDialog({
                             return next;
                           });
                         }}
-                        className="w-full rounded border border-[rgba(59,130,246,0.15)] bg-black/20 px-2 py-1 text-xs text-[var(--color-text-primary)]"
+                        className="w-full rounded border border-[rgb(var(--accent-rgb)/0.15)] bg-black/20 px-2 py-1 text-xs text-[var(--color-text-primary)]"
                       >
                         <option value="skip">— ignorar —</option>
                         <option value="phone">📞 telefone</option>
@@ -454,7 +454,7 @@ export function ImportContactsDialog({
               </thead>
               <tbody>
                 {previewBody.map((r, i) => (
-                  <tr key={i} className="border-b border-[rgba(59,130,246,0.04)]">
+                  <tr key={i} className="border-b border-[rgb(var(--accent-rgb)/0.04)]">
                     {headers.map((_, j) => (
                       <td key={j} className="p-2 text-[var(--color-text-secondary)] truncate max-w-[200px]">
                         {r[j] ?? ''}
@@ -467,7 +467,7 @@ export function ImportContactsDialog({
           </div>
 
           {/* Tipo dos contatos + destino dos leads */}
-          <div className="space-y-3 rounded-xl border border-[rgba(59,130,246,0.12)] bg-white/[0.02] p-4">
+          <div className="space-y-3 rounded-xl border border-[rgb(var(--accent-rgb)/0.12)] bg-white/[0.02] p-4">
             <div className="text-sm font-semibold text-[var(--color-text-primary)]">Esses contatos são…</div>
             <div className="flex gap-2">
               {([['lead', 'Leads (entram no funil)'], ['cliente', 'Clientes (Vendas & Recompra)']] as const).map(([v, label]) => (
@@ -477,8 +477,8 @@ export function ImportContactsDialog({
                   onClick={() => setTipo(v)}
                   className={`rounded-lg border px-3 py-2 text-sm transition ${
                     tipo === v
-                      ? 'border-[var(--accent-primary)] bg-[rgba(59,130,246,0.12)] text-[var(--color-text-primary)]'
-                      : 'border-[rgba(59,130,246,0.2)] text-[var(--color-text-secondary)] hover:border-[rgba(59,130,246,0.4)]'
+                      ? 'border-[var(--accent-primary)] bg-[rgb(var(--accent-rgb)/0.12)] text-[var(--color-text-primary)]'
+                      : 'border-[rgb(var(--accent-rgb)/0.2)] text-[var(--color-text-secondary)] hover:border-[rgb(var(--accent-rgb)/0.4)]'
                   }`}
                 >
                   {label}
@@ -492,7 +492,7 @@ export function ImportContactsDialog({
                   <select
                     value={pipelineId}
                     onChange={(e) => setPipelineId(e.target.value)}
-                    className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-2 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)] [&>option]:bg-[var(--color-bg-elevated)]"
+                    className="w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-2 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)] [&>option]:bg-[var(--color-bg-elevated)]"
                   >
                     {pipelines.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
@@ -502,7 +502,7 @@ export function ImportContactsDialog({
                   <select
                     value={stageId}
                     onChange={(e) => setStageId(e.target.value)}
-                    className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-2 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)] [&>option]:bg-[var(--color-bg-elevated)]"
+                    className="w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-2 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)] [&>option]:bg-[var(--color-bg-elevated)]"
                   >
                     {pipelineStages.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
@@ -512,7 +512,7 @@ export function ImportContactsDialog({
                   <select
                     value={temperature}
                     onChange={(e) => setTemperature(e.target.value)}
-                    className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-2 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)] [&>option]:bg-[var(--color-bg-elevated)]"
+                    className="w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-2 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)] [&>option]:bg-[var(--color-bg-elevated)]"
                   >
                     <option value="">—</option>
                     <option value="Frio">Frio</option>
@@ -525,7 +525,7 @@ export function ImportContactsDialog({
           </div>
 
           {/* Tags aplicadas a todos os contatos importados */}
-          <div className="space-y-2 rounded-xl border border-[rgba(59,130,246,0.12)] bg-white/[0.02] p-4">
+          <div className="space-y-2 rounded-xl border border-[rgb(var(--accent-rgb)/0.12)] bg-white/[0.02] p-4">
             <div className="text-sm font-semibold text-[var(--color-text-primary)]">Tags (opcional)</div>
             <p className="text-xs text-[var(--color-text-secondary)]">Aplicadas a todos os contatos desta importação.</p>
             {allTags.length > 0 && (
@@ -552,7 +552,7 @@ export function ImportContactsDialog({
                 onChange={(e) => setNewTag(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void addNewTag(); } }}
                 placeholder="Criar nova tag e Enter…"
-                className="flex-1 rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-2 py-1.5 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)]"
+                className="flex-1 rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-2 py-1.5 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)]"
               />
               <Button type="button" variant="outline" onClick={() => void addNewTag()} disabled={!newTag.trim()}>
                 Adicionar
@@ -585,7 +585,7 @@ export function ImportContactsDialog({
           </div>
           <div className="w-full max-w-md h-2 rounded-full bg-white/5 overflow-hidden">
             <div
-              className="h-full bg-[var(--accent-primary)] transition-all"
+              className="h-full bg-[var(--accent-primary)] transition-[width]"
               style={{ width: `${progress}%` }}
             />
           </div>

@@ -89,7 +89,7 @@ export function TeamChatPage() {
                 type="button"
                 onClick={() => void abrirConversa(o)}
                 className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition-colors ${
-                  ativo ? 'bg-[rgba(59,130,246,0.12)]' : 'hover:bg-white/[0.03]'
+                  ativo ? 'bg-[rgb(var(--accent-rgb)/0.12)]' : 'hover:bg-white/[0.03]'
                 }`}
               >
                 <span className="relative shrink-0">
@@ -132,7 +132,7 @@ export function TeamChatPage() {
           </div>
         ) : (
           <>
-            <header className="flex items-center gap-2.5 border-b border-[rgba(59,130,246,0.08)] px-4 py-3">
+            <header className="flex items-center gap-2.5 border-b border-[rgb(var(--accent-rgb)/0.08)] px-4 py-3">
               <Avatar name={operatorLabel(activePeer)} size="sm" />
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-[var(--color-text-primary)]">
@@ -170,12 +170,12 @@ export function TeamChatPage() {
               <div ref={listEndRef} />
             </div>
 
-            <form onSubmit={enviar} className="flex items-center gap-2 border-t border-[rgba(59,130,246,0.08)] p-3">
+            <form onSubmit={enviar} className="flex items-center gap-2 border-t border-[rgb(var(--accent-rgb)/0.08)] p-3">
               <input
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 placeholder="Escreva uma mensagem…"
-                className="h-10 flex-1 rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)]"
+                className="h-10 flex-1 rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)]"
               />
               <button
                 type="submit"

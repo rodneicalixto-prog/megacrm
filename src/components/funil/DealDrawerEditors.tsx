@@ -8,7 +8,7 @@ import {
 } from '@/types/crm';
 
 export const dealInputClass =
-  'w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)]';
+  'w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)]';
 
 export function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -71,7 +71,7 @@ export function InlineText({
         onBlur={commit}
         onKeyDown={(e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setLocal(value); setErr(null); setEditing(false); } }}
         placeholder={placeholder}
-        className="w-full rounded border border-[rgba(59,130,246,0.3)] bg-white/[0.05] px-2 py-1 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)]"
+        className="w-full rounded border border-[rgb(var(--accent-rgb)/0.3)] bg-white/[0.05] px-2 py-1 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)]"
       />
       {err && <div className="mt-1 text-xs text-[#EF4444]">{err}</div>}
     </div>
@@ -111,7 +111,7 @@ export function ProductsSubtitle({
       {open && (
         <>
           <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 z-30 mt-1 max-h-64 w-72 overflow-y-auto rounded-lg border border-[var(--color-border-card)] bg-[var(--color-bg-elevated)] p-1 shadow-[0_0_30px_rgba(59,130,246,0.15)]">
+          <div className="absolute left-0 z-30 mt-1 max-h-64 w-72 overflow-y-auto rounded-lg border border-[var(--color-border-card)] bg-[var(--color-bg-elevated)] p-1 shadow-[0_0_30px_rgb(var(--accent-rgb)/0.15)]">
             {catalog.length === 0 ? (
               <div className="px-3 py-2 text-xs text-[var(--color-text-secondary)]">
                 Nenhum produto cadastrado — crie em Configurações → Produtos.
@@ -130,7 +130,7 @@ export function ProductsSubtitle({
                       className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
                         selected
                           ? 'border-[var(--accent-primary)] bg-[var(--accent-primary)]'
-                          : 'border-[rgba(59,130,246,0.35)]'
+                          : 'border-[rgb(var(--accent-rgb)/0.35)]'
                       }`}
                     >
                       {selected && <Check className="h-3 w-3 text-white" />}
@@ -205,7 +205,7 @@ export function ChipEditor({
         {open && (q.trim() || suggestions.length > 0) && (
           <>
             <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-            <div className="absolute z-20 mt-1 w-full rounded-lg border border-[var(--color-border-card)] bg-[var(--color-bg-elevated)] p-1 shadow-[0_0_30px_rgba(59,130,246,0.15)]">
+            <div className="absolute z-20 mt-1 w-full rounded-lg border border-[var(--color-border-card)] bg-[var(--color-bg-elevated)] p-1 shadow-[0_0_30px_rgb(var(--accent-rgb)/0.15)]">
               {suggestions.map((s) => (
                 <button key={s.id} onClick={() => void add(s.name)} className="flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left text-sm text-[var(--color-text-primary)] hover:bg-white/5">
                   {s.name}
@@ -242,7 +242,7 @@ export function CustomFieldInput({ field, value, onSave }: { field: CustomField;
       </div>
       {field.field_type === 'boolean' ? (
         <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-[var(--color-text-primary)]">
-          <input type="checkbox" checked={local === 'true'} onChange={(e) => { const v = e.target.checked ? 'true' : 'false'; setLocal(v); commit(v); }} className="h-4 w-4 accent-[#3B82F6]" />
+          <input type="checkbox" checked={local === 'true'} onChange={(e) => { const v = e.target.checked ? 'true' : 'false'; setLocal(v); commit(v); }} className="h-4 w-4 accent-[color:var(--accent-primary)]" />
           {local === 'true' ? 'Sim' : 'Não'}
         </label>
       ) : field.field_type === 'select' ? (
@@ -286,7 +286,7 @@ export function CustomFieldModal({ onClose, onCreate }: {
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-2xl border border-[var(--color-border-card)] bg-[var(--color-bg-elevated)] p-5 shadow-[0_0_40px_rgba(59,130,246,0.15)]">
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-2xl border border-[var(--color-border-card)] bg-[var(--color-bg-elevated)] p-5 shadow-[0_0_40px_rgb(var(--accent-rgb)/0.15)]">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-base font-bold text-display">Novo campo personalizado</h3>
           <button onClick={onClose} aria-label="Fechar" className="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"><X className="h-5 w-5" /></button>
@@ -309,15 +309,15 @@ export function CustomFieldModal({ onClose, onCreate }: {
             </div>
           )}
           <label className="flex cursor-pointer items-center gap-2 text-sm text-[var(--color-text-primary)]">
-            <input type="checkbox" checked={required} onChange={(e) => setRequired(e.target.checked)} className="h-4 w-4 accent-[#3B82F6]" /> Obrigatório
+            <input type="checkbox" checked={required} onChange={(e) => setRequired(e.target.checked)} className="h-4 w-4 accent-[color:var(--accent-primary)]" /> Obrigatório
           </label>
           {err && <div className="text-xs text-[#EF4444]">{err}</div>}
         </div>
         <div className="mt-5 flex gap-2">
-          <button onClick={submit} disabled={busy} className="flex-1 inline-flex items-center justify-center gap-1 rounded-lg bg-gradient-to-br from-[#1E3A8A] to-[#3B82F6] px-3 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60">
+          <button onClick={submit} disabled={busy} className="flex-1 inline-flex items-center justify-center gap-1 rounded-lg bg-gradient-to-br from-[#1E3A8A] to-[var(--accent-primary)] px-3 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60">
             <Check className="h-4 w-4" /> {busy ? 'Criando…' : 'Criar campo'}
           </button>
-          <button onClick={onClose} className="rounded-lg border border-[rgba(59,130,246,0.2)] px-3 py-2 text-sm text-[var(--color-text-secondary)]">Cancelar</button>
+          <button onClick={onClose} className="rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] px-3 py-2 text-sm text-[var(--color-text-secondary)]">Cancelar</button>
         </div>
       </div>
     </div>

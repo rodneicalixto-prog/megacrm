@@ -88,7 +88,7 @@ export function QuickRepliesSettings() {
             {quickReplies.map((qr) => (
               <div
                 key={qr.id}
-                className="flex flex-wrap items-center gap-3 rounded-lg border border-[rgba(59,130,246,0.08)] bg-white/[0.02] px-3 py-2"
+                className="flex flex-wrap items-center gap-3 rounded-lg border border-[rgb(var(--accent-rgb)/0.08)] bg-white/[0.02] px-3 py-2"
               >
                 <Slash className="h-4 w-4 shrink-0 text-[var(--accent-secondary)]" />
                 <span className="shrink-0 text-sm font-semibold text-[var(--accent-primary)]">/{qr.shortcut}</span>

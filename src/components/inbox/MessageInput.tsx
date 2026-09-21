@@ -257,7 +257,7 @@ export function MessageInput({ conversationId, disabled, withinWindow = true, on
   return (
     <form
       onSubmit={handleSubmit}
-      className="border-t border-[rgba(59,130,246,0.08)] p-4 space-y-3 glass-surface"
+      className="border-t border-[rgb(var(--accent-rgb)/0.08)] p-4 space-y-3 glass-surface"
     >
       {replyTo && (
         <div className="flex items-center gap-2 rounded-lg border-l-2 border-[var(--accent-primary)] bg-white/[0.03] px-3 py-2 text-xs">
@@ -317,7 +317,7 @@ export function MessageInput({ conversationId, disabled, withinWindow = true, on
       ) : null}
 
       {(withinWindow || isPrivate) && file && (
-        <div className="flex items-center gap-2 rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-xs">
+        <div className="flex items-center gap-2 rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-xs">
           <Paperclip className="h-3.5 w-3.5 text-[var(--accent-primary)]" />
           <span className="truncate text-[var(--color-text-primary)]">{voiceNote ? 'Mensagem de voz' : file.name}</span>
           <span className="text-[var(--color-text-secondary)]">
@@ -412,7 +412,7 @@ export function MessageInput({ conversationId, disabled, withinWindow = true, on
                     setContent((value) => value + emoji);
                     setShowEmoji(false);
                   }}
-                  className="flex h-7 w-7 items-center justify-center rounded text-lg hover:bg-[rgba(59,130,246,0.12)]"
+                  className="flex h-7 w-7 items-center justify-center rounded text-lg hover:bg-[rgb(var(--accent-rgb)/0.12)]"
                 >
                   {emoji}
                 </button>
@@ -423,7 +423,7 @@ export function MessageInput({ conversationId, disabled, withinWindow = true, on
         <div className="relative flex-1">
           {slashQuery !== null && filteredQuickReplies.length > 0 && (
             <div className="absolute bottom-full left-0 z-30 mb-1 w-72 overflow-hidden rounded-lg border border-[var(--color-border-card)] bg-[var(--color-bg-elevated)] shadow-2xl">
-              <div className="flex items-center gap-1.5 border-b border-[rgba(59,130,246,0.1)] px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">
+              <div className="flex items-center gap-1.5 border-b border-[rgb(var(--accent-rgb)/0.1)] px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">
                 <Slash className="h-3 w-3" /> Respostas rápidas
               </div>
               <ul className="max-h-48 overflow-y-auto">
@@ -432,7 +432,7 @@ export function MessageInput({ conversationId, disabled, withinWindow = true, on
                     <button
                       type="button"
                       onClick={() => pickQuickReply(qr.content)}
-                      className="flex w-full flex-col items-start gap-0.5 px-2.5 py-1.5 text-left hover:bg-[rgba(59,130,246,0.08)]"
+                      className="flex w-full flex-col items-start gap-0.5 px-2.5 py-1.5 text-left hover:bg-[rgb(var(--accent-rgb)/0.08)]"
                     >
                       <span className="text-xs font-semibold text-[var(--accent-primary)]">/{qr.shortcut}</span>
                       <span className="w-full truncate text-xs text-[var(--color-text-secondary)]">{qr.content}</span>
@@ -444,7 +444,7 @@ export function MessageInput({ conversationId, disabled, withinWindow = true, on
           )}
           {mentionQuery !== null && filteredOperators.length > 0 && (
             <div className="absolute bottom-full left-0 z-30 mb-1 w-64 overflow-hidden rounded-lg border border-[var(--color-border-card)] bg-[var(--color-bg-elevated)] shadow-2xl">
-              <div className="flex items-center gap-1.5 border-b border-[rgba(59,130,246,0.1)] px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">
+              <div className="flex items-center gap-1.5 border-b border-[rgb(var(--accent-rgb)/0.1)] px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">
                 <AtSign className="h-3 w-3" /> Mencionar colega
               </div>
               <ul className="max-h-48 overflow-y-auto">
@@ -453,7 +453,7 @@ export function MessageInput({ conversationId, disabled, withinWindow = true, on
                     <button
                       type="button"
                       onClick={() => pickMention(op.user_id, op.full_name?.trim() || op.email)}
-                      className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-xs text-[var(--color-text-primary)] hover:bg-[rgba(59,130,246,0.08)]"
+                      className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-xs text-[var(--color-text-primary)] hover:bg-[rgb(var(--accent-rgb)/0.08)]"
                     >
                       {operatorLabel(op)}
                     </button>
@@ -479,7 +479,7 @@ export function MessageInput({ conversationId, disabled, withinWindow = true, on
             className={
               isPrivate
                 ? 'w-full rounded-lg border border-[rgba(245,158,11,0.3)] bg-[rgba(245,158,11,0.04)] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[#FBBF24] resize-none'
-                : 'w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)] resize-none'
+                : 'w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)] resize-none'
             }
           />
         </div>
