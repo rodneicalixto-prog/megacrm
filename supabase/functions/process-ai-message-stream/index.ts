@@ -17,7 +17,6 @@ import { jsonResponse, preflight } from '../_shared/cors.ts';
 import { requireServiceRole } from '../_shared/auth.ts';
 import { isModuleEnabled } from '../_shared/plan.ts';
 import { applyVariables, extractHandoff, extractMedia } from '../_shared/ai-reply.ts';
-import { buildScheduleVars } from '../_shared/business-hours.ts';
 
 const EMBED_MODEL = 'text-embedding-3-small';
 const TOP_K = 5;
@@ -319,7 +318,7 @@ Deno.serve(async (req) => {
   const userPrompt = buildUserPrompt(history, ragChunks, inboundLabel);
 
   // 8. Stream response via SSE.
-  const { readable, writable } = new TransformStream<string, Uint8Array>();
+  const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
   const writer = writable.getWriter();
   const encoder = new TextEncoder();
 
@@ -330,7 +329,7 @@ Deno.serve(async (req) => {
       const provider: LLMProvider = creds.llm_provider as LLMProvider;
       for await (const chunk of callLLMStream({
         provider,
-        apiKey: creds.llm_api_key,
+        apiKey: creds.llm_api_key ?? '',
         model: agent.model ?? undefined,
         systemPrompt,
         userPrompt,
