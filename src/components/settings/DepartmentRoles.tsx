@@ -1,4 +1,4 @@
-import { UserPlus, Trash2, Plus } from 'lucide-react';
+import { UserPlus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { getSupabase } from '@/lib/supabase';

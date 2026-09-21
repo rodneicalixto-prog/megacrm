@@ -2,7 +2,6 @@ import { Building2, UserRoundPlus, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { getSupabase } from '@/lib/supabase';
-import { operatorLabel, useOperators } from '@/hooks/useOperators';
 
 interface Departamento {
   id: string;
@@ -27,7 +26,6 @@ const inputCls =
   'h-10 w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)] [&>option]:bg-[var(--color-bg-primary)] [&>option]:text-[var(--color-text-primary)]';
 
 export function DepartmentsHeader({ departamentos, cargos, onDepartamentoCriado }: DepartmentsHeaderProps) {
-  const { operators } = useOperators();
   const [novoDepto, setNovoDepto] = useState('');
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');

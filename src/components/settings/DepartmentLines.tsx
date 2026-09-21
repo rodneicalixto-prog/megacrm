@@ -1,5 +1,5 @@
-import { Smartphone, QrCode, KeyRound, Trash2, RefreshCw, Loader2, Plus } from 'lucide-react';
-import { useState, useCallback } from 'react';
+import { Smartphone, QrCode, KeyRound, Trash2, RefreshCw, Loader2 } from 'lucide-react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { getSupabase } from '@/lib/supabase';
 
@@ -59,8 +59,6 @@ export function DepartmentLines({
   statusLinhas,
   loadingStatus,
   departmentId,
-  qrDialog,
-  qrLoading,
   onLinhasCriada,
   onCarregarStatus,
   onQrDialogChange,
