@@ -161,8 +161,8 @@ export function UtmBuilder() {
               className={
                 'rounded-xl border px-3 py-2 text-left transition-all duration-300 ' +
                 (destination === d.value
-                  ? 'border-[var(--accent-primary)] bg-[rgba(59,130,246,0.12)]'
-                  : 'border-[rgba(59,130,246,0.15)] hover:border-[rgba(59,130,246,0.35)]')
+                  ? 'border-[var(--accent-primary)] bg-[rgb(var(--accent-rgb)/0.12)]'
+                  : 'border-[rgb(var(--accent-rgb)/0.15)] hover:border-[rgb(var(--accent-rgb)/0.35)]')
               }
             >
               <div className="text-sm font-semibold text-[var(--color-text-primary)]">{d.label}</div>
@@ -184,8 +184,8 @@ export function UtmBuilder() {
               className={
                 'rounded-full px-3 py-1 text-xs font-semibold border transition-colors ' +
                 (source === p.source && medium === p.medium
-                  ? 'border-[var(--accent-primary)] bg-[rgba(59,130,246,0.15)] text-[var(--color-text-primary)]'
-                  : 'border-[rgba(59,130,246,0.15)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:border-[rgba(59,130,246,0.35)]')
+                  ? 'border-[var(--accent-primary)] bg-[rgb(var(--accent-rgb)/0.15)] text-[var(--color-text-primary)]'
+                  : 'border-[rgb(var(--accent-rgb)/0.15)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:border-[rgb(var(--accent-rgb)/0.35)]')
               }
             >
               {p.label}
@@ -259,7 +259,7 @@ export function UtmBuilder() {
         {/* Preview do destino real */}
         <div className="space-y-2">
           <Label>Destino final (após o rastreio)</Label>
-          <div className="rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-xs font-mono text-[var(--color-text-secondary)] break-all min-h-[40px]">
+          <div className="rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-xs font-mono text-[var(--color-text-secondary)] break-all min-h-[40px]">
             {destinationUrl || <span className="opacity-40">Preencha os campos obrigatórios…</span>}
           </div>
           {isWhatsApp && destinationUrl ? (
@@ -299,14 +299,14 @@ export function UtmBuilder() {
             />
           </button>
           {snippetOpen ? (
-            <div className="space-y-3 border-t border-[rgba(59,130,246,0.1)] p-5">
+            <div className="space-y-3 border-t border-[rgb(var(--accent-rgb)/0.1)] p-5">
               <p className="text-sm text-[var(--color-text-secondary)]">
                 <strong className="text-[var(--color-text-primary)]">1.</strong> Cole o código abaixo no{' '}
                 <code className="text-[var(--accent-secondary)]">&lt;head&gt;</code> da sua landing page
                 (funciona também antes de fechar o <code className="text-[var(--accent-secondary)]">&lt;/body&gt;</code>).
               </p>
               <div className="flex items-start gap-2">
-                <pre className="min-w-0 flex-1 overflow-x-auto rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-xs text-[var(--color-text-primary)]">
+                <pre className="min-w-0 flex-1 overflow-x-auto rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-xs text-[var(--color-text-primary)]">
                   {snippetTag}
                 </pre>
                 <Button
@@ -327,7 +327,7 @@ export function UtmBuilder() {
                 formulário. Exemplo:
               </p>
               <div className="flex items-start gap-2">
-                <pre className="min-w-0 flex-1 overflow-x-auto rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-xs text-[var(--color-text-primary)]">
+                <pre className="min-w-0 flex-1 overflow-x-auto rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-xs text-[var(--color-text-primary)]">
                   {FORM_EXAMPLE}
                 </pre>
                 <Button
@@ -365,7 +365,7 @@ export function UtmBuilder() {
             Use este link nos anúncios e na bio. É ele que registra a origem de cada lead.
           </p>
           <div className="flex items-start gap-2">
-            <div className="flex-1 min-w-0 rounded-lg border border-[rgba(59,130,246,0.25)] bg-white/[0.03] px-3 py-2 text-xs font-mono text-[var(--color-text-primary)] break-all">
+            <div className="flex-1 min-w-0 rounded-lg border border-[rgb(var(--accent-rgb)/0.25)] bg-white/[0.03] px-3 py-2 text-xs font-mono text-[var(--color-text-primary)] break-all">
               {buildRedirectorUrl(lastLink.slug)}
             </div>
             <Button
@@ -398,11 +398,11 @@ export function UtmBuilder() {
                 return (
                   <div
                     key={l.id}
-                    className="flex items-start gap-3 rounded-lg border border-[rgba(59,130,246,0.08)] bg-white/[0.02] p-3"
+                    className="flex items-start gap-3 rounded-lg border border-[rgb(var(--accent-rgb)/0.08)] bg-white/[0.02] p-3"
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="rounded-full border border-[rgba(59,130,246,0.25)] bg-[rgba(59,130,246,0.1)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--accent-secondary)]">
+                        <span className="rounded-full border border-[rgb(var(--accent-rgb)/0.25)] bg-[rgb(var(--accent-rgb)/0.1)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--accent-secondary)]">
                           {l.destination_type}
                         </span>
                         {l.label && (

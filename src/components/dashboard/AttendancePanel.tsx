@@ -21,7 +21,7 @@ function Card({
   href: string;
 }) {
   const toneClass = {
-    neutral: 'text-[var(--accent-secondary)] border-[rgba(59,130,246,0.25)]',
+    neutral: 'text-[var(--accent-secondary)] border-[rgb(var(--accent-rgb)/0.25)]',
     ok: 'text-[#10B981] border-[rgba(16,185,129,0.25)]',
     warn: 'text-[#FBBF24] border-[rgba(245,158,11,0.25)]',
     danger: 'text-[#EF4444] border-[rgba(239,68,68,0.25)]',
@@ -112,7 +112,7 @@ export function AttendancePanel({
         <button
           type="button"
           onClick={() => downloadAttendanceCsv(metrics, operators)}
-          className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[rgba(59,130,246,0.25)] bg-white/[0.03] px-4 text-sm font-medium text-[var(--color-text-primary)] transition hover:border-[var(--accent-primary)] hover:bg-white/[0.06]"
+          className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[rgb(var(--accent-rgb)/0.25)] bg-white/[0.03] px-4 text-sm font-medium text-[var(--color-text-primary)] transition hover:border-[var(--accent-primary)] hover:bg-white/[0.06]"
         >
           <Download className="h-4 w-4 text-[var(--accent-secondary)]" />
           Exportar relatório CSV

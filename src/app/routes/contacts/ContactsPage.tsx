@@ -216,7 +216,7 @@ export default function ContactsPage() {
                 setPage(1);
                 setSearch(e.target.value);
               }}
-              className="w-full h-10 pl-10 pr-4 rounded-lg bg-white/[0.03] border border-[rgba(59,130,246,0.12)] text-sm placeholder:text-[var(--color-text-secondary)] focus:outline-none focus:border-[var(--accent-primary)]"
+              className="w-full h-10 pl-10 pr-4 rounded-lg bg-white/[0.03] border border-[rgb(var(--accent-rgb)/0.12)] text-sm placeholder:text-[var(--color-text-secondary)] focus:outline-none focus:border-[var(--accent-primary)]"
             />
           </div>
           <select
@@ -225,7 +225,7 @@ export default function ContactsPage() {
               setPage(1);
               setTagFilter(e.target.value || null);
             }}
-            className="h-10 rounded-lg border border-[rgba(59,130,246,0.12)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)]"
+            className="h-10 rounded-lg border border-[rgb(var(--accent-rgb)/0.12)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)]"
           >
             <option value="">Todas as tags</option>
             {tags.map((t) => (
@@ -240,7 +240,7 @@ export default function ContactsPage() {
               setPage(1);
               setSourceFilter(e.target.value || null);
             }}
-            className="h-10 rounded-lg border border-[rgba(59,130,246,0.12)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)]"
+            className="h-10 rounded-lg border border-[rgb(var(--accent-rgb)/0.12)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)]"
           >
             <option value="">Todos os canais</option>
             {SOURCE_OPTIONS.map((s) => (
@@ -255,7 +255,7 @@ export default function ContactsPage() {
               setPage(1);
               setSort(e.target.value as ContactSort);
             }}
-            className="h-10 rounded-lg border border-[rgba(59,130,246,0.12)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)]"
+            className="h-10 rounded-lg border border-[rgb(var(--accent-rgb)/0.12)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)]"
           >
             <option value="recent">Mais recentes</option>
             <option value="oldest">Mais antigos</option>
@@ -265,7 +265,7 @@ export default function ContactsPage() {
         </div>
 
         {selected.size > 0 && (
-          <div className="flex items-center gap-2 rounded-lg border border-[rgba(59,130,246,0.25)] bg-[rgba(59,130,246,0.06)] px-4 py-2">
+          <div className="flex items-center gap-2 rounded-lg border border-[rgb(var(--accent-rgb)/0.25)] bg-[rgb(var(--accent-rgb)/0.06)] px-4 py-2">
             <span className="text-sm font-medium">
               {selected.size} selecionado{selected.size > 1 ? 's' : ''}
             </span>
@@ -277,7 +277,7 @@ export default function ContactsPage() {
                   defaultValue=""
                   disabled={bulkBusy}
                   onChange={(event) => { void handleForward(event.target.value); event.currentTarget.value = ''; }}
-                  className="h-8 rounded-lg border border-[rgba(59,130,246,0.2)] bg-[var(--color-bg-elevated)] pl-7 pr-2 text-xs"
+                  className="h-8 rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-[var(--color-bg-elevated)] pl-7 pr-2 text-xs"
                 >
                   <option value="" disabled>Encaminhar para…</option>
                   {operators.map((operator) => <option key={operator.user_id} value={operator.user_id}>{operatorLabel(operator)}</option>)}
@@ -303,7 +303,7 @@ export default function ContactsPage() {
 
         {error && <LoadErrorBanner message={error} onRetry={() => void reload()} />}
 
-        <div className="rounded-lg border border-[rgba(59,130,246,0.08)] overflow-x-auto">
+        <div className="rounded-lg border border-[rgb(var(--accent-rgb)/0.08)] overflow-x-auto">
           <table className="w-full min-w-[920px] text-sm">
             <thead>
               <tr className="bg-white/[0.02] text-left">
@@ -345,7 +345,7 @@ export default function ContactsPage() {
                 contacts.map((c) => (
                   <tr
                     key={c.id}
-                    className="border-t border-[rgba(59,130,246,0.06)] hover:bg-white/[0.02]"
+                    className="border-t border-[rgb(var(--accent-rgb)/0.06)] hover:bg-white/[0.02]"
                   >
                     <td className="p-3">
                       <input
@@ -367,7 +367,7 @@ export default function ContactsPage() {
                       {c.kind === 'cliente' ? (
                         <span className="inline-flex rounded-full bg-[rgba(16,185,129,0.12)] px-2 py-0.5 text-xs font-semibold text-[#10B981]">Cliente</span>
                       ) : c.kind === 'lead' ? (
-                        <span className="inline-flex rounded-full bg-[rgba(59,130,246,0.12)] px-2 py-0.5 text-xs font-semibold text-[var(--accent-secondary)]">Lead</span>
+                        <span className="inline-flex rounded-full bg-[rgb(var(--accent-rgb)/0.12)] px-2 py-0.5 text-xs font-semibold text-[var(--accent-secondary)]">Lead</span>
                       ) : (
                         <span className="opacity-40">—</span>
                       )}
@@ -442,7 +442,7 @@ export default function ContactsPage() {
                 setPageSize(Number(e.target.value));
                 setPage(1);
               }}
-              className="h-8 rounded-lg border border-[rgba(59,130,246,0.12)] bg-white/[0.03] px-2 text-xs text-[var(--color-text-primary)]"
+              className="h-8 rounded-lg border border-[rgb(var(--accent-rgb)/0.12)] bg-white/[0.03] px-2 text-xs text-[var(--color-text-primary)]"
               aria-label="Linhas por página"
             >
               {PAGE_SIZE_OPTIONS.map((n) => (

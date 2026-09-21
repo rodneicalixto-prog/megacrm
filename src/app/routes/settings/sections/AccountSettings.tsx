@@ -87,7 +87,7 @@ export function AccountSettings() {
           </header>
           <a
             href="/setup?rerun=1"
-            className="inline-flex items-center gap-2 rounded-lg border border-[rgba(59,130,246,0.25)] px-4 py-2.5 text-sm font-medium text-[var(--color-text-primary)] transition hover:border-[var(--accent-primary)]"
+            className="inline-flex items-center gap-2 rounded-lg border border-[rgb(var(--accent-rgb)/0.25)] px-4 py-2.5 text-sm font-medium text-[var(--color-text-primary)] transition hover:border-[var(--accent-primary)]"
           >
             Aplicar atualizações
           </a>
@@ -106,7 +106,7 @@ export function AccountSettings() {
               Preferência salva neste navegador.
             </p>
           </header>
-          <label className="flex items-center gap-3 rounded-lg border border-[rgba(59,130,246,0.15)] bg-white/[0.02] px-4 py-3 cursor-pointer">
+          <label className="flex items-center gap-3 rounded-lg border border-[rgb(var(--accent-rgb)/0.15)] bg-white/[0.02] px-4 py-3 cursor-pointer">
             <input
               type="checkbox"
               checked={soundEnabled}

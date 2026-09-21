@@ -137,7 +137,7 @@ export function BusinessHoursEditor({
       </header>
 
       {nullable && (
-        <label className="flex items-center gap-3 rounded-lg border border-[rgba(59,130,246,0.15)] bg-white/[0.02] px-3 py-2 cursor-pointer">
+        <label className="flex items-center gap-3 rounded-lg border border-[rgb(var(--accent-rgb)/0.15)] bg-white/[0.02] px-3 py-2 cursor-pointer">
           <input
             type="checkbox"
             checked={overriding}
@@ -156,7 +156,7 @@ export function BusinessHoursEditor({
             {DAY_ORDER.map(({ key, label }) => (
               <div
                 key={key}
-                className="grid grid-cols-[auto_90px_1fr_1fr] items-center gap-2 p-2.5 rounded-lg border border-[rgba(59,130,246,0.1)] bg-white/[0.02]"
+                className="grid grid-cols-[auto_90px_1fr_1fr] items-center gap-2 p-2.5 rounded-lg border border-[rgb(var(--accent-rgb)/0.1)] bg-white/[0.02]"
               >
                 <input
                   type="checkbox"
@@ -190,7 +190,7 @@ export function BusinessHoursEditor({
               onChange={(e) => setOffHoursMsg(e.target.value)}
               rows={2}
               disabled={saving}
-              className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)] focus:bg-white/[0.06]"
+              className="w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)] focus:bg-white/[0.06]"
             />
           </div>
         </>

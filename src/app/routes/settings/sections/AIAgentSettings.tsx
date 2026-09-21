@@ -410,8 +410,8 @@ export function AIAgentSettings() {
               key={p.id}
               className={`flex items-center gap-3 rounded-lg border px-3 py-2 cursor-pointer transition-colors ${
                 p.id === rowId
-                  ? 'border-[var(--accent-primary)] bg-[rgba(59,130,246,0.08)]'
-                  : 'border-[rgba(59,130,246,0.12)] bg-white/[0.02] hover:border-[rgba(59,130,246,0.25)]'
+                  ? 'border-[var(--accent-primary)] bg-[rgb(var(--accent-rgb)/0.08)]'
+                  : 'border-[rgb(var(--accent-rgb)/0.12)] bg-white/[0.02] hover:border-[rgb(var(--accent-rgb)/0.25)]'
               }`}
               onClick={() => selectProfile(p)}
             >
@@ -485,7 +485,7 @@ export function AIAgentSettings() {
           </div>
           <div className="space-y-2">
             <Label>Controle</Label>
-            <label className="flex items-center gap-2 h-11 px-3 rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03]">
+            <label className="flex items-center gap-2 h-11 px-3 rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03]">
               <input
                 type="checkbox"
                 checked={isControl}
@@ -508,10 +508,10 @@ export function AIAgentSettings() {
             onBlur={() => setTimeout(() => setVarMenu(null), 150)}
             rows={12}
             disabled={saving}
-            className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-4 py-3 text-sm text-[var(--color-text-primary)] font-mono placeholder:text-[var(--color-text-secondary)] focus:outline-none focus:border-[var(--accent-primary)] focus:bg-white/[0.06]"
+            className="w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-4 py-3 text-sm text-[var(--color-text-primary)] font-mono placeholder:text-[var(--color-text-secondary)] focus:outline-none focus:border-[var(--accent-primary)] focus:bg-white/[0.06]"
           />
           {varMenu && menuMatches.length > 0 && (
-            <div className="absolute z-20 mt-1 w-64 rounded-lg border border-[rgba(59,130,246,0.25)] bg-[var(--color-bg-elevated)] shadow-2xl overflow-hidden">
+            <div className="absolute z-20 mt-1 w-64 rounded-lg border border-[rgb(var(--accent-rgb)/0.25)] bg-[var(--color-bg-elevated)] shadow-2xl overflow-hidden">
               {menuMatches.map((k) => (
                 <button
                   key={k}
@@ -520,7 +520,7 @@ export function AIAgentSettings() {
                     e.preventDefault();
                     insertVariable(k);
                   }}
-                  className="block w-full text-left px-3 py-2 text-sm font-mono text-[var(--color-text-primary)] hover:bg-[rgba(59,130,246,0.12)]"
+                  className="block w-full text-left px-3 py-2 text-sm font-mono text-[var(--color-text-primary)] hover:bg-[rgb(var(--accent-rgb)/0.12)]"
                 >
                   {`{${k}}`}
                 </button>
@@ -584,7 +584,7 @@ export function AIAgentSettings() {
             dele vão direto para atendimento humano.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-2xl">
-            <label className="flex items-center gap-3 h-11 px-4 rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] cursor-pointer">
+            <label className="flex items-center gap-3 h-11 px-4 rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] cursor-pointer">
               <input
                 type="checkbox"
                 checked={activeWhatsapp}
@@ -597,7 +597,7 @@ export function AIAgentSettings() {
                 Ativo no WhatsApp
               </span>
             </label>
-            <label className="flex items-center gap-3 h-11 px-4 rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] cursor-pointer">
+            <label className="flex items-center gap-3 h-11 px-4 rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] cursor-pointer">
               <input
                 type="checkbox"
                 checked={activeInstagram}
@@ -616,7 +616,7 @@ export function AIAgentSettings() {
         {/* Movimento automático de leads no funil (Módulo 8) */}
         <div className="space-y-2">
           <Label>Funil</Label>
-          <label className="flex items-center gap-3 min-h-11 px-4 py-2 rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] cursor-pointer max-w-2xl">
+          <label className="flex items-center gap-3 min-h-11 px-4 py-2 rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] cursor-pointer max-w-2xl">
             <input
               type="checkbox"
               checked={autoMoveLeads}
@@ -635,7 +635,7 @@ export function AIAgentSettings() {
         </div>
 
         {/* Configurações Avançadas */}
-        <div className="rounded-xl border border-[rgba(59,130,246,0.12)] bg-white/[0.02]">
+        <div className="rounded-xl border border-[rgb(var(--accent-rgb)/0.12)] bg-white/[0.02]">
           <button
             type="button"
             onClick={() => setAdvancedOpen((v) => !v)}
@@ -649,7 +649,7 @@ export function AIAgentSettings() {
             />
           </button>
           {advancedOpen && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 border-t border-[rgba(59,130,246,0.1)] p-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 border-t border-[rgb(var(--accent-rgb)/0.1)] p-5">
               <div className="space-y-2">
                 <Label htmlFor="model">Modelo de IA</Label>
                 <select
@@ -657,7 +657,7 @@ export function AIAgentSettings() {
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
                   disabled={saving}
-                  className="h-11 w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-4 text-sm text-[var(--color-text-primary)]"
+                  className="h-11 w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-4 text-sm text-[var(--color-text-primary)]"
                 >
                   {GPT_MODELS.map((m) => (
                     <option key={m} value={m}>
@@ -673,7 +673,7 @@ export function AIAgentSettings() {
                   value={timezone}
                   onChange={(e) => setTimezone(e.target.value)}
                   disabled={saving}
-                  className="h-11 w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-4 text-sm text-[var(--color-text-primary)]"
+                  className="h-11 w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-4 text-sm text-[var(--color-text-primary)]"
                 >
                   {TIMEZONES.map((tz) => (
                     <option key={tz} value={tz}>
@@ -714,7 +714,7 @@ export function AIAgentSettings() {
         </div>
 
         {history.length > 0 && (
-          <div className="space-y-2 border-t border-[rgba(59,130,246,0.1)] pt-4">
+          <div className="space-y-2 border-t border-[rgb(var(--accent-rgb)/0.1)] pt-4">
             <button
               type="button"
               onClick={() => setHistoryOpen((v) => !v)}
@@ -729,7 +729,7 @@ export function AIAgentSettings() {
                 {history.map((h) => (
                   <div
                     key={h.id}
-                    className="flex items-start gap-3 rounded-lg border border-[rgba(59,130,246,0.15)] bg-white/[0.02] px-3 py-2"
+                    className="flex items-start gap-3 rounded-lg border border-[rgb(var(--accent-rgb)/0.15)] bg-white/[0.02] px-3 py-2"
                   >
                     <div className="min-w-0 flex-1">
                       <div className="text-[10px] text-[var(--color-text-secondary)]">

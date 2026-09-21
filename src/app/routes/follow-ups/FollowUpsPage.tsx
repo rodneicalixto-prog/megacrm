@@ -78,7 +78,7 @@ export default function FollowUpsPage() {
       {error && <LoadErrorBanner message={error} onRetry={() => void reload()} />}
 
       <div className="glass-card p-4">
-        <div className="rounded-lg border border-[rgba(59,130,246,0.08)] overflow-x-auto">
+        <div className="rounded-lg border border-[rgb(var(--accent-rgb)/0.08)] overflow-x-auto">
           <table className="w-full min-w-[640px] text-sm">
             <thead>
               <tr className="bg-white/[0.02] text-left">
@@ -101,7 +101,7 @@ export default function FollowUpsPage() {
                 </tr>
               ) : (
                 rules.map((r) => (
-                  <tr key={r.id} className="border-t border-[rgba(59,130,246,0.06)]">
+                  <tr key={r.id} className="border-t border-[rgb(var(--accent-rgb)/0.06)]">
                     <td className="p-3 font-mono">#{r.sequence_order}</td>
                     <td className="p-3 text-[var(--color-text-primary)]">
                       {campaignName(r.campaign_id)}
@@ -231,7 +231,7 @@ function FollowUpForm({
             value={campaignId}
             onChange={(e) => setCampaignId(e.target.value)}
             disabled={saving}
-            className="h-11 w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)]"
+            className="h-11 w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)]"
           >
             <option value="">Global — aplicar em todas as campanhas</option>
             {campaigns.map((c) => (
@@ -272,7 +272,7 @@ function FollowUpForm({
             value={templateId}
             onChange={(e) => setTemplateId(e.target.value)}
             disabled={saving}
-            className="h-11 w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)]"
+            className="h-11 w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)]"
           >
             <option value="">— selecione um template aprovado —</option>
             {templates.map((t) => (

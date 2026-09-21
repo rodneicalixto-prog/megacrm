@@ -128,7 +128,7 @@ export function ContactPanel({
   return (
     <div className="h-full p-5 space-y-5 overflow-y-auto">
       <div className="text-center">
-        <div className="h-16 w-16 mx-auto rounded-full bg-gradient-to-br from-[#1E3A8A] to-[#3B82F6] flex items-center justify-center text-lg font-bold text-white shadow-[0_0_30px_rgba(59,130,246,0.25)]">
+        <div className="h-16 w-16 mx-auto rounded-full bg-gradient-to-br from-[#1E3A8A] to-[var(--accent-primary)] flex items-center justify-center text-lg font-bold text-white shadow-[0_0_30px_rgb(var(--accent-rgb)/0.25)]">
           {displayName.slice(0, 2).toUpperCase()}
         </div>
         <div className="mt-3 text-lg font-bold text-display text-[var(--color-text-primary)]">
@@ -184,7 +184,7 @@ export function ContactPanel({
               toast.error('Falha', { description: err instanceof Error ? err.message : String(err) });
             }
           }}
-          className="h-11 w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="h-11 w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <option value="">Ninguém</option>
           {operators.map((op) => (
@@ -206,7 +206,7 @@ export function ContactPanel({
       <button
         type="button"
         onClick={onTransfer}
-        className="flex w-full items-center justify-center gap-2 rounded-lg border border-[rgba(59,130,246,0.25)] px-4 py-2.5 text-sm font-medium text-[var(--color-text-primary)] transition hover:border-[var(--accent-primary)]"
+        className="flex w-full items-center justify-center gap-2 rounded-lg border border-[rgb(var(--accent-rgb)/0.25)] px-4 py-2.5 text-sm font-medium text-[var(--color-text-primary)] transition hover:border-[var(--accent-primary)]"
       >
         <ArrowRightLeft className="h-4 w-4" />
         Transferir conversa
@@ -225,7 +225,7 @@ export function ContactPanel({
               toast.error('Falha', { description: err instanceof Error ? err.message : String(err) });
             }
           }}
-          className="h-11 w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)]"
+          className="h-11 w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)]"
         >
           <option value="baixa">Baixa</option>
           <option value="normal">Normal</option>
@@ -248,7 +248,7 @@ export function ContactPanel({
                 toast.error('Falha', { description: err instanceof Error ? err.message : String(err) });
               }
             }}
-            className="h-11 w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)]"
+            className="h-11 w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)]"
           >
             <option value="">Nenhum</option>
             {openDeals.map((d) => (
@@ -345,7 +345,7 @@ export function ContactPanel({
         </Button>
       </div>
 
-      <div className="pt-3 border-t border-[rgba(59,130,246,0.08)] text-[10px] text-[var(--color-text-secondary)] opacity-70 space-y-0.5">
+      <div className="pt-3 border-t border-[rgb(var(--accent-rgb)/0.08)] text-[10px] text-[var(--color-text-secondary)] opacity-70 space-y-0.5">
         <div>Status: {conversation.status}</div>
         <div>IA: {conversation.ai_paused ? 'pausada' : 'ativa'}</div>
         <div>Criada: {new Date(conversation.created_at).toLocaleString('pt-BR')}</div>

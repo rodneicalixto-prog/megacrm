@@ -10,13 +10,13 @@ const buttonVariants = cva(
         // Gradiente 135° #1E3A8A→#3B82F6 (botão primário do DS Agentise) com
         // glow azul no hover (30→48px). Antes era cor chapada, fora do DS.
         default:
-          'bg-[linear-gradient(135deg,#1E3A8A,#3B82F6)] text-white shadow-[0_0_30px_rgba(59,130,246,0.25)] hover:shadow-[0_0_48px_rgba(59,130,246,0.5)] hover:brightness-110',
+          'bg-[linear-gradient(135deg,#1E3A8A,#3B82F6)] text-white shadow-[0_0_30px_rgb(var(--accent-rgb)/0.25)] hover:shadow-[0_0_48px_rgb(var(--accent-rgb)/0.5)] hover:brightness-110',
         secondary:
-          'bg-white/5 text-[var(--color-text-primary)] border border-[rgba(59,130,246,0.2)] hover:bg-white/10 hover:border-[rgba(59,130,246,0.4)]',
+          'bg-white/5 text-[var(--color-text-primary)] border border-[rgb(var(--accent-rgb)/0.2)] hover:bg-white/10 hover:border-[rgb(var(--accent-rgb)/0.4)]',
         ghost:
           'text-[var(--color-text-secondary)] hover:bg-white/5 hover:text-[var(--color-text-primary)]',
         outline:
-          'border border-[rgba(59,130,246,0.25)] bg-transparent text-[var(--color-text-primary)] hover:bg-white/5 hover:border-[rgba(59,130,246,0.5)]',
+          'border border-[rgb(var(--accent-rgb)/0.25)] bg-transparent text-[var(--color-text-primary)] hover:bg-white/5 hover:border-[rgb(var(--accent-rgb)/0.5)]',
         destructive:
           'bg-[var(--color-error)] text-white hover:bg-[var(--color-error)]/90',
         link:

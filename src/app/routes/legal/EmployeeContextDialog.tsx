@@ -102,7 +102,7 @@ export function EmployeeContextDialog({ open, onClose, existing, onSave }: Emplo
     }
   };
 
-  const inputClass = 'w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]';
+  const inputClass = 'w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]';
   const checkRow = (checked: boolean, onChange: (v: boolean) => void, label: string) => (
     <label className="flex items-center gap-2 text-sm text-[var(--color-text-primary)]">
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="accent-[var(--accent-primary)]" />

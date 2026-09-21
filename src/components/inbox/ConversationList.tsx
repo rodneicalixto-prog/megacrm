@@ -67,7 +67,7 @@ export function ConversationList({
   }
 
   return (
-    <ul className="divide-y divide-[rgba(59,130,246,0.06)]">
+    <ul className="divide-y divide-[rgb(var(--accent-rgb)/0.06)]">
       {[...conversations].sort((a, b) => Number(b.isFavorite) - Number(a.isFavorite)).map((c) => {
         const badge = statusBadge(c.status);
         const Icon = badge.Icon;
@@ -102,7 +102,7 @@ export function ConversationList({
               className={cn(
                 'group/row w-full text-left p-3 transition-colors',
                 'hover:bg-white/[0.03]',
-                isActive && 'bg-[rgba(59,130,246,0.08)] border-l-2 border-[var(--accent-primary)]',
+                isActive && 'bg-[rgb(var(--accent-rgb)/0.08)] border-l-2 border-[var(--accent-primary)]',
                 !isActive && 'border-l-2 border-transparent',
               )}
             >
@@ -113,7 +113,7 @@ export function ConversationList({
                   </div>
                   <span
                     title={chan.label}
-                    className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--color-bg-elevated)] ring-1 ring-[rgba(59,130,246,0.2)]"
+                    className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--color-bg-elevated)] ring-1 ring-[rgb(var(--accent-rgb)/0.2)]"
                   >
                     <ChanIcon className={cn('h-2.5 w-2.5', chan.color)} />
                   </span>

@@ -10,8 +10,8 @@ export function PrimaryButton(props: React.ButtonHTMLAttributes<HTMLButtonElemen
       {...props}
       className={[
         'min-h-12 rounded-xl px-8 py-4 text-base font-medium text-white transition-[box-shadow,opacity,transform] duration-[400ms] ease-[cubic-bezier(0.4,0,0.2,1)]',
-        'bg-[linear-gradient(135deg,#1E3A8A_0%,#3B82F6_100%)] shadow-[0_8px_40px_rgba(59,130,246,0.4),0_0_60px_rgba(59,130,246,0.2)]',
-        'hover:shadow-[0_8px_50px_rgba(59,130,246,0.6),0_0_80px_rgba(59,130,246,0.3)] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none',
+        'bg-[linear-gradient(135deg,#1E3A8A_0%,var(--accent-primary)_100%)] shadow-[0_8px_40px_rgb(var(--accent-rgb)/0.4),0_0_60px_rgb(var(--accent-rgb)/0.2)]',
+        'hover:shadow-[0_8px_50px_rgb(var(--accent-rgb)/0.6),0_0_80px_rgb(var(--accent-rgb)/0.3)] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none',
         'w-full sm:w-auto',
         props.className ?? '',
       ].join(' ')}
@@ -33,10 +33,10 @@ export function StepIndicator({ step }: { step: Step }) {
                 className={[
                   'flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold',
                   active
-                    ? 'bg-[#3B82F6] text-white shadow-[0_0_30px_rgba(59,130,246,0.5)]'
+                    ? 'bg-[color:var(--accent-primary)] text-white shadow-[0_0_30px_rgb(var(--accent-rgb)/0.5)]'
                     : complete
                       ? 'bg-[#1E3A8A] text-white'
-                      : 'border border-[rgba(59,130,246,0.3)] bg-transparent text-[#94A3B8]',
+                      : 'border border-[rgb(var(--accent-rgb)/0.3)] bg-transparent text-[#94A3B8]',
                 ].join(' ')}
               >
                 {complete ? <Check className="h-4 w-4" /> : n}
@@ -51,7 +51,7 @@ export function StepIndicator({ step }: { step: Step }) {
               </div>
             </div>
             {index < STEP_LABELS.length - 1 ? (
-              <div className="mx-2 mt-5 h-px w-8 border-t border-[rgba(59,130,246,0.2)] sm:mx-5 sm:w-20" />
+              <div className="mx-2 mt-5 h-px w-8 border-t border-[rgb(var(--accent-rgb)/0.2)] sm:mx-5 sm:w-20" />
             ) : null}
           </div>
         );
@@ -62,7 +62,7 @@ export function StepIndicator({ step }: { step: Step }) {
 
 export function SetupCard({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-[rgba(59,130,246,0.15)] bg-white/[0.02] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-[40px] md:p-12">
+    <div className="rounded-2xl border border-[rgb(var(--accent-rgb)/0.15)] bg-white/[0.02] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-[40px] md:p-12">
       {children}
     </div>
   );
@@ -82,9 +82,9 @@ export function PrepItem({
   pills: string[];
 }) {
   return (
-    <div className="relative rounded-xl border border-[rgba(59,130,246,0.12)] bg-white/[0.02] p-5">
+    <div className="relative rounded-xl border border-[rgb(var(--accent-rgb)/0.12)] bg-white/[0.02] p-5">
       <div className="flex gap-4 pr-16">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[rgba(59,130,246,0.4)] text-sm font-medium text-[#60A5FA]">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[rgb(var(--accent-rgb)/0.4)] text-sm font-medium text-[color:var(--accent-secondary)]">
           {n}
         </div>
         <div>
@@ -94,7 +94,7 @@ export function PrepItem({
             {pills.map((pill) => (
               <span
                 key={pill}
-                className="rounded-full border border-[rgba(59,130,246,0.3)] bg-[rgba(30,58,138,0.4)] px-3 py-1 font-mono text-[11px] uppercase tracking-[0.05em] text-[#60A5FA]"
+                className="rounded-full border border-[rgb(var(--accent-rgb)/0.3)] bg-[rgba(30,58,138,0.4)] px-3 py-1 font-mono text-[11px] uppercase tracking-[0.05em] text-[color:var(--accent-secondary)]"
               >
                 {pill}
               </span>
@@ -106,7 +106,7 @@ export function PrepItem({
         href={href}
         target="_blank"
         rel="noreferrer"
-        className="absolute right-5 top-5 inline-flex items-center gap-1 text-sm text-[#60A5FA] hover:text-[#85B7EB]"
+        className="absolute right-5 top-5 inline-flex items-center gap-1 text-sm text-[color:var(--accent-secondary)] hover:text-[#85B7EB]"
       >
         abrir
         <ExternalLink className="h-3.5 w-3.5" />

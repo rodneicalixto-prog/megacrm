@@ -20,7 +20,7 @@ interface NextActionsProps {
 }
 
 const inputCls =
-  'w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)]';
+  'w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)]';
 
 export function NextActions({
   actions,
@@ -100,7 +100,7 @@ export function NextActions({
           )}
 
           {/* Formulário de agendamento */}
-          <div className="space-y-2 rounded-lg border border-[rgba(59,130,246,0.12)] bg-white/[0.02] p-3">
+          <div className="space-y-2 rounded-lg border border-[rgb(var(--accent-rgb)/0.12)] bg-white/[0.02] p-3">
             <input
               value={text}
               onChange={(e) => setText(e.target.value)}
@@ -131,7 +131,7 @@ export function NextActions({
             <button
               onClick={submit}
               disabled={saving || !text.trim() || !dueAt}
-              className="inline-flex w-full items-center justify-center gap-1 rounded-lg bg-gradient-to-br from-[#1E3A8A] to-[#3B82F6] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
+              className="inline-flex w-full items-center justify-center gap-1 rounded-lg bg-gradient-to-br from-[#1E3A8A] to-[var(--accent-primary)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
             >
               <Plus className="h-4 w-4" /> {saving ? 'Agendando…' : 'Agendar'}
             </button>
@@ -161,14 +161,14 @@ function ActionRow({
       className={
         'flex items-start gap-2 rounded-lg p-3 ' +
         (highlight
-          ? 'border border-[rgba(59,130,246,0.25)] bg-white/[0.03]'
+          ? 'border border-[rgb(var(--accent-rgb)/0.25)] bg-white/[0.03]'
           : 'border border-transparent bg-white/[0.015]')
       }
     >
       <button
         onClick={onComplete}
         aria-label="Concluir ação"
-        className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border border-[rgba(59,130,246,0.4)] text-transparent transition hover:border-[var(--accent-primary)] hover:bg-[var(--accent-primary)] hover:text-white"
+        className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border border-[rgb(var(--accent-rgb)/0.4)] text-transparent transition hover:border-[var(--accent-primary)] hover:bg-[var(--accent-primary)] hover:text-white"
       >
         <Check className="h-3 w-3" />
       </button>

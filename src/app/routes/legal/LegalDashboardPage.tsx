@@ -160,7 +160,7 @@ export default function LegalDashboardPage() {
               <p className="text-sm text-[var(--color-text-secondary)]">Sem processos cadastrados ainda.</p>
             ) : (
               instanceEntries.map(([instance, count]) => (
-                <BarRow key={instance} label={INSTANCE_LABEL[instance]} value={count} max={maxInstance} colorClass="bg-[#60A5FA]" to={`/juridico?instance=${instance}`} />
+                <BarRow key={instance} label={INSTANCE_LABEL[instance]} value={count} max={maxInstance} colorClass="bg-[color:var(--accent-secondary)]" to={`/juridico?instance=${instance}`} />
               ))
             )}
           </div>
@@ -209,21 +209,21 @@ export default function LegalDashboardPage() {
           )}
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <Link to="/juridico?union=true" className="glass-card flex items-center gap-3 p-4 transition-colors hover:border-[rgba(59,130,246,0.4)]">
+            <Link to="/juridico?union=true" className="glass-card flex items-center gap-3 p-4 transition-colors hover:border-[rgb(var(--accent-rgb)/0.4)]">
               <Users2 className="h-5 w-5 shrink-0 text-[#8B5CF6]" />
               <div>
                 <div className="text-lg font-bold tabular-nums text-[var(--color-text-primary)]">{stats?.union_engaged_count ?? 0}</div>
                 <div className="text-xs text-[var(--color-text-secondary)]">Acionaram o sindicato</div>
               </div>
             </Link>
-            <Link to="/juridico?warning=true" className="glass-card flex items-center gap-3 p-4 transition-colors hover:border-[rgba(59,130,246,0.4)]">
+            <Link to="/juridico?warning=true" className="glass-card flex items-center gap-3 p-4 transition-colors hover:border-[rgb(var(--accent-rgb)/0.4)]">
               <ShieldAlert className="h-5 w-5 shrink-0 text-[#FBBF24]" />
               <div>
                 <div className="text-lg font-bold tabular-nums text-[var(--color-text-primary)]">{stats?.warning_or_suspension_count ?? 0}</div>
                 <div className="text-xs text-[var(--color-text-secondary)]">Com advertência/suspensão</div>
               </div>
             </Link>
-            <Link to="/juridico?basket_missing=true" className="glass-card flex items-center gap-3 p-4 transition-colors hover:border-[rgba(59,130,246,0.4)]">
+            <Link to="/juridico?basket_missing=true" className="glass-card flex items-center gap-3 p-4 transition-colors hover:border-[rgb(var(--accent-rgb)/0.4)]">
               <AlertTriangle className="h-5 w-5 shrink-0 text-[#EF4444]" />
               <div>
                 <div className="text-lg font-bold tabular-nums text-[var(--color-text-primary)]">{stats?.basic_basket_missing_count ?? 0}</div>
@@ -239,7 +239,7 @@ export default function LegalDashboardPage() {
                 <select
                   value={rankingYear}
                   onChange={(e) => setRankingYear(e.target.value)}
-                  className="rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-2 py-1 text-xs text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
+                  className="rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-2 py-1 text-xs text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
                 >
                   <option value="">Todos os anos</option>
                   {yearEntries.map(([year]) => <option key={year} value={year}>{year}</option>)}

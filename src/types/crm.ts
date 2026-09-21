@@ -40,7 +40,7 @@ export interface NextAction {
 
 // Cores dos badges de temperatura (frio = azul/cinza, morno = amarelo, quente = laranja/vermelho).
 export const TEMPERATURE_STYLE: Record<Temperature, { label: string; className: string; dot: string }> = {
-  Frio: { label: 'Frio', className: 'bg-[rgba(96,165,250,0.14)] text-[#60A5FA]', dot: 'bg-[#60A5FA]' },
+  Frio: { label: 'Frio', className: 'bg-[rgba(96,165,250,0.14)] text-[color:var(--accent-secondary)]', dot: 'bg-[color:var(--accent-secondary)]' },
   Morno: { label: 'Morno', className: 'bg-[rgba(245,158,11,0.14)] text-[#FBBF24]', dot: 'bg-[#FBBF24]' },
   Quente: { label: 'Quente', className: 'bg-[rgba(239,68,68,0.14)] text-[#F87171]', dot: 'bg-[#F87171]' },
 };

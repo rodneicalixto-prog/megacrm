@@ -136,7 +136,7 @@ export function TagManagerDialog({ open, onClose }: TagManagerDialogProps) {
             Nenhuma tag criada ainda.
           </div>
         ) : (
-          <ul className="divide-y divide-[rgba(59,130,246,0.08)] rounded-lg border border-[rgba(59,130,246,0.1)] bg-white/[0.02]">
+          <ul className="divide-y divide-[rgb(var(--accent-rgb)/0.08)] rounded-lg border border-[rgb(var(--accent-rgb)/0.1)] bg-white/[0.02]">
             {tags.map((t) => {
               const isEditing = editing?.id === t.id;
               return (

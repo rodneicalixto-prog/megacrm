@@ -68,7 +68,7 @@ export function EvolutionCard({ refreshKey = 0 }: { refreshKey?: number }) {
   };
 
   return (
-    <div className="rounded-xl border border-[rgba(59,130,246,0.15)] bg-white/[0.02] p-5 backdrop-blur-[40px]">
+    <div className="rounded-xl border border-[rgb(var(--accent-rgb)/0.15)] bg-white/[0.02] p-5 backdrop-blur-[40px]">
       <div className="flex items-start gap-4">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[rgba(245,158,11,0.25)] bg-[rgba(245,158,11,0.08)]">
           <Smartphone className="h-5 w-5 text-[#F59E0B]" />
@@ -112,13 +112,13 @@ export function EvolutionCard({ refreshKey = 0 }: { refreshKey?: number }) {
                     Webhook para receber mensagens (cadastre na Evolution)
                   </div>
                   <div className="flex items-start gap-2">
-                    <code className="min-w-0 flex-1 break-all rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-xs text-[var(--color-text-primary)]">
+                    <code className="min-w-0 flex-1 break-all rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-xs text-[var(--color-text-primary)]">
                       {status.webhook_url}
                     </code>
                     <button
                       onClick={copyHook}
                       aria-label="Copiar URL do webhook"
-                      className="rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] p-2 text-[var(--color-text-secondary)] transition hover:border-[var(--accent-primary)] hover:text-[var(--color-text-primary)]"
+                      className="rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] p-2 text-[var(--color-text-secondary)] transition hover:border-[var(--accent-primary)] hover:text-[var(--color-text-primary)]"
                     >
                       <Copy className="h-4 w-4" />
                     </button>
@@ -126,7 +126,7 @@ export function EvolutionCard({ refreshKey = 0 }: { refreshKey?: number }) {
                   <button
                     onClick={registerWebhook}
                     disabled={registering}
-                    className="rounded-lg bg-gradient-to-br from-[#1E3A8A] to-[#3B82F6] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+                    className="rounded-lg bg-gradient-to-br from-[#1E3A8A] to-[var(--accent-primary)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
                   >
                     {registering ? 'Registrando…' : 'Registrar webhook automaticamente'}
                   </button>

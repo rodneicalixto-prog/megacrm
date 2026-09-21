@@ -15,7 +15,7 @@ export function PreparationStep({ isRerun, onContinue }: { isRerun: boolean; onC
         {isRerun ? 'Aplicar atualizacoes' : setupConfig.toolName}
       </h1>
       {isRerun ? (
-        <div className="mb-8 rounded-lg border border-[rgba(59,130,246,0.25)] bg-[rgba(59,130,246,0.06)] p-4">
+        <div className="mb-8 rounded-lg border border-[rgb(var(--accent-rgb)/0.25)] bg-[rgb(var(--accent-rgb)/0.06)] p-4">
           <p className="text-sm leading-[1.6] text-[#CBD5E1]">
             Esta instalacao ja esta configurada. Rodar de novo aplica as{' '}
             <strong className="text-[#F8FAFC]">migrations novas</strong> e redeploya as{' '}
@@ -75,7 +75,7 @@ export function CredentialsStep(props: CredentialsStepProps) {
                   value={props.core[key]}
                   onChange={(event) => props.onChange(key, event.target.value)}
                   autoComplete={key === 'owner_password' ? 'new-password' : 'off'}
-                  className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-4 py-3 pr-16 text-sm text-[#F8FAFC] placeholder:text-[#94A3B8] focus:border-[#3B82F6] focus:outline-none focus:shadow-[0_0_20px_rgba(59,130,246,0.2)]"
+                  className="w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-4 py-3 pr-16 text-sm text-[#F8FAFC] placeholder:text-[#94A3B8] focus:border-[color:var(--accent-primary)] focus:outline-none focus:shadow-[0_0_20px_rgb(var(--accent-rgb)/0.2)]"
                 />
                 <div className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-2">
                   {isSecret ? (
@@ -94,7 +94,7 @@ export function CredentialsStep(props: CredentialsStepProps) {
         })}
       </div>
       <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <button type="button" onClick={props.onBack} className="min-h-11 w-full rounded-lg border border-[rgba(59,130,246,0.25)] bg-white/[0.03] px-5 text-sm font-medium text-[#F8FAFC] transition hover:border-[#3B82F6] sm:w-auto">Voltar</button>
+        <button type="button" onClick={props.onBack} className="min-h-11 w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.25)] bg-white/[0.03] px-5 text-sm font-medium text-[#F8FAFC] transition hover:border-[color:var(--accent-primary)] sm:w-auto">Voltar</button>
         <PrimaryButton disabled={!props.ready || props.bootstrapping} onClick={props.onConfigure}>Configurar</PrimaryButton>
       </div>
     </>
@@ -123,8 +123,8 @@ export function BootstrapStep(props: BootstrapStepProps) {
       <p className="mb-8 text-base leading-[1.6] text-[#94A3B8]">Preparando Supabase, Edge Functions, owner e Vercel.</p>
       <div className="space-y-3">
         {visibleSteps.map((entry) => (
-          <div key={entry.label} className="flex items-center gap-3 rounded-xl border border-[rgba(59,130,246,0.12)] bg-white/[0.02] p-4">
-            {props.timeline.includes(entry.label) ? <Check className="h-5 w-5 text-[#10B981]" /> : <Loader2 className="h-5 w-5 animate-spin text-[#60A5FA]" />}
+          <div key={entry.label} className="flex items-center gap-3 rounded-xl border border-[rgb(var(--accent-rgb)/0.12)] bg-white/[0.02] p-4">
+            {props.timeline.includes(entry.label) ? <Check className="h-5 w-5 text-[#10B981]" /> : <Loader2 className="h-5 w-5 animate-spin text-[color:var(--accent-secondary)]" />}
             <span className="text-sm text-[#F8FAFC]">{entry.label}</span>
           </div>
         ))}
@@ -132,9 +132,9 @@ export function BootstrapStep(props: BootstrapStepProps) {
       {props.waiting ? <p className="mt-6 text-center text-sm text-[#94A3B8]">O Vercel esta publicando o novo deployment com as envs. Isso pode levar alguns minutos.</p> : null}
       {props.timedOut ? (
         <div className="mt-8 rounded-xl border border-[rgba(239,68,68,0.3)] bg-[rgba(239,68,68,0.06)] p-5">
-          <p className="text-sm leading-5 text-[#F8FAFC]">O redeploy esta demorando mais que o esperado. Verifique o status em{' '}<a href="https://vercel.com/dashboard" target="_blank" rel="noreferrer" className="text-[#60A5FA] underline hover:text-[#85B7EB]">vercel.com/dashboard</a>. Quando o app estiver no ar, continue.</p>
+          <p className="text-sm leading-5 text-[#F8FAFC]">O redeploy esta demorando mais que o esperado. Verifique o status em{' '}<a href="https://vercel.com/dashboard" target="_blank" rel="noreferrer" className="text-[color:var(--accent-secondary)] underline hover:text-[#85B7EB]">vercel.com/dashboard</a>. Quando o app estiver no ar, continue.</p>
           <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:justify-end">
-            <button type="button" onClick={props.onVerifyAgain} className="min-h-11 rounded-lg border border-[rgba(59,130,246,0.25)] bg-white/[0.03] px-5 text-sm font-medium text-[#F8FAFC] transition hover:border-[#3B82F6]">Verificar de novo</button>
+            <button type="button" onClick={props.onVerifyAgain} className="min-h-11 rounded-lg border border-[rgb(var(--accent-rgb)/0.25)] bg-white/[0.03] px-5 text-sm font-medium text-[#F8FAFC] transition hover:border-[color:var(--accent-primary)]">Verificar de novo</button>
             <PrimaryButton onClick={props.onContinue}>Continuar mesmo assim</PrimaryButton>
           </div>
         </div>
@@ -143,7 +143,7 @@ export function BootstrapStep(props: BootstrapStepProps) {
           {!props.ownerPassword ? (
             <div>
               <label className="mb-1.5 block text-[13px] font-medium text-[#CBD5E1]">Reinforme a senha do owner para retomar</label>
-              <input type="password" value={props.ownerPassword} onChange={(event) => props.onOwnerPasswordChange(event.target.value)} placeholder="senha do owner" autoComplete="current-password" className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-4 py-3 text-sm text-[#F8FAFC] placeholder:text-[#94A3B8] focus:border-[#3B82F6] focus:outline-none focus:shadow-[0_0_20px_rgba(59,130,246,0.2)]" />
+              <input type="password" value={props.ownerPassword} onChange={(event) => props.onOwnerPasswordChange(event.target.value)} placeholder="senha do owner" autoComplete="current-password" className="w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-4 py-3 text-sm text-[#F8FAFC] placeholder:text-[#94A3B8] focus:border-[color:var(--accent-primary)] focus:outline-none focus:shadow-[0_0_20px_rgb(var(--accent-rgb)/0.2)]" />
             </div>
           ) : null}
           <div className="flex justify-end"><PrimaryButton disabled={!props.ownerPassword} onClick={props.onRetry}>Tentar de novo</PrimaryButton></div>

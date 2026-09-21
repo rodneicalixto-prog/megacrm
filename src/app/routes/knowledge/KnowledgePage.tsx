@@ -60,7 +60,7 @@ export default function KnowledgePage() {
       {error && <LoadErrorBanner message={error} onRetry={() => void reload()} />}
 
       <div className="glass-card p-4">
-        <div className="rounded-lg border border-[rgba(59,130,246,0.08)] overflow-x-auto">
+        <div className="rounded-lg border border-[rgb(var(--accent-rgb)/0.08)] overflow-x-auto">
           <table className="w-full min-w-[560px] text-sm">
             <thead>
               <tr className="bg-white/[0.02] text-left">
@@ -89,7 +89,7 @@ export default function KnowledgePage() {
                 items.map((it) => {
                   const Icon = it.type === 'url' ? Globe : FileText;
                   return (
-                    <tr key={it.id} className="border-t border-[rgba(59,130,246,0.06)]">
+                    <tr key={it.id} className="border-t border-[rgb(var(--accent-rgb)/0.06)]">
                       <td className="p-3">
                         <Icon className="h-4 w-4 text-[var(--color-text-secondary)]" />
                       </td>
@@ -252,8 +252,8 @@ function KnowledgeFormDialog({
                 onClick={() => setSourceType(id)}
                 className={
                   sourceType === id
-                    ? 'p-3 rounded-lg border border-[var(--accent-primary)] bg-[rgba(59,130,246,0.08)] text-sm'
-                    : 'p-3 rounded-lg border border-[rgba(59,130,246,0.12)] bg-white/[0.02] text-sm text-[var(--color-text-secondary)]'
+                    ? 'p-3 rounded-lg border border-[var(--accent-primary)] bg-[rgb(var(--accent-rgb)/0.08)] text-sm'
+                    : 'p-3 rounded-lg border border-[rgb(var(--accent-rgb)/0.12)] bg-white/[0.02] text-sm text-[var(--color-text-secondary)]'
                 }
                 disabled={submitting}
               >
@@ -274,7 +274,7 @@ function KnowledgeFormDialog({
               rows={8}
               disabled={submitting}
               placeholder="Cole o texto que deve alimentar o agente de IA (FAQ, procedimentos, políticas...)"
-              className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-4 py-3 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
+              className="w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-4 py-3 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
             />
           </div>
         )}
@@ -298,7 +298,7 @@ function KnowledgeFormDialog({
             <Label htmlFor="kb_file">PDF (máx 30MB)</Label>
             <label
               htmlFor="kb_file"
-              className="flex items-center gap-3 h-11 px-4 rounded-lg border border-dashed border-[rgba(59,130,246,0.2)] bg-white/[0.03] cursor-pointer hover:border-[rgba(59,130,246,0.4)]"
+              className="flex items-center gap-3 h-11 px-4 rounded-lg border border-dashed border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] cursor-pointer hover:border-[rgb(var(--accent-rgb)/0.4)]"
             >
               <Upload className="h-4 w-4 text-[var(--color-text-secondary)]" />
               <span className="text-sm text-[var(--color-text-secondary)] truncate">

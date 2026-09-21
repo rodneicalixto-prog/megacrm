@@ -46,7 +46,7 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        'hidden md:flex md:flex-col shrink-0 glass-surface border-r border-[rgba(59,130,246,0.1)] relative',
+        'hidden md:flex md:flex-col shrink-0 glass-surface border-r border-[rgb(var(--accent-rgb)/0.1)] relative',
         'transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none',
         collapsed ? 'w-16' : 'w-60',
       )}
@@ -59,8 +59,8 @@ export function Sidebar() {
         aria-expanded={!collapsed}
         className={cn(
           'absolute top-1/2 -right-3 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center',
-          'rounded-full border border-[rgba(59,130,246,0.25)] bg-[var(--color-bg-primary,#0A0A0F)]',
-          'text-[var(--color-text-secondary)] shadow-[0_0_12px_rgba(59,130,246,0.15)] transition-colors',
+          'rounded-full border border-[rgb(var(--accent-rgb)/0.25)] bg-[var(--color-bg-primary,#0A0A0F)]',
+          'text-[var(--color-text-secondary)] shadow-[0_0_12px_rgb(var(--accent-rgb)/0.15)] transition-colors',
           'hover:border-[var(--accent-primary)] hover:text-[var(--color-text-primary)]',
         )}
       >
@@ -69,14 +69,14 @@ export function Sidebar() {
 
       <div
         className={cn(
-          'h-16 flex items-center gap-3 border-b border-[rgba(59,130,246,0.08)]',
+          'h-16 flex items-center gap-3 border-b border-[rgb(var(--accent-rgb)/0.08)]',
           collapsed ? 'justify-center px-2' : 'px-5',
         )}
       >
         <img
           src={branding.logoUrl ?? '/agentise-mark.png'}
           alt={branding.companyName ?? 'Agentise'}
-          className="h-9 w-9 shrink-0 rounded-lg object-contain shadow-[0_0_20px_rgba(59,130,246,0.35)]"
+          className="h-9 w-9 shrink-0 rounded-lg object-contain shadow-[0_0_20px_rgb(var(--accent-rgb)/0.35)]"
         />
         {!collapsed && (
           <div className="leading-tight min-w-0">
@@ -104,7 +104,7 @@ export function Sidebar() {
                   collapsed && 'justify-center px-0',
                   'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-white/5',
                   isActive &&
-                    'bg-gradient-to-r from-[rgba(59,130,246,0.18)] to-[rgba(59,130,246,0.04)] text-[var(--color-text-primary)] shadow-[inset_0_1px_0_rgba(59,130,246,0.15)]',
+                    'bg-gradient-to-r from-[rgb(var(--accent-rgb)/0.18)] to-[rgb(var(--accent-rgb)/0.04)] text-[var(--color-text-primary)] shadow-[inset_0_1px_0_rgb(var(--accent-rgb)/0.15)]',
                 )
               }
             >
@@ -117,7 +117,7 @@ export function Sidebar() {
 
       <div
         className={cn(
-          'py-4 border-t border-[rgba(59,130,246,0.08)] text-[0.65rem] uppercase tracking-[0.12em] text-[var(--color-text-secondary)] opacity-70',
+          'py-4 border-t border-[rgb(var(--accent-rgb)/0.08)] text-[0.65rem] uppercase tracking-[0.12em] text-[var(--color-text-secondary)] opacity-70',
           collapsed ? 'px-2 text-center' : 'px-4',
         )}
       >

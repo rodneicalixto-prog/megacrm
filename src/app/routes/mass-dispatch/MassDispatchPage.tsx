@@ -59,7 +59,7 @@ export default function MassDispatchPage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-1 border-b border-[rgba(59,130,246,0.1)]">
+      <div className="flex flex-wrap gap-1 border-b border-[rgb(var(--accent-rgb)/0.1)]">
         {TABS.map((t) => {
           const Icon = t.icon;
           const isActive = t.id === active;

@@ -21,7 +21,7 @@ const STATUS_LABEL: Record<CampaignStatus, string> = {
 const STATUS_COLORS: Record<CampaignStatus, string> = {
   draft: 'bg-white/5 text-[var(--color-text-secondary)]',
   scheduled: 'bg-[rgba(245,158,11,0.12)] text-[#FBBF24]',
-  sending: 'bg-[rgba(59,130,246,0.18)] text-[var(--accent-primary)] animate-pulse',
+  sending: 'bg-[rgb(var(--accent-rgb)/0.18)] text-[var(--accent-primary)] animate-pulse',
   completed: 'bg-[rgba(16,185,129,0.12)] text-[var(--color-success)]',
   paused: 'bg-white/10 text-[var(--color-text-secondary)]',
   failed: 'bg-[rgba(239,68,68,0.12)] text-[var(--color-error)]',
@@ -191,13 +191,13 @@ function VariantComparison({
 }) {
   const pct = (n: number, base: number) => (base > 0 ? Math.round((n / base) * 100) : 0);
   return (
-    <div className="mt-4 space-y-2 border-t border-[rgba(59,130,246,0.08)] pt-3">
+    <div className="mt-4 space-y-2 border-t border-[rgb(var(--accent-rgb)/0.08)] pt-3">
       <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--accent-secondary)]">
         <FlaskConical className="h-3.5 w-3.5" /> Teste A/B de templates
       </div>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
         {variants.map((v, i) => (
-          <div key={v.id} className="rounded-lg border border-[rgba(59,130,246,0.12)] bg-white/[0.02] p-2.5">
+          <div key={v.id} className="rounded-lg border border-[rgb(var(--accent-rgb)/0.12)] bg-white/[0.02] p-2.5">
             <div className="truncate text-xs font-semibold text-[var(--color-text-primary)]">
               {String.fromCharCode(65 + i)} · {templateName(v.template_id)}
             </div>
@@ -232,7 +232,7 @@ function Metric({
           ? 'text-[var(--color-error)]'
           : 'text-[var(--color-text-primary)]';
   return (
-    <div className="rounded-lg bg-white/[0.02] border border-[rgba(59,130,246,0.08)] p-3 text-center">
+    <div className="rounded-lg bg-white/[0.02] border border-[rgb(var(--accent-rgb)/0.08)] p-3 text-center">
       <div className={`text-xl font-bold ${colorClass}`}>{value}</div>
       <div className="text-[10px] uppercase tracking-wide text-[var(--color-text-secondary)] mt-0.5">
         {label}

@@ -168,7 +168,7 @@ export function LeadAssignmentSettings() {
           <select
             value={selectedDepartmentId}
             onChange={(event) => setDepartmentId(event.target.value)}
-            className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)]"
+            className="w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)]"
           >
             {departments.map((department) => (
               <option key={department.id} value={department.id}>{department.name}</option>
@@ -180,7 +180,7 @@ export function LeadAssignmentSettings() {
         </div>
 
 
-        <label className="flex items-center gap-3 rounded-lg border border-[rgba(59,130,246,0.15)] bg-white/[0.02] px-4 py-3 cursor-pointer">
+        <label className="flex items-center gap-3 rounded-lg border border-[rgb(var(--accent-rgb)/0.15)] bg-white/[0.02] px-4 py-3 cursor-pointer">
           <input
             type="checkbox"
             checked={enabled}
@@ -211,7 +211,7 @@ export function LeadAssignmentSettings() {
                       onDragStart={() => { dragIdx.current = i; }}
                       onDragOver={(e) => e.preventDefault()}
                       onDrop={() => onDrop(i)}
-                      className="flex items-center gap-2 rounded-lg border border-[rgba(59,130,246,0.15)] bg-white/[0.02] px-3 py-2"
+                      className="flex items-center gap-2 rounded-lg border border-[rgb(var(--accent-rgb)/0.15)] bg-white/[0.02] px-3 py-2"
                     >
                       <GripVertical className="h-4 w-4 shrink-0 cursor-grab text-[var(--color-text-secondary)]" />
                       <span className="w-5 text-xs font-semibold text-[var(--accent-primary)]">{i + 1}</span>
@@ -250,7 +250,7 @@ export function LeadAssignmentSettings() {
                       <button
                         type="button"
                         onClick={() => void addToQueue(op.user_id)}
-                        className="inline-flex items-center gap-1 rounded-lg border border-[rgba(59,130,246,0.2)] px-2.5 py-1 text-xs font-medium text-[var(--accent-secondary)] transition hover:border-[var(--accent-primary)] hover:bg-white/5"
+                        className="inline-flex items-center gap-1 rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] px-2.5 py-1 text-xs font-medium text-[var(--accent-secondary)] transition hover:border-[var(--accent-primary)] hover:bg-white/5"
                       >
                         <Plus className="h-3 w-3" /> Adicionar
                       </button>

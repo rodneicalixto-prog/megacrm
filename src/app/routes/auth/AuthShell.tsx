@@ -18,7 +18,7 @@ export function AuthShell({ title, subtitle, children, footer }: AuthShellProps)
             <img
               src="/agentise-mark.png"
               alt="Agentise"
-              className="h-12 w-12 rounded-xl shadow-[0_0_30px_rgba(59,130,246,0.35)]"
+              className="h-12 w-12 rounded-xl shadow-[0_0_30px_rgb(var(--accent-rgb)/0.35)]"
             />
             <div>
               <div className="text-label">Agentise</div>

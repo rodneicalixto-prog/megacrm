@@ -89,7 +89,7 @@ function NewCaseDialog({ open, onClose, onCreated }: { open: boolean; onClose: (
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Reclamação trabalhista — horas extras"
-            className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
+            className="w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
           />
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -99,7 +99,7 @@ function NewCaseDialog({ open, onClose, onCreated }: { open: boolean; onClose: (
               value={caseNumber}
               onChange={(e) => setCaseNumber(e.target.value)}
               placeholder="0012345-67.2026.5.02.0043"
-              className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
+              className="w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
             />
           </div>
           <div>
@@ -107,7 +107,7 @@ function NewCaseDialog({ open, onClose, onCreated }: { open: boolean; onClose: (
             <select
               value={departmentId}
               onChange={(e) => setDepartmentId(e.target.value)}
-              className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
+              className="w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
             >
               <option value="">Selecione…</option>
               {departments.map((d) => (
@@ -121,7 +121,7 @@ function NewCaseDialog({ open, onClose, onCreated }: { open: boolean; onClose: (
           <select
             value={ownerId}
             onChange={(e) => setOwnerId(e.target.value)}
-            className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
+            className="w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
           >
             <option value="">Sem responsável definido</option>
             {operators.map((o) => (
@@ -136,7 +136,7 @@ function NewCaseDialog({ open, onClose, onCreated }: { open: boolean; onClose: (
               type="datetime-local"
               value={deadlineAt}
               onChange={(e) => setDeadlineAt(e.target.value)}
-              className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
+              className="w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
             />
           </div>
           <div>
@@ -145,7 +145,7 @@ function NewCaseDialog({ open, onClose, onCreated }: { open: boolean; onClose: (
               value={deadlineLabel}
               onChange={(e) => setDeadlineLabel(e.target.value)}
               placeholder="Audiência de instrução"
-              className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
+              className="w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
             />
           </div>
         </div>
@@ -164,7 +164,7 @@ function NewCaseDialog({ open, onClose, onCreated }: { open: boolean; onClose: (
 function CaseCard({ legalCase, departmentName, ownerName }: { legalCase: LegalCase; departmentName: string | null; ownerName: string | null }) {
   const badge = legalCase.next_deadline_at ? dueBadge(legalCase.next_deadline_at) : null;
   return (
-    <Link to={`/juridico/${legalCase.id}`} className="glass-card block p-5 transition-colors hover:border-[rgba(59,130,246,0.4)]">
+    <Link to={`/juridico/${legalCase.id}`} className="glass-card block p-5 transition-colors hover:border-[rgb(var(--accent-rgb)/0.4)]">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-[10.5px] font-bold uppercase tracking-wide text-[var(--color-text-secondary)]">
@@ -181,7 +181,7 @@ function CaseCard({ legalCase, departmentName, ownerName }: { legalCase: LegalCa
           </span>
         )}
       </div>
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[rgba(59,130,246,0.08)] pt-3">
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[rgb(var(--accent-rgb)/0.08)] pt-3">
         <span className="text-xs text-[var(--color-text-secondary)]">{ownerName ?? 'Sem responsável'}</span>
         <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">
           {STATUS_LABEL[legalCase.status]}
@@ -321,7 +321,7 @@ export default function LegalCasesPage() {
 
       {hasUrlFilter && (
         <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-2 rounded-full bg-[rgba(59,130,246,0.12)] px-3 py-1 text-xs font-semibold text-[var(--accent-secondary)]">
+          <span className="inline-flex items-center gap-2 rounded-full bg-[rgb(var(--accent-rgb)/0.12)] px-3 py-1 text-xs font-semibold text-[var(--accent-secondary)]">
             {activeFilterLabel}
             <button type="button" onClick={clearUrlFilter} aria-label="Limpar filtro" className="hover:text-[var(--color-text-primary)]">
               <X className="h-3 w-3" />
@@ -336,7 +336,7 @@ export default function LegalCasesPage() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Buscar por título, número ou classificação…"
-          className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] py-2.5 pl-10 pr-3 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
+          className="w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] py-2.5 pl-10 pr-3 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
         />
       </div>
 

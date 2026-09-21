@@ -81,7 +81,7 @@ export default function LegalCaseDetailPage() {
         </div>
       )}
 
-      <div className="flex gap-5 overflow-x-auto border-b border-[rgba(59,130,246,0.1)]">
+      <div className="flex gap-5 overflow-x-auto border-b border-[rgb(var(--accent-rgb)/0.1)]">
         {TABS.map((t) => (
           <button
             key={t.key}
@@ -218,7 +218,7 @@ function OverviewTab({ detail, departmentName, ownerLabel }: { detail: ReturnTyp
           <h3 className="text-label mb-3">Andamentos do tribunal</h3>
           <div className="space-y-3">
             {detail.movements.map((m) => (
-              <div key={m.id} className="border-l-2 border-[rgba(59,130,246,0.25)] pl-3 text-sm">
+              <div key={m.id} className="border-l-2 border-[rgb(var(--accent-rgb)/0.25)] pl-3 text-sm">
                 <div className="text-[10.5px] font-bold uppercase tracking-wide text-[var(--color-text-secondary)]">{fmtDate(m.occurred_at)}</div>
                 <div className="text-[var(--color-text-primary)]">{m.description}</div>
               </div>
@@ -235,7 +235,7 @@ function OverviewTab({ detail, departmentName, ownerLabel }: { detail: ReturnTyp
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between gap-3 border-t border-[rgba(59,130,246,0.06)] pt-2 first:border-none first:pt-0">
+    <div className="flex justify-between gap-3 border-t border-[rgb(var(--accent-rgb)/0.06)] pt-2 first:border-none first:pt-0">
       <dt className="text-[var(--color-text-secondary)]">{label}</dt>
       <dd className="text-right font-semibold text-[var(--color-text-primary)]">{value}</dd>
     </div>
@@ -269,11 +269,11 @@ function WitnessDialog({ open, onClose, onAdd }: { open: boolean; onClose: () =>
         <h2 className="mb-4 text-lg font-bold text-display">Adicionar testemunha ou preposto</h2>
         <div className="space-y-3">
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome"
-            className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]" />
+            className="w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]" />
           <input value={role} onChange={(e) => setRole(e.target.value)} placeholder="Papel (ex.: Preposto, Testemunha — cargo)"
-            className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]" />
+            className="w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]" />
           <select value={side} onChange={(e) => setSide(e.target.value as LegalCaseSide)}
-            className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]">
+            className="w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]">
             <option value="empresa">Lado da empresa</option>
             <option value="reclamante">Lado do reclamante</option>
           </select>
@@ -306,11 +306,11 @@ function TasksTab({ detail, operators }: { detail: ReturnType<typeof useLegalCas
       <div className="glass-card space-y-3 p-4">
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-[2fr_1fr_1fr_auto]">
           <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Nova tarefa…"
-            className="rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]" />
+            className="rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]" />
           <input type="datetime-local" value={newDue} onChange={(e) => setNewDue(e.target.value)}
-            className="rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]" />
+            className="rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]" />
           <select value={newOwner} onChange={(e) => setNewOwner(e.target.value)}
-            className="rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]">
+            className="rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]">
             <option value="">Sem responsável</option>
             {operators.map((o) => <option key={o.user_id} value={o.user_id}>{operatorLabel(o)}</option>)}
           </select>
@@ -333,7 +333,7 @@ function TasksTab({ detail, operators }: { detail: ReturnType<typeof useLegalCas
                     <button
                       type="button"
                       onClick={() => void detail.toggleTaskDone(t.id, !t.done)}
-                      className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${t.done ? 'border-[var(--accent-primary)] bg-[var(--accent-primary)] text-white' : 'border-[rgba(59,130,246,0.3)]'}`}
+                      className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${t.done ? 'border-[var(--accent-primary)] bg-[var(--accent-primary)] text-white' : 'border-[rgb(var(--accent-rgb)/0.3)]'}`}
                     >
                       {t.done && <Check className="h-3 w-3" />}
                     </button>
@@ -348,7 +348,7 @@ function TasksTab({ detail, operators }: { detail: ReturnType<typeof useLegalCas
                 </div>
 
                 {checklist.length > 0 && (
-                  <div className="mt-3 space-y-1.5 border-t border-[rgba(59,130,246,0.08)] pt-3">
+                  <div className="mt-3 space-y-1.5 border-t border-[rgb(var(--accent-rgb)/0.08)] pt-3">
                     {checklist.map((item) => (
                       <label key={item.id} className="flex items-center gap-2 text-sm">
                         <input type="checkbox" checked={item.done} onChange={(e) => void detail.toggleChecklistItem(item.id, e.target.checked)} className="accent-[var(--accent-primary)]" />
@@ -364,7 +364,7 @@ function TasksTab({ detail, operators }: { detail: ReturnType<typeof useLegalCas
                     value={newChecklistText[t.id] ?? ''}
                     onChange={(e) => setNewChecklistText((s) => ({ ...s, [t.id]: e.target.value }))}
                     placeholder="Novo item do checklist…"
-                    className="flex-1 rounded-lg border border-[rgba(59,130,246,0.15)] bg-white/[0.03] px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
+                    className="flex-1 rounded-lg border border-[rgb(var(--accent-rgb)/0.15)] bg-white/[0.03] px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
                   />
                   <button
                     type="button"
@@ -374,7 +374,7 @@ function TasksTab({ detail, operators }: { detail: ReturnType<typeof useLegalCas
                       await detail.addChecklistItem(t.id, label, checklist.length);
                       setNewChecklistText((s) => ({ ...s, [t.id]: '' }));
                     }}
-                    className="rounded-lg border border-[rgba(59,130,246,0.2)] px-2 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+                    className="rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] px-2 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
                   >
                     <Plus className="h-3.5 w-3.5" />
                   </button>
@@ -426,7 +426,7 @@ function FilesTab({ detail }: { detail: ReturnType<typeof useLegalCaseDetail> })
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={uploading}
-        className="flex w-full flex-col items-center gap-2 rounded-2xl border border-dashed border-[rgba(59,130,246,0.3)] py-8 text-center text-[var(--color-text-secondary)] hover:border-[var(--accent-primary)] hover:text-[var(--color-text-primary)]"
+        className="flex w-full flex-col items-center gap-2 rounded-2xl border border-dashed border-[rgb(var(--accent-rgb)/0.3)] py-8 text-center text-[var(--color-text-secondary)] hover:border-[var(--accent-primary)] hover:text-[var(--color-text-primary)]"
       >
         {uploading ? <Loader2 className="h-6 w-6 animate-spin text-[var(--accent-primary)]" /> : <Upload className="h-6 w-6 text-[var(--accent-primary)]" />}
         <div className="text-sm"><b>Clique para enviar</b> ou arraste arquivos aqui</div>
@@ -484,7 +484,7 @@ function ChatTab({ detail, userId }: { detail: ReturnType<typeof useLegalCaseDet
 
   return (
     <div className="glass-card flex h-[480px] flex-col">
-      <div className="flex items-center justify-between border-b border-[rgba(59,130,246,0.08)] px-4 py-3">
+      <div className="flex items-center justify-between border-b border-[rgb(var(--accent-rgb)/0.08)] px-4 py-3">
         <div className="flex items-center gap-2 text-sm font-semibold text-[var(--color-text-primary)]">
           <Users className="h-4 w-4 text-[var(--accent-secondary)]" />
           Conversa fechada deste processo
@@ -514,14 +514,14 @@ function ChatTab({ detail, userId }: { detail: ReturnType<typeof useLegalCaseDet
       <p className="flex items-center gap-1.5 px-4 pb-1 text-[10.5px] text-[var(--color-text-secondary)]">
         Visível só para quem tem acesso ao Jurídico — arquivada aqui junto do processo.
       </p>
-      <div className="flex items-center gap-2 border-t border-[rgba(59,130,246,0.08)] p-3">
+      <div className="flex items-center gap-2 border-t border-[rgb(var(--accent-rgb)/0.08)] p-3">
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') void submit(); }}
           disabled={paused}
           placeholder={paused ? 'Conversa pausada — retome para escrever' : 'Escrever na conversa do processo…'}
-          className="flex-1 rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)] disabled:opacity-50"
+          className="flex-1 rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)] disabled:opacity-50"
         />
         <Button type="button" size="icon" disabled={paused} onClick={() => void submit()}>
           <Send className="h-4 w-4" />
@@ -584,14 +584,14 @@ function BriefingTab({ detail }: { detail: ReturnType<typeof useLegalCaseDetail>
           value={trigger}
           onChange={(e) => setTrigger(e.target.value)}
           placeholder="O que motivou (ex.: sentença publicada, novo anexo)"
-          className="w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
+          className="w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
         />
         <textarea
           value={note}
           onChange={(e) => setNote(e.target.value)}
           rows={4}
           placeholder="Texto da nova versão da contracapa…"
-          className="w-full resize-none rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
+          className="w-full resize-none rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
         />
         <div className="flex justify-end">
           <Button type="button" onClick={() => void submit()} disabled={saving}>

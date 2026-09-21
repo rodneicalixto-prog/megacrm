@@ -55,7 +55,7 @@ interface QrDialogState {
 }
 
 const inputCls =
-  'h-10 w-full rounded-lg border border-[rgba(59,130,246,0.2)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)] [&>option]:bg-[var(--color-bg-primary)] [&>option]:text-[var(--color-text-primary)]';
+  'h-10 w-full rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] bg-white/[0.03] px-3 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent-primary)] [&>option]:bg-[var(--color-bg-primary)] [&>option]:text-[var(--color-text-primary)]';
 
 // Departamentos e cargos. Cargo é a peça que faltava ter tela: é ele que liga
 // uma linha do WhatsApp a uma pessoa, e enquanto só existia no banco não havia
@@ -500,7 +500,7 @@ export function DepartmentsSettings() {
           <button
             onClick={criarDepto}
             disabled={busy || !novoDepto.trim()}
-            className="flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-[#1E3A8A] to-[#3B82F6] px-4 text-sm font-semibold text-white disabled:opacity-40"
+            className="flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-[#1E3A8A] to-[var(--accent-primary)] px-4 text-sm font-semibold text-white disabled:opacity-40"
           >
             <Plus className="h-4 w-4" /> Criar
           </button>
@@ -577,7 +577,7 @@ export function DepartmentsSettings() {
                 onClick={() => setCriandoCargoUsuario((current) => !current)}
                 disabled={!setorNovo}
                 title="Criar cargo neste setor"
-                className="flex h-10 shrink-0 items-center gap-1.5 rounded-lg border border-[rgba(59,130,246,0.25)] px-3 text-sm font-medium text-[var(--color-text-primary)] disabled:opacity-40"
+                className="flex h-10 shrink-0 items-center gap-1.5 rounded-lg border border-[rgb(var(--accent-rgb)/0.25)] px-3 text-sm font-medium text-[var(--color-text-primary)] disabled:opacity-40"
               >
                 <Plus className="h-4 w-4" /> Criar cargo
               </button>
@@ -646,7 +646,7 @@ export function DepartmentsSettings() {
                   <span className="flex items-center gap-2 text-base font-semibold text-[var(--color-text-primary)]">
                     <span className="truncate">{d.name}</span>
                     {d.is_default && (
-                      <span className="shrink-0 rounded-full bg-[rgba(59,130,246,0.15)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--accent-secondary)]">
+                      <span className="shrink-0 rounded-full bg-[rgb(var(--accent-rgb)/0.15)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--accent-secondary)]">
                         padrão
                       </span>
                     )}
@@ -676,9 +676,9 @@ export function DepartmentsSettings() {
             {aberto && (
               <div
                 id={`setor-${d.id}`}
-                className="border-t border-[rgba(59,130,246,0.08)] px-5 pb-5 pt-4"
+                className="border-t border-[rgb(var(--accent-rgb)/0.08)] px-5 pb-5 pt-4"
               >
-                <section className="mb-5 rounded-xl border border-[rgba(59,130,246,0.12)] bg-white/[0.02] p-4">
+                <section className="mb-5 rounded-xl border border-[rgb(var(--accent-rgb)/0.12)] bg-white/[0.02] p-4">
                   <div className="mb-3 flex items-start gap-2">
                     <Smartphone className="mt-0.5 h-4 w-4 text-[var(--accent-secondary)]" />
                     <div>
@@ -691,7 +691,7 @@ export function DepartmentsSettings() {
                       type="button"
                       onClick={() => void carregarStatus()}
                       disabled={loadingStatus}
-                      className="ml-auto flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-[rgba(59,130,246,0.2)] px-3 text-xs font-medium text-[var(--color-text-primary)] disabled:opacity-50"
+                      className="ml-auto flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] px-3 text-xs font-medium text-[var(--color-text-primary)] disabled:opacity-50"
                     >
                       <RefreshCw className={`h-3.5 w-3.5 ${loadingStatus ? 'animate-spin' : ''}`} />
                       Atualizar
@@ -703,7 +703,7 @@ export function DepartmentsSettings() {
                       const cargo = doSetor.find((item) => item.id === linha.position_id);
                       const status = statusLinhas[linha.id];
                       return (
-                        <div key={linha.id} className="rounded-lg border border-[rgba(59,130,246,0.1)] px-3 py-2">
+                        <div key={linha.id} className="rounded-lg border border-[rgb(var(--accent-rgb)/0.1)] px-3 py-2">
                           <div className="flex items-center gap-3">
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
@@ -768,7 +768,7 @@ export function DepartmentsSettings() {
                           </button>
                           </div>
                           {linhaCredencialAberta === linha.id ? (
-                            <div className="mt-2 grid gap-2 border-t border-[rgba(59,130,246,0.08)] pt-3 sm:grid-cols-2">
+                            <div className="mt-2 grid gap-2 border-t border-[rgb(var(--accent-rgb)/0.08)] pt-3 sm:grid-cols-2">
                               <input value={credencialLinha.serverUrl} onChange={(event) => setCredencialLinha((current) => ({ ...current, serverUrl: event.target.value }))} placeholder="URL Evolution própria" className={inputCls} />
                               <input type="password" autoComplete="new-password" value={credencialLinha.apiKey} onChange={(event) => setCredencialLinha((current) => ({ ...current, apiKey: event.target.value }))} placeholder="Digite a chave da linha" className={inputCls} />
                               <div className="flex gap-2 sm:col-span-2 sm:justify-end">
@@ -800,13 +800,13 @@ export function DepartmentsSettings() {
                     Deixe URL e chave vazias para usar a Evolution global. A chave própria é criptografada no servidor e nunca volta ao navegador.
                   </p>
                   <div className="mt-3 flex justify-end">
-                    <button type="button" onClick={() => void criarLinha(d.id)} disabled={busy || !draftLinha.instance.trim() || !destinoDisponivel} className="flex h-10 items-center gap-1.5 rounded-lg border border-[rgba(59,130,246,0.25)] px-4 text-sm font-medium text-[var(--color-text-primary)] disabled:opacity-40">
+                    <button type="button" onClick={() => void criarLinha(d.id)} disabled={busy || !draftLinha.instance.trim() || !destinoDisponivel} className="flex h-10 items-center gap-1.5 rounded-lg border border-[rgb(var(--accent-rgb)/0.25)] px-4 text-sm font-medium text-[var(--color-text-primary)] disabled:opacity-40">
                       <QrCode className="h-4 w-4" /> Criar e conectar número
                     </button>
                   </div>
                 </section>
 
-                <section className="mb-5 rounded-xl border border-[rgba(59,130,246,0.12)] bg-white/[0.02] p-4">
+                <section className="mb-5 rounded-xl border border-[rgb(var(--accent-rgb)/0.12)] bg-white/[0.02] p-4">
                   <div className="mb-3 flex items-start gap-2">
                     <Clock className="mt-0.5 h-4 w-4 text-[var(--accent-secondary)]" />
                     <div>
@@ -867,7 +867,7 @@ export function DepartmentsSettings() {
                           <button
                             type="button"
                             onClick={() => setCoberturaAberta(coberturaAberta === c.id ? null : c.id)}
-                            className="h-9 shrink-0 rounded-lg border border-[rgba(59,130,246,0.2)] px-3 text-xs font-medium text-[var(--color-text-primary)] whitespace-nowrap"
+                            className="h-9 shrink-0 rounded-lg border border-[rgb(var(--accent-rgb)/0.2)] px-3 text-xs font-medium text-[var(--color-text-primary)] whitespace-nowrap"
                           >
                             {cobertura ? 'Cobertura ativa' : 'Cobertura'}
                           </button>
@@ -900,7 +900,7 @@ export function DepartmentsSettings() {
                         </button>
                       </div>
                     ) : coberturaAberta === c.id ? (
-                      <div className="ml-0 grid gap-2 rounded-lg border border-[rgba(59,130,246,0.15)] bg-white/[0.02] p-3 sm:ml-36 sm:grid-cols-3">
+                      <div className="ml-0 grid gap-2 rounded-lg border border-[rgb(var(--accent-rgb)/0.15)] bg-white/[0.02] p-3 sm:ml-36 sm:grid-cols-3">
                         <select
                           value={draft.userId}
                           onChange={(e) => alterarCoberturaDraft(c.id, 'userId', e.target.value)}
@@ -967,7 +967,7 @@ export function DepartmentsSettings() {
                     type="button"
                     onClick={() => void criarCargo(d.id)}
                     disabled={busy || !(novoCargo[d.id] ?? '').trim()}
-                    className="flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[rgba(59,130,246,0.25)] px-4 text-sm font-medium text-[var(--color-text-primary)] disabled:opacity-40"
+                    className="flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[rgb(var(--accent-rgb)/0.25)] px-4 text-sm font-medium text-[var(--color-text-primary)] disabled:opacity-40"
                   >
                     <UserPlus className="h-4 w-4" /> Cargo
                   </button>
@@ -986,7 +986,7 @@ export function DepartmentsSettings() {
           onClick={() => setQrDialog(null)}
         >
           <div
-            className="w-full max-w-md rounded-lg border border-[rgba(59,130,246,0.25)] bg-[var(--color-bg-primary)] p-5 shadow-2xl"
+            className="w-full max-w-md rounded-lg border border-[rgb(var(--accent-rgb)/0.25)] bg-[var(--color-bg-primary)] p-5 shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-start gap-3">
@@ -1042,7 +1042,7 @@ export function DepartmentsSettings() {
                 type="button"
                 onClick={() => void conectarLinha(qrDialog.lineId, qrDialog.instance)}
                 disabled={qrLoading}
-                className="h-10 rounded-lg border border-[rgba(59,130,246,0.25)] px-4 text-sm font-medium text-[var(--color-text-primary)] disabled:opacity-40"
+                className="h-10 rounded-lg border border-[rgb(var(--accent-rgb)/0.25)] px-4 text-sm font-medium text-[var(--color-text-primary)] disabled:opacity-40"
               >
                 Gerar novo QR
               </button>
