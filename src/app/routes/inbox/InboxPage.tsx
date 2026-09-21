@@ -478,7 +478,7 @@ export default function InboxPage() {
                 <button
                   onClick={() => setSelectedId(null)}
                   aria-label="Voltar à lista"
-                  className="lg:hidden h-9 w-9 shrink-0 flex items-center justify-center rounded-lg text-[var(--color-text-secondary)] hover:bg-white/5 hover:text-[var(--color-text-primary)] transition-all duration-[400ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
+                  className="lg:hidden h-9 w-9 shrink-0 flex items-center justify-center rounded-lg text-[var(--color-text-secondary)] hover:bg-white/5 hover:text-[var(--color-text-primary)] transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-150 ease-[cubic-bezier(0.4,0,0.2,1)]"
                 >
                   <ArrowLeft className="h-4.5 w-4.5" />
                 </button>
@@ -501,7 +501,7 @@ export default function InboxPage() {
                 <button
                   onClick={() => setShowPanelMobile(true)}
                   aria-label="Detalhes da conversa"
-                  className="h-9 w-9 shrink-0 flex items-center justify-center rounded-lg text-[var(--color-text-secondary)] hover:bg-white/5 hover:text-[var(--color-text-primary)] transition-all duration-[400ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
+                  className="h-9 w-9 shrink-0 flex items-center justify-center rounded-lg text-[var(--color-text-secondary)] hover:bg-white/5 hover:text-[var(--color-text-primary)] transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-150 ease-[cubic-bezier(0.4,0,0.2,1)]"
                 >
                   <Info className="h-4.5 w-4.5" />
                 </button>
@@ -554,7 +554,7 @@ export default function InboxPage() {
               <button
                 onClick={() => setShowPanelMobile(false)}
                 aria-label="Fechar detalhes"
-                className="h-11 w-11 flex items-center justify-center rounded-lg text-[var(--color-text-secondary)] hover:bg-white/5 hover:text-[var(--color-text-primary)] transition-all duration-[400ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
+                className="h-11 w-11 flex items-center justify-center rounded-lg text-[var(--color-text-secondary)] hover:bg-white/5 hover:text-[var(--color-text-primary)] transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-150 ease-[cubic-bezier(0.4,0,0.2,1)]"
               >
                 <X className="h-5 w-5" />
               </button>

@@ -58,7 +58,7 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
           <button
             onClick={onClose}
             aria-label="Fechar menu"
-            className="h-11 w-11 flex items-center justify-center rounded-lg text-[var(--color-text-secondary)] hover:bg-white/5 hover:text-[var(--color-text-primary)] transition-all duration-[400ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
+            className="h-11 w-11 flex items-center justify-center rounded-lg text-[var(--color-text-secondary)] hover:bg-white/5 hover:text-[var(--color-text-primary)] transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-150 ease-[cubic-bezier(0.4,0,0.2,1)]"
           >
             <X className="h-5 w-5" />
           </button>
@@ -74,7 +74,7 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
                 onClick={onClose}
                 className={({ isActive }) =>
                   cn(
-                    'flex items-center gap-3 rounded-lg px-3 min-h-11 text-sm font-medium transition-all duration-[400ms] ease-[cubic-bezier(0.4,0,0.2,1)]',
+                    'flex items-center gap-3 rounded-lg px-3 min-h-11 text-sm font-medium transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-150 ease-[cubic-bezier(0.4,0,0.2,1)]',
                     isActive
                       ? 'bg-[rgb(var(--accent-rgb)/0.12)] text-[var(--color-text-primary)] shadow-[0_0_30px_rgb(var(--accent-rgb)/0.15)]'
                       : 'text-[var(--color-text-secondary)] hover:bg-white/5 hover:text-[var(--color-text-primary)]',

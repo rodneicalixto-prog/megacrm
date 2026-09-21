@@ -345,7 +345,7 @@ export function CampaignWizard({ open, onClose, onSaved }: CampaignWizardProps) 
                 type="button"
                 onClick={() => setAudienceMode(mode)}
                 className={cn(
-                  'p-3 rounded-lg border text-left text-sm font-medium transition-all',
+                  'p-3 rounded-lg border text-left text-sm font-medium transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-150',
                   audienceMode === mode
                     ? 'border-[var(--accent-primary)] bg-[rgb(var(--accent-rgb)/0.08)] text-[var(--color-text-primary)]'
                     : 'border-[rgb(var(--accent-rgb)/0.12)] bg-white/[0.02] text-[var(--color-text-secondary)]',

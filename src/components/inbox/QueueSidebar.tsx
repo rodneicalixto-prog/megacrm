@@ -65,7 +65,7 @@ export function QueueSidebar({ conversations, filters, onChange, userId }: Props
             onClick={() => onChange(q.id)}
             aria-current={active ? 'page' : undefined}
             className={cn(
-              'group flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-all duration-[400ms] ease-[cubic-bezier(0.4,0,0.2,1)]',
+              'group flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-150 ease-[cubic-bezier(0.4,0,0.2,1)]',
               active
                 ? 'bg-[rgb(var(--accent-rgb)/0.15)] text-[var(--color-text-primary)]'
                 : 'text-[var(--color-text-secondary)] hover:bg-white/5 hover:text-[var(--color-text-primary)]',

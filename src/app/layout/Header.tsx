@@ -35,7 +35,7 @@ export function Header({ onMenuClick }: HeaderProps) {
         <button
           onClick={onMenuClick}
           aria-label="Abrir menu"
-          className="md:hidden h-11 w-11 flex items-center justify-center rounded-lg text-[var(--color-text-secondary)] hover:bg-white/5 hover:text-[var(--color-text-primary)] transition-all duration-[400ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
+          className="md:hidden h-11 w-11 flex items-center justify-center rounded-lg text-[var(--color-text-secondary)] hover:bg-white/5 hover:text-[var(--color-text-primary)] transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-150 ease-[cubic-bezier(0.4,0,0.2,1)]"
         >
           <Menu className="h-5 w-5" />
         </button>

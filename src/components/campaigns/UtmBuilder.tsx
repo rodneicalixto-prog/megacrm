@@ -159,7 +159,7 @@ export function UtmBuilder() {
               type="button"
               onClick={() => setDestination(d.value)}
               className={
-                'rounded-xl border px-3 py-2 text-left transition-all duration-300 ' +
+                'rounded-xl border px-3 py-2 text-left transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-150 ' +
                 (destination === d.value
                   ? 'border-[var(--accent-primary)] bg-[rgb(var(--accent-rgb)/0.12)]'
                   : 'border-[rgb(var(--accent-rgb)/0.15)] hover:border-[rgb(var(--accent-rgb)/0.35)]')

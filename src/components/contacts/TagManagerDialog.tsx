@@ -111,7 +111,7 @@ export function TagManagerDialog({ open, onClose }: TagManagerDialogProps) {
                 key={c}
                 type="button"
                 onClick={() => setColor(c)}
-                className={`h-7 w-7 rounded-md border transition-all ${
+                className={`h-7 w-7 rounded-md border transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-150 ${
                   color === c
                     ? 'border-white scale-110'
                     : 'border-transparent opacity-70 hover:opacity-100'
@@ -149,7 +149,7 @@ export function TagManagerDialog({ open, onClose }: TagManagerDialogProps) {
                             key={c}
                             type="button"
                             onClick={() => setEditing({ ...editing!, color: c })}
-                            className={`h-6 w-6 rounded-md border transition-all ${
+                            className={`h-6 w-6 rounded-md border transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-150 ${
                               editing.color === c ? 'border-white scale-110' : 'border-transparent opacity-70'
                             }`}
                             style={{ backgroundColor: c }}

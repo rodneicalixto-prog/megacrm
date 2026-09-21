@@ -175,7 +175,7 @@ export function ContactFormDialog({ open, onClose, contact, onSaved }: ContactFo
                     key={t.id}
                     type="button"
                     onClick={() => toggleTag(t.id)}
-                    className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium transition-all ${
+                    className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-150 ${
                       active
                         ? 'bg-white/10 text-[var(--color-text-primary)] ring-2'
                         : 'bg-white/[0.03] text-[var(--color-text-secondary)] opacity-70 hover:opacity-100'

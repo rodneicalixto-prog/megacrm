@@ -585,7 +585,7 @@ export function ImportContactsDialog({
           </div>
           <div className="w-full max-w-md h-2 rounded-full bg-white/5 overflow-hidden">
             <div
-              className="h-full bg-[var(--accent-primary)] transition-all"
+              className="h-full bg-[var(--accent-primary)] transition-[width]"
               style={{ width: `${progress}%` }}
             />
           </div>
