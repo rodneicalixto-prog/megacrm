@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getSupabase } from '@/lib/supabase';
 import { useAppUser } from '@/app/providers/AppUserProvider';
 import { chunkArray } from '@/lib/chunk';
@@ -45,7 +46,7 @@ function compareContacts(a: Contact, b: Contact, sort: ContactSort): number {
       return a.created_at.localeCompare(b.created_at);
     case 'name': {
       if (!a.name && !b.name) return 0;
-      if (!a.name) return 1; // nullsFirst: false → nulos por último
+      if (!a.name) return 1;
       if (!b.name) return -1;
       return a.name.localeCompare(b.name);
     }
@@ -60,6 +61,110 @@ function compareContacts(a: Contact, b: Contact, sort: ContactSort): number {
   }
 }
 
+async function fetchContacts({
+  search = '',
+  tagId = null,
+  source = null,
+  sort = 'recent',
+  page = 1,
+  pageSize = PAGE_SIZE_DEFAULT,
+  userId,
+}: UseContactsInput & { userId: string }): Promise<{ contacts: ContactWithTags[]; total: number }> {
+  const supabase = getSupabase();
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  let contactIdsForTag: string[] | null = null;
+  if (tagId) {
+    const { data: links, error: linksErr } = await supabase
+      .from('contact_tags')
+      .select('contact_id')
+      .eq('tag_id', tagId);
+    if (linksErr) throw linksErr;
+    contactIdsForTag = (links ?? []).map((l) => l.contact_id as string);
+    if (contactIdsForTag.length === 0) {
+      return { contacts: [], total: 0 };
+    }
+  }
+
+  let data: Contact[];
+  let count: number;
+
+  if (contactIdsForTag) {
+    const chunks = chunkArray(contactIdsForTag, IN_FILTER_CHUNK_SIZE);
+    const results = await Promise.all(
+      chunks.map((chunk) => {
+        let chunkQuery = supabase.from('contacts').select('*').in('id', chunk);
+        if (source) chunkQuery = chunkQuery.eq('source', source);
+        if (search.trim()) {
+          const pattern = `%${search.trim()}%`;
+          chunkQuery = chunkQuery.or(`name.ilike.${pattern},phone.ilike.${pattern},email.ilike.${pattern}`);
+        }
+        return chunkQuery;
+      }),
+    );
+    const firstErr = results.find((r) => r.error)?.error;
+    if (firstErr) throw firstErr;
+    const merged = results.flatMap((r) => (r.data ?? []) as Contact[]);
+    merged.sort((a, b) => compareContacts(a, b, sort));
+    count = merged.length;
+    data = merged.slice(from, to + 1);
+  } else {
+    let query = supabase
+      .from('contacts')
+      .select('*', { count: 'exact' })
+      .range(from, to);
+
+    if (sort === 'oldest') query = query.order('created_at', { ascending: true });
+    else if (sort === 'name') query = query.order('name', { ascending: true, nullsFirst: false });
+    else if (sort === 'first_seen') query = query.order('first_seen_at', { ascending: false });
+    else query = query.order('created_at', { ascending: false });
+
+    if (source) {
+      query = query.eq('source', source);
+    }
+
+    if (search.trim()) {
+      const pattern = `%${search.trim()}%`;
+      query = query.or(`name.ilike.${pattern},phone.ilike.${pattern},email.ilike.${pattern}`);
+    }
+
+    const { data: rows, error: err, count: total } = await query;
+    if (err) throw err;
+    data = (rows ?? []) as Contact[];
+    count = total ?? 0;
+  }
+
+  const ids = (data ?? []).map((c) => c.id as string);
+  if (ids.length === 0) {
+    return { contacts: [], total: count ?? 0 };
+  }
+
+  const tagChunks = chunkArray(ids, IN_FILTER_CHUNK_SIZE);
+  const tagsResults = await Promise.all(
+    tagChunks.map((chunk) => supabase.from('contact_tags').select('contact_id, tag_id').in('contact_id', chunk)),
+  );
+  const allTagLinks = tagsResults.flatMap((r) => (r.data ?? []) as any[]);
+  const tagsByContactId = new Map<string, string[]>();
+  for (const link of allTagLinks) {
+    const arr = tagsByContactId.get(link.contact_id) ?? [];
+    arr.push(link.tag_id);
+    tagsByContactId.set(link.contact_id, arr);
+  }
+
+  const tagIds = Array.from(new Set(allTagLinks.map((l) => l.tag_id)));
+  const { data: tags } = await supabase.from('tags').select('*').in('id', tagIds);
+
+  const contacts: ContactWithTags[] = data.map((c) => ({
+    ...c,
+    tags: (tagsByContactId.get(c.id) ?? [])
+      .map((tagId) => (tags ?? []).find((t) => t.id === tagId))
+      .filter((t): t is Tag => Boolean(t)),
+  }));
+
+  return { contacts, total: count ?? 0 };
+}
+
 export function useContacts({
   search = '',
   tagId = null,
@@ -69,15 +174,21 @@ export function useContacts({
   pageSize = PAGE_SIZE_DEFAULT,
 }: UseContactsInput = {}): UseContactsResult {
   const { userId } = useAppUser();
-  const [contacts, setContacts] = useState<ContactWithTags[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const reload = useCallback(async () => {
-    if (!userId) return;
-    setLoading(true);
-    setError(null);
+  // Query para carregar contatos com cache
+  const { data = { contacts: [], total: 0 }, isLoading: loading, error: queryError } = useQuery({
+    queryKey: ['contacts', { search, tagId, source, sort, page, pageSize }],
+    queryFn: async () => {
+      if (!userId) throw new Error('User not authenticated');
+      return await fetchContacts({ search, tagId, source, sort, page, pageSize, userId });
+    },
+    enabled: !!userId,
+    staleTime: 1000 * 60 * 2, // 2 minutes
+  });
+
+  const { contacts, total } = data;
+  const error = queryError?.message ?? null;
     const supabase = getSupabase();
 
     const from = (page - 1) * pageSize;

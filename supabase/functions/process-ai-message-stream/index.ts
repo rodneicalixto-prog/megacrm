@@ -366,6 +366,10 @@ Deno.serve(async (req) => {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
       'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN')?.trim() || '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'X-Content-Type-Options': 'nosniff',
+      'X-Frame-Options': 'DENY',
     },
   });
 });

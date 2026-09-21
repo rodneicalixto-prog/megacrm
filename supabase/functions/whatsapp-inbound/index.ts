@@ -17,6 +17,7 @@
 import { getAdminClient } from '../_shared/supabase-admin.ts';
 import { getCredential } from '../_shared/credentials.ts';
 import { jsonResponse, preflight } from '../_shared/cors.ts';
+import { checkRateLimit } from '../_shared/rate-limit.ts';
 import {
   resolveInboundProvider,
   type ProviderName,
@@ -45,6 +46,26 @@ export async function handleInbound(req: Request): Promise<Response> {
   if (pre) return pre;
   if (req.method !== 'POST') {
     return jsonResponse({ ok: false, error: 'Method not allowed' }, { status: 405 });
+  }
+
+  // Rate limiting: 100 requests per minute per IP
+  const clientIp = req.headers.get('X-Forwarded-For')?.split(',')[0]?.trim() || 'unknown';
+  const limitCheck = await checkRateLimit(clientIp, {
+    maxRequests: 100,
+    windowSeconds: 60,
+    keyPrefix: 'whatsapp-inbound',
+  });
+
+  if (!limitCheck.allowed) {
+    return jsonResponse(
+      { ok: false, error: 'Rate limit exceeded', retryAfter: limitCheck.retryAfter },
+      {
+        status: 429,
+        headers: {
+          'Retry-After': String(limitCheck.retryAfter || 60),
+        },
+      }
+    );
   }
 
   const url = new URL(req.url);

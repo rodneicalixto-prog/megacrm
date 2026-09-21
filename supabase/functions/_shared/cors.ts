@@ -19,6 +19,25 @@ export const corsHeaders = {
   'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
 };
 
+// CSP + security headers for responses (not preflights).
+export const securityHeaders = {
+  'Content-Security-Policy': [
+    "default-src 'self'",
+    configuredOrigin ? `script-src 'self' ${configuredOrigin}` : "script-src 'self'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: https:",
+    "font-src 'self' data:",
+    "connect-src 'self' https:",
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ].join('; '),
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'X-XSS-Protection': '1; mode=block',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+};
+
 export function jsonResponse(
   body: unknown,
   init: ResponseInit = {},
@@ -28,6 +47,7 @@ export function jsonResponse(
     headers: {
       'Content-Type': 'application/json',
       ...corsHeaders,
+      ...securityHeaders,
       ...(init.headers ?? {}),
     },
   });
