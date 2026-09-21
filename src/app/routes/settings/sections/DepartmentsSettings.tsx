@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ChevronDown, Clock, Loader2, Trash2, X, QrCode } from 'lucide-react';
+import { ChevronDown, Clock, Loader2, Trash2, X, QrCode, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { getSupabase } from '@/lib/supabase';
 import { LoadErrorBanner } from '@/components/LoadErrorBanner';
@@ -70,6 +70,7 @@ export function DepartmentsSettings() {
   const [setorAberto, setSetorAberto] = useState<string | null>(null);
   const [qrDialog, setQrDialog] = useState<QrDialogState | null>(null);
   const [qrLoading, setQrLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const carregarStatus = useCallback(async () => {
     setLoadingStatus(true);
@@ -203,6 +204,10 @@ export function DepartmentsSettings() {
 
   if (loading) return <div className="text-label opacity-60">Carregando…</div>;
 
+  const filtered = departamentos.filter((d) =>
+    d.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <div className="space-y-5">
       {error && <LoadErrorBanner message={error} onRetry={() => void carregar()} />}
@@ -213,57 +218,86 @@ export function DepartmentsSettings() {
         onDepartamentoCriado={() => void carregar()}
       />
 
-      {departamentos.map((d) => {
+      <div className="flex items-center gap-2 rounded-xl border border-[rgb(var(--accent-rgb)/0.12)] bg-white/[0.02] px-3 py-2.5">
+        <Search className="h-4 w-4 text-[var(--color-text-secondary)]" />
+        <input
+          type="text"
+          placeholder="Buscar setores…"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="flex-1 bg-transparent text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-secondary)] outline-none"
+        />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {filtered.map((d) => {
         const doSetor = cargos.filter((c) => c.department_id === d.id);
         const linhasDoSetor = linhas.filter((linha) => linha.department_id === d.id);
         const vinculados = doSetor.filter((c) => c.user_id).length;
         const aberto = setorAberto === d.id;
         return (
-          <div key={d.id} className="glass-card overflow-hidden">
-            <div className="flex items-center gap-2 p-2">
-              <button
-                type="button"
-                onClick={() => setSetorAberto(aberto ? null : d.id)}
-                aria-expanded={aberto}
-                aria-controls={`setor-${d.id}`}
-                className="flex min-w-0 flex-1 items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-white/[0.03]"
-              >
-                <span className="min-w-0">
-                  <span className="flex items-center gap-2 text-base font-semibold text-[var(--color-text-primary)]">
-                    <span className="truncate">{d.name}</span>
-                    {d.is_default && (
-                      <span className="shrink-0 rounded-full bg-[rgb(var(--accent-rgb)/0.15)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--accent-secondary)]">
-                        padrão
+          <div key={d.id} className="group overflow-hidden rounded-xl border border-[rgb(var(--accent-rgb)/0.12)] bg-white/[0.02] transition-all duration-200 hover:border-[rgb(var(--accent-rgb)/0.25)] hover:bg-white/[0.04]">
+            <button
+              type="button"
+              onClick={() => setSetorAberto(aberto ? null : d.id)}
+              aria-expanded={aberto}
+              aria-controls={`setor-${d.id}`}
+              className="w-full text-left transition-colors"
+            >
+              <div className="flex flex-col gap-3 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">{d.name}</h3>
+                      {d.is_default && (
+                        <span className="shrink-0 rounded-full bg-[rgb(var(--accent-rgb)/0.15)] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-[var(--accent-secondary)]">
+                          padrão
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
+                      <span className="font-medium text-[var(--color-text-primary)]">{doSetor.length}</span> {doSetor.length === 1 ? 'cargo' : 'cargos'} · <span className="font-medium text-[var(--color-text-primary)]">{vinculados}</span> {vinculados === 1 ? 'pessoa' : 'pessoas'} · <span className="font-medium text-[var(--color-text-primary)]">{linhasDoSetor.length}</span> {linhasDoSetor.length === 1 ? 'número' : 'números'}
+                    </p>
+                  </div>
+                  <ChevronDown
+                    aria-hidden="true"
+                    className={`h-4 w-4 shrink-0 text-[var(--color-text-secondary)] transition-transform duration-200 ${aberto ? 'rotate-180' : ''}`}
+                  />
+                </div>
+
+                {!aberto && (
+                  <div className="flex flex-wrap gap-1">
+                    {linhasDoSetor.slice(0, 2).map((linha) => (
+                      <span key={linha.id} className="rounded-md bg-[rgb(var(--accent-rgb)/0.1)] px-2 py-1 text-[10px] font-medium text-[var(--accent-secondary)]">
+                        {linha.label || `${linha.phone_number?.slice(-4) || 'sem número'}`}
+                      </span>
+                    ))}
+                    {linhasDoSetor.length > 2 && (
+                      <span className="rounded-md bg-[rgb(var(--accent-rgb)/0.1)] px-2 py-1 text-[10px] font-medium text-[var(--accent-secondary)]">
+                        +{linhasDoSetor.length - 2}
                       </span>
                     )}
-                  </span>
-                  <span className="mt-0.5 block text-xs text-[var(--color-text-secondary)]">
-                    {doSetor.length === 0
-                      ? 'Nenhum cargo'
-                      : `${doSetor.length} ${doSetor.length === 1 ? 'cargo' : 'cargos'} · ${vinculados} ${vinculados === 1 ? 'pessoa vinculada' : 'pessoas vinculadas'}`}
-                    {` · ${linhasDoSetor.length} ${linhasDoSetor.length === 1 ? 'número' : 'números'}`}
-                  </span>
-                </span>
-                <ChevronDown
-                  aria-hidden="true"
-                  className={`h-4 w-4 shrink-0 text-[var(--color-text-secondary)] transition-transform duration-200 ${aberto ? 'rotate-180' : ''}`}
-                />
-              </button>
-              <button
-                type="button"
-                onClick={() => void excluirDepto(d)}
-                aria-label={`Excluir ${d.name}`}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[var(--color-text-secondary)] transition-colors hover:bg-white/[0.03] hover:text-[var(--color-error)]"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            </div>
+                  </div>
+                )}
+              </div>
+            </button>
 
             {aberto && (
               <div
                 id={`setor-${d.id}`}
-                className="border-t border-[rgb(var(--accent-rgb)/0.08)] px-5 pb-5 pt-4"
+                className="border-t border-[rgb(var(--accent-rgb)/0.08)] px-4 pb-4 pt-3"
               >
+                <div className="mb-3 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void excluirDepto(d)}
+                    aria-label={`Excluir ${d.name}`}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-[rgb(var(--accent-rgb)/0.25)] px-3 py-2 text-xs font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-white/[0.02] hover:text-[var(--color-error)]"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Excluir
+                  </button>
+                </div>
                 <DepartmentLines
                   cargos={cargos}
                   linhas={linhas}
@@ -322,6 +356,15 @@ export function DepartmentsSettings() {
           </div>
         );
       })}
+      </div>
+
+      {filtered.length === 0 && (
+        <div className="rounded-lg border border-[rgb(var(--accent-rgb)/0.12)] bg-white/[0.02] py-8 text-center">
+          <p className="text-sm text-[var(--color-text-secondary)]">
+            {searchTerm ? 'Nenhum setor encontrado.' : 'Nenhum setor criado ainda.'}
+          </p>
+        </div>
+      )}
 
       {qrDialog ? (
         <div
