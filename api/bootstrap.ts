@@ -203,7 +203,9 @@ async function runMigrations(ref: string, pat: string, body: Required<BootstrapB
       VALUES ('${step.replaceAll("'", "''")}', now(), '{}'::jsonb)
       ON CONFLICT (step) DO NOTHING;`;
     try {
-      await supabaseQuery(ref, pat, `${substitute(raw, body, cryptoKey)}\n${markSql}`);
+      // O ";" isolado fecha migrations que terminam sem ponto e vírgula (senão o
+      // INSERT do checkpoint vira continuação do último comando → 42601).
+      await supabaseQuery(ref, pat, `${substitute(raw, body, cryptoKey)}\n;\n${markSql}`);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       // Erros de "já existe"/"não existe" = replay sobre banco já migrado num

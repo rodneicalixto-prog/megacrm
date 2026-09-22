@@ -6,7 +6,8 @@
   "installCommand": "npm install",
   "functions": {
     "api/bootstrap.ts": {
-      "includeFiles": "supabase/**"
+      "includeFiles": "supabase/**",
+      "maxDuration": 300
     }
   },
   "rewrites": [
