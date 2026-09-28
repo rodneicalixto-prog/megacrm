@@ -1,5 +1,10 @@
-# MegaCRM — PRD e Estado Operacional
+# MegaCRM — PRD e Estado Operacional (log histórico)
 
+> ⚠️ **Este arquivo é um log histórico, parado em 03/09/2026 — não é o
+> estado atual do projeto.** Para "onde estamos agora", ver `STATUS.md`.
+> Este documento fica só como registro narrativo de decisões e diagnósticos
+> passados; não adicione entradas novas aqui.
+>
 > Avaliação original: 2026-08-08, sobre o commit `f01d683`.
 > Última atualização: 2026-09-03, branch `main`, commit operacional `c5e4b55`.
 

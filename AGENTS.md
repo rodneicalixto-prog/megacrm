@@ -7,6 +7,9 @@
 > lista completa de Edge Functions, os jobs `pg_cron`, convenções de código e
 > o design system.
 >
+> Para o estado atual do projeto (épicos, pendências), ver `STATUS.md` — não
+> `PLANEJAMENTO.md`, que é um log histórico parado em 03/09/2026.
+>
 > Este arquivo `AGENTS.md` existe só porque algumas ferramentas de agente
 > procuram esse nome por convenção. Ele deixou de duplicar o conteúdo de
 > `CLAUDE.md` porque essa duplicação foi exatamente o que causou a

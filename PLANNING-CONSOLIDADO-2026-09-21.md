@@ -1,4 +1,9 @@
 # MegaCRM — Planejamento Consolidado de Modernização
+
+> ⚠️ Snapshot congelado em 21/09/2026 — detalhe tarefa a tarefa dos épicos
+> daquela data. Para o status atual (que já avançou desde então), ver
+> `STATUS.md`. Não editar este arquivo.
+
 **Data:** 2026-09-21  
 **Status:** ÉPICO 1 ✅ Completo | ÉPICO 2 🚀 Em andamento | ÉPICO 3 ⏳ Aguardando
 

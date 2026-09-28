@@ -9,6 +9,8 @@ com RAG, inbox em tempo real com handoff IA ↔ humano, dashboard analítico.
 
 > Para o passo a passo de instalação pelo wizard `/setup`, consultar `README.md`. O `CLAUDE.md` foca
 > em *como o código está organizado* e nas regras a respeitar ao alterá-lo.
+> Para "onde estamos agora" (épicos, pendências, infra), ver `STATUS.md` —
+> não duplicar estado aqui.
 
 ---
 
