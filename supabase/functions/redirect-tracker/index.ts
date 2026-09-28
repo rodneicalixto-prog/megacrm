@@ -43,6 +43,33 @@ function redirect(to: string): Response {
   return new Response(null, { status: 302, headers: { Location: to, 'Cache-Control': 'no-store' } });
 }
 
+// Anti-flood na gravacao, nao no redirect: o link tem que redirecionar sempre.
+// Estourou o limite → redireciona normalmente e nao grava a tracking_session,
+// entao o atacante nao consegue inflar a tabela. 60/min por IP e folgado para
+// clique humano (mesmo IP corporativo/CGNAT) e barato para bot.
+const RATE_WINDOW_SECONDS = 60;
+const RATE_LIMIT_PER_WINDOW = 60;
+
+function clientIp(req: Request): string {
+  const fwd = req.headers.get('x-forwarded-for') ?? '';
+  return fwd.split(',')[0].trim() || req.headers.get('cf-connecting-ip') || 'unknown';
+}
+
+// TRUE = pode gravar. Falha do limitador deixa passar (mesma politica do
+// ingest-lead): perder um clique real pior que admitir um a mais.
+async function withinRateLimit(req: Request): Promise<boolean> {
+  const { data: allowed, error } = await getAdminClient().rpc('bump_rate_limit', {
+    p_bucket: `redirect-tracker:${clientIp(req)}`,
+    p_window_seconds: RATE_WINDOW_SECONDS,
+    p_limit: RATE_LIMIT_PER_WINDOW,
+  });
+  if (error) {
+    console.log(JSON.stringify({ event: 'rate_limit_check_failed', message: error.message }));
+    return true;
+  }
+  return allowed !== false;
+}
+
 Deno.serve(async (req) => {
   const url = new URL(req.url);
 
@@ -104,6 +131,10 @@ Deno.serve(async (req) => {
   // --- Grava a sessão de forma NÃO-bloqueante --------------------------------
   const sessionInsert = (async () => {
     try {
+      if (!(await withinRateLimit(req))) {
+        console.log(JSON.stringify({ event: 'tracking_session_rate_limited', slug }));
+        return;
+      }
       const supabase = getAdminClient();
       await supabase.from('tracking_sessions').insert({
         short_code: shortCode,

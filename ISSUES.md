@@ -4,6 +4,23 @@
 > aqui deve virar uma issue real — este arquivo é o backlog enquanto isso não
 > acontece.
 
+## ✅ Wizard `/setup` travava no passo 3 (Bootstrap) — travado e corrigido
+
+- **Status:** fechada em 21/09/2026 — commit `2515cfc` no `main`.
+- **Sintoma:** passo "Rodando migrations" girando sem fim; depois erro
+  `42601 syntax error at or near "INSERT"` (`_bootstrap_state`).
+- **Causa 1 (sintaxe):** `runMigrations` cola o INSERT do checkpoint logo após
+  o SQL da migration; alguma migration termina sem `;`, então o INSERT virava
+  continuação do último comando.
+- **Causa 2 (tempo):** `api/bootstrap.ts` faz 143 migrations + 37 Edge
+  Functions numa única requisição e o `vercel.json` não definia `maxDuration`
+  (hipótese, não confirmada no painel da Vercel).
+- **Fix:** `
+;
+` antes do checkpoint em `api/bootstrap.ts`; `maxDuration: 300`
+  em `vercel.json`. O bootstrap é idempotente (`_bootstrap_state`), então
+  "Tentar de novo" retoma de onde parou.
+
 ## ✅ Secrets do workflow `drift-check.yml` — cadastrados
 
 - **Status:** fechada em 03/09/2026 — `SUPABASE_ACCESS_TOKEN` e `PROJECT_REF`
